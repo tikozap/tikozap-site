@@ -1,0 +1,1 @@
+export default function Page(){return <div className='card'>Support: Email support@tikozap.com • Hours Mon–Fri 10–18 ET • SLA: Starter 24–48h, Pro <24h, Business <8h, WL <4h.</div>}

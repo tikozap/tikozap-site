@@ -1,0 +1,1 @@
+export default function Page(){return <div className='card'>Pricing plans placeholder (Starter $12, Pro $29, Business $59, White‑Label $149 base + $15/client).</div>}
