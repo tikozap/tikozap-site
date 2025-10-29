@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1280" height="800" viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans", sans-serif; }
+      .shadow { filter: drop-shadow(0 16px 40px rgba(0,0,0,0.18)); }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1280" height="800" fill="#F8FAFC"/>
+  <!-- Top nav -->
+  <rect x="0" y="0" width="1280" height="72" fill="#FFFFFF" />
+  <text x="24" y="45" class="font-sans" font-size="18" fill="#0F172A" font-weight="700">Generic Store</text>
+  <text x="180" y="46" class="font-sans" font-size="14" fill="#6B7280">Home</text>
+  <text x="240" y="46" class="font-sans" font-size="14" fill="#6B7280">Shop</text>
+  <text x="300" y="46" class="font-sans" font-size="14" fill="#6B7280">About</text>
+  <text x="368" y="46" class="font-sans" font-size="14" fill="#6B7280">Support</text>
+
+  <!-- Product image card -->
+  <rect x="60" y="120" width="640" height="520" rx="16" fill="#FFFFFF" stroke="#E5E7EB"/>
+  <rect x="84" y="144" width="592" height="472" rx="16" fill="#E8EAED"/>
+  <line x1="84" y1="144" x2="676" y2="616" stroke="#D2D5DA" stroke-width="2"/>
+  <line x1="676" y1="144" x2="84" y2="616" stroke="#D2D5DA" stroke-width="2"/>
+
+  <!-- Details card -->
+  <rect x="740" y="120" width="480" height="520" rx="16" fill="#FFFFFF" stroke="#E5E7EB"/>
+  <text x="764" y="156" class="font-sans" font-size="22" fill="#0F172A" font-weight="700">Wireless Earbuds Pro</text>
+  <text x="764" y="188" class="font-sans" font-size="14" fill="#6B7280">Active noise canceling • 40h battery</text>
+  <text x="764" y="210" class="font-sans" font-size="14" fill="#6B7280">Fast pairing • USB‑C charging</text>
+  <text x="764" y="256" class="font-sans" font-size="20" fill="#0F172A" font-weight="700">$129.00</text>
+  <rect x="764" y="280" width="180" height="40" rx="10" fill="#2563EB"/>
+  <text x="782" y="306" class="font-sans" font-size="14" fill="#FFFFFF" font-weight="700">Add to cart</text>
+  <rect x="964" y="280" width="160" height="40" rx="10" fill="#FFFFFF" stroke="#E5E7EB"/>
+  <text x="1000" y="306" class="font-sans" font-size="14" fill="#0F172A">Buy now</text>
+  <text x="764" y="352" class="font-sans" font-size="14" fill="#0F172A">Need help? Ask us in chat →</text>
+
+  <!-- Tagline -->
+  <text x="60" y="700" class="font-sans" font-size="28" fill="#0F172A" font-weight="700">TikoZap: AI Customer Support</text>
+  <text x="60" y="735" class="font-sans" font-size="18" fill="#6B7280">Simple. Secure. Affordable. 24/7</text>
+
+  <!-- Chat widget (bottom-right) -->
+  <g class="shadow">
+    <rect x="860" y="260" width="360" height="480" rx="16" fill="#FFFFFF" stroke="#E5E7EB"/>
+    <line x1="860" y1="324" x2="1220" y2="324" stroke="#E5E7EB"/>
+    <!-- Avatar -->
+    <rect x="874" y="276" width="36" height="36" rx="18" fill="#EEF2FF" stroke="#E5E7EB"/>
+    <text x="884" y="300" class="font-sans" font-size="14" fill="#2563EB" font-weight="700">TZ</text>
+    <text x="916" y="296" class="font-sans" font-size="16" fill="#0F172A" font-weight="700">TikoZap</text>
+    <text x="916" y="314" class="font-sans" font-size="12" fill="#6B7280">AI Customer Support • Secure • 24/7</text>
+
+    <!-- Messages -->
+    <rect x="874" y="336" width="260" height="64" rx="10" fill="#EEF2FF" stroke="#E5E7EB"/>
+    <text x="886" y="358" class="font-sans" font-size="13" fill="#0F172A">Hi! I’m TikoZap 🤖</text>
+    <text x="886" y="376" class="font-sans" font-size="13" fill="#0F172A">How can I help today?</text>
+
+    <rect x="1040" y="412" width="170" height="36" rx="10" fill="#F3F4F6" stroke="#E5E7EB"/>
+    <text x="1052" y="435" class="font-sans" font-size="13" fill="#0F172A">Track my order #TZ-1048</text>
+
+    <rect x="874" y="462" width="300" height="64" rx="10" fill="#EEF2FF" stroke="#E5E7EB"/>
+    <text x="886" y="482" class="font-sans" font-size="13" fill="#0F172A">Found order TZ-1048 — in transit.</text>
+    <text x="886" y="500" class="font-sans" font-size="13" fill="#0F172A">ETA Tuesday. SMS updates?</text>
+
+    <!-- Input -->
+    <line x1="860" y1="650" x2="1220" y2="650" stroke="#E5E7EB"/>
+    <rect x="872" y="662" width="272" height="34" rx="10" fill="#FFFFFF" stroke="#E5E7EB"/>
+    <text x="882" y="684" class="font-sans" font-size="13" fill="#6B7280">Type your message…</text>
+    <rect x="1150" y="662" width="56" height="34" rx="10" fill="#2563EB"/>
+    <text x="1168" y="684" class="font-sans" font-size="13" fill="#FFFFFF" font-weight="700">Send</text>
+  </g>
+</svg>
