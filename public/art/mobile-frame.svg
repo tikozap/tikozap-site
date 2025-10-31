@@ -1,43 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <style>
-      .font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans", sans-serif; }
-      .shadow { filter: drop-shadow(0 20px 48px rgba(0,0,0,0.25)); }
-    </style>
-  </defs>
+  <defs><style>.sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans",sans-serif}</style></defs>
   <rect width="1080" height="1920" fill="#F8FAFC"/>
-  <g class="shadow">
-    <rect x="56" y="112" width="968" height="1740" rx="64" fill="#141416"/>
-    <rect x="74" y="158" width="932" height="1648" rx="40" fill="#FFFFFF"/>
-  </g>
-  <rect x="74" y="158" width="932" height="96" rx="40" fill="#FFFFFF"/>
+  <rect x="56" y="112" width="968" height="1740" rx="64" fill="#141416"/>
+  <rect x="74" y="158" width="932" height="1648" rx="40" fill="#FFFFFF"/>
+  <rect x="420" y="132" width="240" height="30" rx="12" fill="#0A0A0C"/>
   <rect x="98" y="182" width="48" height="48" rx="24" fill="#EEF2FF" stroke="#E5E7EB"/>
-  <text x="110" y="213" class="font-sans" font-size="20" fill="#2563EB" font-weight="700">TZ</text>
-  <text x="158" y="210" class="font-sans" font-size="26" fill="#0F172A" font-weight="700">TikoZap</text>
-  <text x="158" y="238" class="font-sans" font-size="18" fill="#6B7280">AI Customer Support • Secure</text>
+  <text x="110" y="213" class="sans" font-size="20" fill="#2563EB" font-weight="700">TZ</text>
+  <text x="158" y="210" class="sans" font-size="26" fill="#0F172A" font-weight="700">TikoZap</text>
+  <text x="158" y="238" class="sans" font-size="18" fill="#6B7280">AI Customer Support • Secure</text>
   <rect x="902" y="188" width="80" height="34" rx="17" fill="#FFFFFF" stroke="#E5E7EB"/>
-  <text x="926" y="210" class="font-sans" font-size="16" fill="#6B7280" font-weight="700">24/7</text>
-
+  <text x="926" y="210" class="sans" font-size="16" fill="#6B7280" font-weight="700">24/7</text>
   <rect x="92" y="270" width="640" height="112" rx="16" fill="#EEF2FF" stroke="#E5E7EB"/>
-  <text x="110" y="310" class="font-sans" font-size="24" fill="#0F172A">Hi! I’m TikoZap 🤖</text>
-  <text x="110" y="340" class="font-sans" font-size="24" fill="#0F172A">How can I help today?</text>
-
+  <text x="110" y="310" class="sans" font-size="24" fill="#0F172A">Hi! I’m TikoZap 🤖</text>
+  <text x="110" y="340" class="sans" font-size="24" fill="#0F172A">How can I help today?</text>
   <rect x="92" y="402" width="196" height="50" rx="25" fill="#FFFFFF" stroke="#E5E7EB"/>
-  <text x="112" y="434" class="font-sans" font-size="20" fill="#0F172A">Order status</text>
-
+  <text x="112" y="434" class="sans" font-size="20" fill="#0F172A">Order status</text>
   <rect x="300" y="402" width="210" height="50" rx="25" fill="#FFFFFF" stroke="#E5E7EB"/>
-  <text x="320" y="434" class="font-sans" font-size="20" fill="#0F172A">Start a return</text>
-
+  <text x="320" y="434" class="sans" font-size="20" fill="#0F172A">Start a return</text>
   <rect x="528" y="402" width="206" height="50" rx="25" fill="#FFFFFF" stroke="#E5E7EB"/>
-  <text x="548" y="434" class="font-sans" font-size="20" fill="#0F172A">Talk to a human</text>
-
+  <text x="548" y="434" class="sans" font-size="20" fill="#0F172A">Talk to a human</text>
   <rect x="714" y="488" width="300" height="64" rx="16" fill="#F3F4F6" stroke="#E5E7EB"/>
-  <text x="730" y="530" class="font-sans" font-size="22" fill="#0F172A">Track my order #TZ-1048</text>
-
+  <text x="730" y="530" class="sans" font-size="22" fill="#0F172A">Track my order #TZ-1048</text>
   <rect x="92" y="588" width="780" height="112" rx="16" fill="#EEF2FF" stroke="#E5E7EB"/>
-  <text x="110" y="628" class="font-sans" font-size="22" fill="#0F172A">Found order TZ-1048 — in transit.</text>
-  <text x="110" y="658" class="font-sans" font-size="22" fill="#0F172A">ETA Tuesday. SMS updates?</text>
-
-  <text x="92" y="1780" class="font-sans" font-size="18" fill="#6B7280">Simple • Secure • Affordable • 24/7</text>
+  <text x="110" y="628" class="sans" font-size="22" fill="#0F172A">Found order TZ-1048 — in transit.</text>
+  <text x="110" y="658" class="sans" font-size="22" fill="#0F172A">ETA Tuesday. SMS updates?</text>
 </svg>

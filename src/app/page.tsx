@@ -1,19 +1,58 @@
-import Link from "next/link";
-import { Check } from "lucide-react";
-export const metadata = {
-  title: "TikoZap — Smart. Secure. Simple. 24/7.",
-  description: "Paste one snippet. Let AI answer your store’s FAQs, day and night. Add your own questions anytime.",
-};
-export default function Home(){const features=["3-minute install","Learns your FAQs (with approval)","Full branding & tone control","Low-confidence handoff to email","Analytics that prove value","Secure by default"];const faqs=[{q:"How long does setup take?",a:"Most stores paste the snippet and import FAQs in under 3 minutes. You’ll see real answers immediately."},{q:"Can I add my own questions?",a:"Yes. Upload a CSV or paste them in. TikoZap also suggests new FAQs from real conversations—nothing goes live without your approval."},{q:"Does it handle brand voice?",a:"Yep. Choose friendly, formal, or concierge tone—and tweak it anytime. Your logo and colors are applied to the widget."},{q:"What about security & privacy?",a:"All traffic is encrypted in transit and at rest. PII can be masked in transcripts, and you can export or delete data anytime."},{q:"Is there a free trial?",a:"Yes—14 days, no credit card. Start on Pro features, then pick a plan."},];return (<div className="space-y-24">
-<section className="pt-8 text-center"><div className="mx-auto max-w-3xl space-y-5"><div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">TikoZap <span className="opacity-50">•</span> Smart. Secure. Simple. 24/7.</div><h1 className="text-4xl font-bold leading-tight md:text-5xl">Instant AI support for your store—without the setup headache.</h1><p className="text-slate-600">Paste one snippet. TikoZap answers FAQs day and night, learns from real chats, and hands off to you when it’s not sure.</p><div className="flex items-center justify-center gap-3"><Link href="/onboarding" className="btn">Start Free Trial</Link><Link href="/billing" className="btn-ghost">See Pricing</Link></div><p className="text-xs text-slate-500">14-day free trial · No credit card · Cancel anytime</p></div></section>
-<section className="text-center"><p className="text-xs uppercase tracking-wide text-slate-500">Trusted by modern small businesses</p><div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-400"><span>•</span><span>Shop brands</span><span>•</span><span>DTC founders</span><span>•</span><span>Local services</span><span>•</span><span>Agencies</span></div></section>
-<section className="grid gap-4 md:grid-cols-3">{[{title:"Install in minutes",desc:"Paste a single snippet or use our Shopify/WordPress guides."},{title:"Learns what matters",desc:"Import FAQs, then approve suggestions from real chats."},{title:"Your brand, your voice",desc:"Logo, colors, widget style, and tone presets you control."},{title:"Knows its limits",desc:"Low confidence? It asks a clarifying question or collects email."},{title:"E-commerce friendly",desc:"Shortcuts for returns, shipping, order status. Shopify/Woo later."},{title:"Clear value",desc:"See chats handled, time saved, top questions, and CSAT."},].map((f)=>(<div key={f.title} className="card"><h3 className="font-semibold">{f.title}</h3><p className="mt-1 text-sm text-slate-600">{f.desc}</p></div>))}</section>
-<section className="grid items-start gap-6 md:grid-cols-2"><div className="card"><h2 className="text-xl font-semibold">How it works</h2><ol className="mt-3 space-y-3 text-sm text-slate-700"><li><span className="font-medium">1) Paste the snippet.</span> The chat bubble appears on your site.</li><li><span className="font-medium">2) Import FAQs or paste a URL.</span> We pull policies and turn them into answers.</li><li><span className="font-medium">3) Approve suggestions.</span> TikoZap proposes new FAQs from real conversations.</li><li><span className="font-medium">4) You’re always in control.</span> Tune tone, hours, guardrails, and branding.</li></ol><div className="mt-4 grid grid-cols-1 gap-2 text-sm">{features.map((t)=>(<div key={t} className="flex items-center gap-2"><Check className="h-4 w-4"/><span>{t}</span></div>))}</div><div className="mt-5 flex gap-3"><Link href="/onboarding" className="btn">Start Free Trial</Link><Link href="/support" className="btn-ghost">Get Help</Link></div></div>
-<div className="card"><h2 className="text-xl font-semibold">One snippet. That’s it.</h2><p className="mt-2 text-sm text-slate-600">Drop this into your site’s &lt;head&gt; (or use our platform guides). You can change colors, name, and behavior anytime from the dashboard.</p><pre className="mt-3 overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{`<!-- TikoZap Widget -->
-<script>
-!function(){window.tikozap=window.tikozap||function(){(window.tikozap.q=window.tikozap.q||[]).push(arguments)};tikozap('init',{businessId:'DEMO',color:'#0EA5E9',assistant:'Sophie'});var s=document.createElement('script');s.async=1;s.src='https://cdn.tikozap.com/widget.js';document.head.appendChild(s);}();
-</script>`}</pre><p className="mt-2 text-xs text-slate-500">Shopify / WordPress / Wix guides available during onboarding.</p></div></section>
-<section className="card text-center"><h2 className="text-xl font-semibold">Plans that fit small businesses</h2><p className="mt-1 text-slate-600">Starter $12 • Pro $29 • Business $59 • White-Label $149 base + $15/client</p><div className="mt-3 flex items-center justify-center gap-3"><Link className="btn" href="/billing">See full pricing</Link><Link className="btn-ghost" href="/onboarding">Try it free</Link></div></section>
-<section className="mx-auto max-w-3xl"><h2 className="mb-4 text-center text-xl font-semibold">Frequently asked questions</h2><div className="space-y-3">{faqs.map((f,i)=>(<details key={i} className="rounded-2xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer list-none font-medium">{f.q}</summary><p className="mt-2 text-sm text-slate-700">{f.a}</p></details>))}</div></section>
-<section className="text-center"><div className="card inline-block"><h3 className="text-lg font-semibold">Ready in 3 minutes.</h3><p className="text-slate-600">Paste the snippet now. Your customers get instant answers—24/7.</p><div className="mt-3"><Link href="/onboarding" className="btn">Start Free Trial</Link></div><p className="mt-2 text-xs text-slate-500">No credit card required.</p></div></section>
-</div>)}
+import Image from "next/image";
+import HowItWorks from "@/components/HowItWorks";
+import TikoZapPricingSection from "@/components/TikoZapPricingSection";
+
+/** Improved single-image hero */
+function HeroA() {
+  return (
+    <section className="bg-white">
+      <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-16 lg:grid-cols-2">
+        {/* Left copy */}
+        <div className="max-w-prose">
+          <h1 className="text-5xl font-extrabold text-slate-900 sm:text-6xl">
+            TikoZap: AI Customer Support
+          </h1>
+          <p className="mt-4 text-lg text-slate-600">
+            Simple. Secure. Affordable.
+            <span className="ml-2 align-middle rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-700">
+              24/7
+            </span>
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a className="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-md hover:opacity-95" href="/signup">
+              Start free trial
+            </a>
+            <a className="rounded-xl border border-slate-200 px-5 py-3 font-semibold text-slate-900 hover:bg-slate-50" href="#how-it-works">
+              How it works
+            </a>
+          </div>
+          <p className="mt-3 text-sm text-slate-500">Encrypted • Privacy-first</p>
+        </div>
+
+        {/* Right visual */}
+        <div className="relative">
+          <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
+            <Image
+              src="/art/hero-gadgets.svg"  // switch to .webp later if you want
+              alt="TikoZap chat widget on a product page showing order tracking"
+              width={1408}
+              height={880}
+              priority
+              className="rounded-xl"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function Home() {
+  return (
+    <main>
+      <HeroA />
+      <HowItWorks />
+      <TikoZapPricingSection />
+    </main>
+  );
+}
