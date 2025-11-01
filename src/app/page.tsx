@@ -53,6 +53,21 @@ export default function Home() {
       <HeroA />
       <HowItWorks />
       <TikoZapPricingSection />
+      <ClosingCTA />
     </main>
+  );
+}
+
+function ClosingCTA() {
+  return (
+    <section className="bg-slate-50">
+      <div className="mx-auto max-w-7xl px-6 py-12 text-center">
+        <h2 className="text-2xl font-bold">Ready to help customers 24/7?</h2>
+        <p className="mt-1 text-slate-600">Paste one snippet. Try it free for 14 days.</p>
+        <a href="/signup" className="mt-4 inline-block rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white hover:opacity-95">
+          Start free
+        </a>
+      </div>
+    </section>
   );
 }
