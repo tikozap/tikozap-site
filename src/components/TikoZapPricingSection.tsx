@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { PLANS as plans } from "../data/plans";
 
 function Check() {
   return (
@@ -14,56 +15,8 @@ export default function TikoZapPricingSection() {
   const mult = annual ? 0.8 : 1; // 20% off annually
   const suffix = annual ? "/mo billed yearly" : "/mo";
 
-  const plans = [
-    {
-      name: "Starter",
-      price: Math.round(19 * mult),
-      blurb: "For small stores getting started",
-      cta: "Start free trial",
-      highlight: false,
-      features: [
-        "1,000 conversations / mo",
-        "1 teammate seat",
-        "Order tracking & status",
-        "Quick replies & FAQ",
-        "24/7 availability",
-        "Basic analytics",
-      ],
-    },
-    {
-      name: "Pro",
-      price: Math.round(49 * mult),
-      blurb: "Best for growing e-commerce",
-      cta: "Get Pro",
-      highlight: true,
-      features: [
-        "10,000 conversations / mo",
-        "3 teammate seats",
-        "Returns & exchanges flow",
-        "Human handoff to inbox",
-        "Shopify / Woo plug-ins",
-        "SLA & priority support",
-      ],
-    },
-    {
-      name: "Business",
-      price: Math.round(129 * mult),
-      blurb: "Advanced control & scale",
-      cta: "Talk to sales",
-      highlight: false,
-      features: [
-        "Unlimited conversations",
-        "Unlimited seats",
-        "Custom workflows & APIs",
-        "SSO / SAML",
-        "Audit logs & RBAC",
-        "Dedicated success manager",
-      ],
-    },
-  ];
-
   return (
-    <section className="mx-auto max-w-6xl px-6 py-16">
+    <section id="pricing" className="mx-auto max-w-6xl px-6 py-16">
       {/* Pricing header + toggle */}
       <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -81,11 +34,7 @@ export default function TikoZapPricingSection() {
             onClick={() => setAnnual(!annual)}
             className="relative h-7 w-12 rounded-full border border-slate-300 bg-white transition"
           >
-            <span
-              className={`absolute top-0.5 h-6 w-6 rounded-full bg-indigo-600 transition ${
-                annual ? "left-0.5" : "left-5"
-              }`}
-            />
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-indigo-600 transition ${annual ? "left-0.5" : "left-5"}`} />
           </button>
           <span className={`text-sm ${!annual ? "text-slate-900 font-semibold" : "text-slate-500"}`}>Monthly</span>
         </div>
@@ -113,13 +62,13 @@ export default function TikoZapPricingSection() {
             <p className="mt-1 text-sm text-slate-600">{p.blurb}</p>
 
             <div className="mt-4 flex items-end gap-1">
-              <span className="text-3xl font-extrabold text-slate-900">${p.price}</span>
+              <span className="text-3xl font-extrabold text-slate-900">${Math.round(p.price * mult)}</span>
               <span className="pb-1 text-sm text-slate-500">{suffix}</span>
             </div>
             <p className="mt-2 text-xs text-slate-500">14-day free trial • Cancel anytime</p>
 
             <ul className="mt-5 space-y-2 text-sm text-slate-700">
-              {p.features.map((f) => (
+              {p.features.map((f: string) => (
                 <li key={f} className="flex items-start gap-2">
                   <span className="mt-1 text-emerald-600"><Check /></span>
                   <span>{f}</span>
