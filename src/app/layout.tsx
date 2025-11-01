@@ -13,11 +13,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="text-slate-900">
         <NavBar />
         {children}
-        <footer className="mt-16 border-t">
-          <div className="mx-auto max-w-7xl px-6 py-8 text-sm text-slate-500">
-            © {new Date().getFullYear()} TikoZap · <a href="/privacy" className="underline">Privacy</a> · <a href="/terms" className="underline">Terms</a>
-          </div>
-        </footer>
       </body>
     </html>
   );
