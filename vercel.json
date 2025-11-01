@@ -1,3 +1,5 @@
 {
-  "framework": "nextjs"
+  "redirects": [
+    { "source": "https://www.tikozap.com/:path*", "destination": "https://tikozap.com/:path*", "permanent": true }
+  ]
 }
