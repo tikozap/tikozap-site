@@ -69,7 +69,7 @@ export default function Pricing() {
   return (
     <section className="container">
       <div className="pricing-hero stack">
-        <h1>Pricing</h1>
+        <h2>Plans & pricing</h2>
         <p className="small">
           Simple plans that scale with you. {yearly && <span className="save-pill">2 months free yearly</span>}
         </p>
