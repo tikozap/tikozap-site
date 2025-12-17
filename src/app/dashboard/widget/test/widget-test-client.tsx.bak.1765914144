@@ -1,0 +1,247 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import type { Conversation, Message } from '../../conversations/_data/types';
+import {
+  addMessage,
+  createConversation,
+  loadConversations,
+  saveConversations,
+  updateConversationStatus,
+} from '../../conversations/_data/store';
+
+const KEY_SELECTED = 'tz_demo_conversations_selected';
+const KEY_AI = 'tz_demo_ai_autoreply';
+
+function assistantAutoReply(userText: string) {
+  const t = userText.toLowerCase();
+  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
+  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
+  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
+  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
+  return 'Got it. Can you share a little more detail so I can help faster?';
+}
+
+function inferTags(text: string) {
+  const t = text.toLowerCase();
+  const tags: string[] = [];
+  if (t.includes('return')) tags.push('returns');
+  if (t.includes('ship') || t.includes('delivery')) tags.push('shipping');
+  if (t.includes('order') || t.includes('tracking')) tags.push('order-status');
+  if (t.includes('size') || t.includes('xl') || t.includes('sizing')) tags.push('sizing');
+  if (!tags.length) tags.push('general');
+  return tags;
+}
+
+export default function WidgetTestClient() {
+  const [customer, setCustomer] = useState('Sophia');
+  const [message, setMessage] = useState('How many days does shipping take?');
+  const [sessionId, setSessionId] = useState<string>('');
+  const [thread, setThread] = useState<Message[]>([]);
+  const [lastCreatedId, setLastCreatedId] = useState<string>('');
+  const [globalAiOn, setGlobalAiOn] = useState(true);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(KEY_AI);
+    if (saved === null) localStorage.setItem(KEY_AI, '1');
+    setGlobalAiOn((saved ?? '1') === '1');
+  }, []);
+
+  useEffect(() => {
+    const existing = localStorage.getItem(KEY_SELECTED) || '';
+    if (!existing) return;
+
+    const convos = loadConversations();
+    const c = convos.find((x) => x.id === existing);
+    if (c) {
+      setSessionId(c.id);
+      setThread(c.messages);
+      setLastCreatedId(c.id);
+    }
+  }, []);
+
+  const send = () => {
+    const text = message.trim();
+    const name = customer.trim() || 'Customer';
+    if (!text) return;
+
+    const convos = loadConversations();
+    const now = Date.now();
+
+    const existing = sessionId ? convos.find((c) => c.id === sessionId) : null;
+
+    if (existing) {
+      const aiEffective = existing.aiEnabled ?? globalAiOn;
+
+      let updated = addMessage(convos, existing.id, 'customer', text);
+
+      if (aiEffective) {
+        updated = addMessage(updated, existing.id, 'assistant', assistantAutoReply(text));
+      } else {
+        updated = updateConversationStatus(updated, existing.id, 'waiting');
+      }
+
+      saveConversations(updated);
+
+      const c2 = updated.find((c) => c.id === existing.id);
+      if (c2) setThread(c2.messages);
+
+      localStorage.setItem(KEY_SELECTED, existing.id);
+      setLastCreatedId(existing.id);
+      setMessage('');
+      return;
+    }
+
+    // Create new conversation (no override; follows global)
+    const id = `w_${now}_${Math.random().toString(16).slice(2)}`;
+    const aiAtCreation = globalAiOn;
+
+    const msgs: Message[] = [{ id: `m_${now}_1`, role: 'customer', text, ts: now }];
+    if (aiAtCreation) msgs.push({ id: `m_${now}_2`, role: 'assistant', text: assistantAutoReply(text), ts: now + 300 });
+
+    const convo: Conversation = {
+      id,
+      customer: name,
+      subject: `Widget: ${text.slice(0, 36)}${text.length > 36 ? '…' : ''}`,
+      status: aiAtCreation ? 'open' : 'waiting',
+      channel: 'Web',
+      tags: inferTags(text),
+      updatedAt: now,
+      messages: msgs,
+    };
+
+    const next = createConversation(convos, convo);
+    saveConversations(next);
+
+    setSessionId(id);
+    setThread(convo.messages);
+    localStorage.setItem(KEY_SELECTED, id);
+    setLastCreatedId(id);
+    setMessage('');
+  };
+
+  const startNew = () => {
+    setSessionId('');
+    setThread([]);
+    setLastCreatedId('');
+  };
+
+  const openInbox = () => {
+    if (lastCreatedId) localStorage.setItem(KEY_SELECTED, lastCreatedId);
+    window.location.href = '/dashboard/conversations';
+  };
+
+  const hasThread = thread.length > 0;
+
+  const preview = useMemo(() => {
+    if (!hasThread) {
+      return [
+        { role: 'assistant', text: 'Hi! This is the widget simulator. Send a message to create a conversation in your Inbox.' },
+      ] as Array<{ role: string; text: string }>;
+    }
+    return thread.map((m) => ({ role: m.role, text: m.text }));
+  }, [hasThread, thread]);
+
+  return (
+    <div>
+      <div className="db-top">
+        <div>
+          <h1 className="db-title">Widget test</h1>
+          <p className="db-sub">Simulate customer messages. Respects per-chat takeover from Conversations.</p>
+        </div>
+
+        <div className="db-actions">
+          <button className={globalAiOn ? 'db-btn primary' : 'db-btn'} disabled title="Global AI is controlled in Conversations">
+            Global AI: {globalAiOn ? 'ON' : 'OFF'}
+          </button>
+          <button className="db-btn" onClick={startNew}>Start new test chat</button>
+          <button className="db-btn primary" onClick={openInbox}>Open Inbox</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 12 }}>
+        <div className="db-card" style={{ padding: 14 }}>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>Send a widget message</div>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, opacity: 0.75 }}>Customer name</span>
+            <input
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
+              className="cx-textarea"
+              style={{ height: 42, resize: 'none' }}
+            />
+          </label>
+
+          <label style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+            <span style={{ fontSize: 12, opacity: 0.75 }}>Message</span>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              className="cx-textarea"
+              placeholder="Type as a customer…"
+            />
+          </label>
+
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+            <Link
+              href="/dashboard/conversations"
+              className="db-btn"
+              onClick={() => lastCreatedId && localStorage.setItem(KEY_SELECTED, lastCreatedId)}
+            >
+              View in Inbox
+            </Link>
+            <button className="db-btn primary" onClick={send}>Send</button>
+          </div>
+
+          <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
+            Tip: Use <strong>Take over (this chat)</strong> in Conversations to stop auto replies for that thread.
+          </div>
+        </div>
+
+        <div className="db-card" style={{ padding: 14 }}>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>Widget preview</div>
+
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, padding: 14, background: '#f8fafc', minHeight: 220 }}>
+            {preview.map((m, idx) => (
+              <div key={idx} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
+                  <strong style={{ textTransform: 'capitalize' }}>{m.role}</strong>
+                </div>
+                <div
+                  style={{
+                    borderRadius: 14,
+                    padding: 12,
+                    border: '1px solid #e5e7eb',
+                    background: m.role === 'customer' ? '#fff' : '#111827',
+                    color: m.role === 'customer' ? '#111827' : '#fff',
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {m.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {lastCreatedId && (
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
+              Latest conversation id: <code>{lastCreatedId}</code>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @media (max-width: 1000px) {
+          div[style*="grid-template-columns: 420px 1fr"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

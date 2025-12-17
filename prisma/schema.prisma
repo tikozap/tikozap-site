@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  sessions     Session[]
+  memberships  Membership[]
+  ownedTenants Tenant[] @relation("TenantOwner")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  storeName String
+  createdAt DateTime @default(now())
+
+  ownerId String
+  owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  memberships   Membership[]
+  widget        Widget?
+  knowledgeDocs KnowledgeDoc[]
+  conversations Conversation[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  role      String   // owner | staff
+  createdAt DateTime @default(now())
+
+  userId   String
+  tenantId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+model Widget {
+  id         String   @id @default(cuid())
+  tenantId   String   @unique
+  publicKey  String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+  installedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeDoc {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, updatedAt])
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  tenantId      String
+  channel       String   @default("web")     // web | email | shopify
+  status        String   @default("open")    // open | waiting | closed
+  aiEnabled     Boolean  @default(true)
+
+  customerName  String   @default("Customer")
+  customerEmail String?
+  subject       String   @default("Support")
+  tags          String   @default("")        // CSV
+
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+  archivedAt    DateTime?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([tenantId, lastMessageAt])
+  @@index([tenantId, archivedAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // customer | assistant | staff | note
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}

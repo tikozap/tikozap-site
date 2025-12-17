@@ -1,67 +1,251 @@
-function Check() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 7L9 18l-5-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+'use client';
 
-function Dash() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
+const ROW_GROUPS = [
+  {
+    label: 'Core assistant',
+    rows: [
+      {
+        label: 'Full AI assistant',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+      {
+        label: 'Store-aware answers (orders, products, policies)',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+      {
+        label: 'Safe actions with guardrails',
+        starter: 'Basic',
+        pro: 'Standard',
+        business: 'Advanced',
+        agency: 'Advanced',
+      },
+    ],
+  },
+  {
+    label: 'Volume & limits',
+    rows: [
+      {
+        label: 'Included chats / month',
+        starter: '1,000',
+        pro: '5,000',
+        business: '15,000',
+        agency: 'Per workspace',
+      },
+      {
+        label: 'Overage',
+        starter: '$5 / extra 1,000',
+        pro: '$5 / extra 1,000',
+        business: '$5 / extra 1,000',
+        agency: '$5 / extra 1,000',
+      },
+      {
+        label: 'Included sites / widgets',
+        starter: '1',
+        pro: '3',
+        business: '5',
+        agency: 'Client workspaces',
+      },
+      {
+        label: 'Included data sources',
+        starter: '1',
+        pro: '5',
+        business: '15',
+        agency: 'Shared pool',
+      },
+    ],
+  },
+  {
+    label: 'Team & workflow',
+    rows: [
+      {
+        label: 'Seats / agents',
+        starter: '1',
+        pro: '2',
+        business: '5',
+        agency: 'Per workspace',
+      },
+      {
+        label: 'Workflows & automations',
+        starter: '—',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+      {
+        label: 'Routing & escalation rules',
+        starter: '—',
+        pro: 'Standard',
+        business: 'Advanced',
+        agency: 'Advanced',
+      },
+    ],
+  },
+  {
+    label: 'Support',
+    rows: [
+      {
+        label: 'Email support',
+        starter: '24–48 hours',
+        pro: 'Within 24 hours',
+        business: 'Within 8 hours',
+        agency: 'Within 4 hours',
+      },
+      {
+        label: 'Onboarding help',
+        starter: 'Self-serve docs',
+        pro: 'Email guidance',
+        business: 'Email + call (by request)',
+        agency: 'White-glove onboarding',
+      },
+    ],
+  },
+  {
+    label: 'Brand & agency',
+    rows: [
+      {
+        label: 'Custom branding on widget',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+      {
+        label: 'Client workspaces',
+        starter: '—',
+        pro: '—',
+        business: '—',
+        agency: '5 included',
+      },
+      {
+        label: 'White-label dashboard & domain',
+        starter: '—',
+        pro: '—',
+        business: '—',
+        agency: '✓',
+      },
+    ],
+  },
+];
 
 export default function PricingCompare() {
-  // rows: Feature name and availability by plan
-  const rows: Array<{ feature: string; starter: boolean | 'dash'; growth: boolean | 'dash'; pro: boolean | 'dash'; note?: string }> = [
-    { feature: 'Websites / brands', starter: true, growth: true, pro: true, note: '1 / 3 / Unlimited' },
-    { feature: 'Monthly conversations', starter: true, growth: true, pro: true, note: '2k / 10k / 100k+' },
-    { feature: 'Email support', starter: true, growth: true, pro: true },
-    { feature: 'Chat support', starter: 'dash', growth: true, pro: true },
-    { feature: 'Custom workflows & actions', starter: 'dash', growth: true, pro: true },
-    { feature: 'Knowledge base sync', starter: 'dash', growth: true, pro: true },
-    { feature: 'Shopify / WooCommerce', starter: 'dash', growth: true, pro: true },
-    { feature: 'SLA & audit logs', starter: 'dash', growth: 'dash', pro: true },
-    { feature: 'SSO (Google / Microsoft)', starter: 'dash', growth: 'dash', pro: true },
-    { feature: 'Role-based access', starter: 'dash', growth: 'dash', pro: true },
-  ];
-
-  const render = (v: boolean | 'dash') => v === true ? <Check /> : v === false ? null : <Dash />;
-
   return (
-    <section className="container compare">
-      <header className="stack" style={{ textAlign: 'center', marginBottom: '1rem' }}>
-        <h2>Compare plans</h2>
-        <p className="small">See which plan fits your team best.</p>
+    <section className="stack" aria-labelledby="compare-heading">
+      <header className="stack">
+        <h2 id="compare-heading">Compare plans</h2>
+        <p className="small">
+          All plans share the same core AI assistant. Higher tiers add more volume, seats,
+          and control.
+        </p>
       </header>
 
-      <div className="table-wrap">
+      <div className="pricing-compare">
         <table>
           <thead>
             <tr>
-              <th>Feature</th>
-              <th className="center">Starter</th>
-              <th className="center">Growth</th>
-              <th className="center">Pro</th>
-              <th>Notes</th>
+              <th scope="col"></th>
+              <th scope="col">Starter</th>
+              <th scope="col">Pro</th>
+              <th scope="col">Business</th>
+              <th scope="col">Agency</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.feature}>
-                <td>{r.feature}</td>
-                <td className="center">{render(r.starter)}</td>
-                <td className="center">{render(r.growth)}</td>
-                <td className="center">{render(r.pro)}</td>
-                <td>{r.note ?? ''}</td>
-              </tr>
+            {ROW_GROUPS.map((group) => (
+              <Fragment key={group.label}>
+                <tr className="group-row">
+                  <th colSpan={5} scope="rowgroup">
+                    {group.label}
+                  </th>
+                </tr>
+                {group.rows.map((row) => (
+                  <tr key={row.label}>
+                    <th scope="row">{row.label}</th>
+                    <td>{row.starter}</td>
+                    <td className="highlight">{row.pro}</td>
+                    <td>{row.business}</td>
+                    <td>{row.agency}</td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
       </div>
+
+      <style jsx>{`
+        .pricing-compare {
+          overflow-x: auto;
+          border-radius: 0.75rem;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.88rem;
+        }
+
+        thead th {
+          text-align: left;
+          padding: 0.75rem 1rem;
+          font-weight: 500;
+          color: #6b7280;
+          border-bottom: 1px solid #e5e7eb;
+          white-space: nowrap;
+        }
+
+        thead th:not(:first-child) {
+          text-align: center;
+        }
+
+        tbody th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          font-weight: 500;
+          color: #111827;
+          width: 40%;
+        }
+
+        tbody td {
+          text-align: center;
+          padding: 0.6rem 0.75rem;
+          color: #374151;
+        }
+
+        .group-row th {
+          padding-top: 1rem;
+          padding-bottom: 0.4rem;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #9ca3af;
+        }
+
+        tbody tr:nth-child(even) td,
+        tbody tr:nth-child(even) th[scope='row'] {
+          background: #f9fafb;
+        }
+
+        .highlight {
+          font-weight: 600;
+          color: #111827;
+        }
+
+        @media (max-width: 640px) {
+          tbody th {
+            font-size: 0.82rem;
+          }
+        }
+      `}</style>
     </section>
   );
 }
+
+import { Fragment } from 'react';

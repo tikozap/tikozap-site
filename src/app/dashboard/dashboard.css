@@ -1,0 +1,158 @@
+.db-wrap{
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: calc(2.25rem + 72px) 1.25rem 2.5rem;
+}
+
+.db-shell{
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.db-card{
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111827;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+.db-sidebar{
+  padding: 14px;
+  position: sticky;
+  top: 88px;
+}
+
+.db-brand{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  margin-bottom: 10px;
+}
+
+.db-ws{
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.db-meta{
+  font-size: 12px;
+  opacity: .75;
+  margin-top: 2px;
+}
+
+.db-nav{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.db-link{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid transparent;
+}
+
+.db-link:hover{ background: #f8fafc; }
+.db-link.active{ background: #f8fafc; border-color: #d1d5db; }
+
+.db-pill{
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  opacity: .85;
+}
+
+.db-main{
+  padding: 18px;
+}
+
+.db-top{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.db-title{
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.db-sub{
+  margin: 6px 0 0;
+  opacity: .8;
+  font-size: 13px;
+}
+
+.db-actions{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.db-btn{
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.db-btn:hover{ background: #f8fafc; }
+
+.db-btn.primary{
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.db-btn.primary:hover{ opacity: .92; }
+
+.db-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.db-tile{
+  padding: 14px;
+}
+
+.db-tile h3{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.db-tile p{
+  margin: 6px 0 0;
+  font-size: 13px;
+  opacity: .8;
+}
+
+@media (max-width: 900px){
+  .db-shell{ grid-template-columns: 1fr; }
+  .db-sidebar{ position: static; }
+  .db-grid{ grid-template-columns: 1fr; }
+}

@@ -1,0 +1,31 @@
+import Link from 'next/link';
+
+export default function WidgetPage() {
+  return (
+    <div>
+      <h1 className="db-title">Widget</h1>
+      <p className="db-sub">Customize widget settings and test message → inbox flow.</p>
+
+      <div style={{ marginTop: 14 }} className="db-grid">
+        <div className="db-card db-tile">
+          <h3>Widget test</h3>
+          <p>Simulate customer messages and confirm they appear in Conversations.</p>
+          <Link className="db-btn primary" href="/dashboard/widget/test" style={{ display: 'inline-flex', marginTop: 10 }}>
+            Open Widget Test
+          </Link>
+        </div>
+
+        <div className="db-card db-tile">
+          <h3>Widget settings</h3>
+          <p>For now, reuse onboarding settings (we’ll move it here later).</p>
+          <Link className="db-btn" href="/onboarding/widget" style={{ display: 'inline-flex', marginTop: 10 }}>
+            Widget Settings
+          </Link>
+          <Link className="db-btn" href="/onboarding/install" style={{ display: 'inline-flex', marginTop: 10, marginLeft: 8 }}>
+            Install Snippet
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

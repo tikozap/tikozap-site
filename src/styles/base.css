@@ -14,11 +14,57 @@
   --step-0: clamp(15px,0.9vw + 12px,17px);
   --step-1: clamp(20px,1.2vw + 14px,22px);
   --step-2: clamp(28px,1.6vw + 16px,34px);
+
+  /* === New Option C palette === */
+  --bg-page:#f9fafb;        /* soft page background if we want it later */
+  --bg-lilac:#f0f2fd;       /* very light lilac bands */
+  --bg-gray:#f9fafb;        /* light gray bands */
+  --bg-card:#ffffff;        /* cards/panels (often same as #fff) */
+
+  --accent-orange:#f97316;
+  --accent-orange-soft:#fff7ed;
+  --accent-orange-ink:#9a3412;
+
+  --navy:#111827;           /* deep navy for footer / strong areas */
 }
 
 @media (prefers-color-scheme: dark) {
   :root { --bg:#0b1220; --fg:#e5e7eb; --muted:#9aa4b2; }
   .card { background:#0f172a; border-color:#1f2937; }
+}
+
+/* === Global page hero (shared across Features, Pricing, Docs, Auth, Dashboard) === */
+
+.page-hero {
+  padding: 1.5rem 0 1.1rem;
+}
+
+.page-title {
+  font-size: clamp(26px, 2.4vw + 14px, 34px);
+  line-height: 1.2;
+  margin: 0 0 .35rem;
+  font-weight: 700;
+}
+
+.page-subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 46rem;
+}
+
+/* Optional small eyebrow label, if you use it */
+.page-hero .eyebrow {
+  font-size: var(--step--1);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+@media (min-width: 768px) {
+  .page-hero {
+    padding: 1.8rem 0 1.5rem;
+  }
 }
 
 /* 2) Base */
@@ -80,11 +126,44 @@ hr{border:none; border-top:1px solid #e5e7eb; margin:2rem 0}
 }
 
 /* 4) Layout primitives */
+
 .container{width:min(100% - 2rem,var(--max)); margin-inline:auto}
+
 .stack > * + *{margin-top:var(--gap)}
 .cluster{display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center}
 .grid{display:grid; gap:var(--gap); grid-template-columns:1fr}
 .card{border:1px solid #e5e7eb; border-radius:var(--radius); padding:1rem; background:#fff}
+
+/* === Section bands for Option C === */
+
+.section-band-lilac {
+  background: var(--bg-lilac);
+  padding: 0rem 0;
+}
+
+.section-band-gray {
+  background: var(--bg-gray);
+  padding: 0rem 0;
+}
+
+.section-band-white {
+  background: #ffffff;
+  padding: 0rem 0;
+}
+
+/* Navy footer band (we'll apply this on the footer element) */
+.footer-band-navy {
+  background: var(--navy);
+  color: #e5e7eb;
+  padding: 0rem 0;
+}
+
+.footer-band-navy a {
+  color: #e5e7eb;
+}
+.footer-band-navy a:hover {
+  text-decoration: underline;
+}
 
 /* 5) Type helpers */
 h1{font-size:var(--step-2); line-height:1.2; margin:0 0 .5em}
@@ -113,13 +192,92 @@ p{margin:0 0 1em}
 .center{display:grid; place-items:center}
 .full-bleed{width:100vw; margin-left:50%; transform:translateX(-50%)}
 .max{max-width:var(--max)}
+.Norway { white-space: nowrap; }
+
+/* Lilac panel for How it works (same width as content) */
+.hiw-panel{
+  background: var(--bg-lilac);
+  border-radius: 18px;
+  padding: 1.5rem 1.5rem 2.25rem;
+  margin-inline: auto;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+@media (max-width: 640px){
+  .hiw-panel{
+    padding-inline: 1rem;
+  }
+}
+
+
+/* === Layout primitives: widths & stacks === */
+.container-xl { width: min(100% - 2rem, 1280px); margin-inline: auto; }
+
+.stack--sm > * + * { margin-top: .5rem; }
+.stack--lg > * + * { margin-top: 1.5rem; }
+.stack--xl > * + * { margin-top: 2rem; }
+
+/* Simple responsive gap scale (optional helpers) */
+.gap-sm { gap: .5rem; }
+.gap-lg { gap: 1.5rem; }
+.gap-xl { gap: 2rem; }
+
+/* === Small accent badge (subtle orange) === */
+
+.badge-accent {
+  background: var(--accent-orange-soft);
+  color: var(--accent-orange-ink);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: var(--step--1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.badge-accent-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-orange);
+}
+
+/* Breakpoint helpers (you already have 48rem & 64rem) */
+@media (min-width: 80rem){ /* ~1280px */
+  :root { --gap: 1.5rem; }
+  .grid.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+}
+
+/* === Buttons/links focus & contrast (a11y baseline) === */
+:where(a, button, [role="button"]) {
+  outline: none;
+}
+:where(a, button, [role="button"]):focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 45%, transparent);
+  border-radius: calc(var(--radius) + 2px);
+}
+
+/* Visible focus for skip link (you already have .skip) */
+.skip { position: fixed; left: 1rem; top: .5rem; z-index: 1000; }
+
+/* Prefer reduced motion already handled; add smooth scrolling off in that mode */
+@media (prefers-reduced-motion: reduce){
+  :root{ scroll-behavior: auto; }
+}
+
+/* Images/SVG default perf */
+img[loading="lazy"] { content-visibility: auto; }
+svg[role="img"] { shape-rendering: geometricPrecision; text-rendering: optimizeLegibility; }
+
 
 /* ===== Nav (responsive) ===== */
+
 .nav{
   position: sticky; top: 0; z-index: 50;
-  background: var(--bg);
+  background: var(--bg-gray); /* light gray strip */
   border-bottom: 1px solid #e5e7eb;
 }
+
 .nav__inner{
   display: flex; align-items: center; justify-content: space-between;
   padding: .75rem 0;
@@ -128,6 +286,35 @@ p{margin:0 0 1em}
   font-weight: 700; font-size: var(--step-1);
   color: var(--fg); text-decoration: none;
 }
+
+/* Nav brand: logo + text side by side */
+a.nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-decoration: none;
+  color: #0f172a;           /* keep brand text dark, not blue */
+  white-space: nowrap;
+}
+
+a.nav__brand:hover {
+  color: #0f172a;           /* no blue hover either */
+}
+
+a.nav__brand img.nav__logo-img {
+  height: 1.4rem;           /* smaller icon so it doesn't hang over the hero */
+  width: auto;
+  display: block;
+}
+
+a.nav__brand .nav__logo-text {
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+
 .nav__toggle{
   display: inline-flex; align-items: center; justify-content: center;
   width: 42px; height: 42px; border-radius: var(--radius);
@@ -149,8 +336,17 @@ p{margin:0 0 1em}
 }
 .nav__links a[aria-current="page"] { font-weight: 700; }
 
+/* keep short phrases on one line */
+.nowrap { white-space: nowrap; }
+.hero .sub { text-wrap: balance; } 
+
 /* ===== Pricing ===== */
-.pricing-hero { text-align: center; margin: 2rem 0 1.5rem; }
+
+.pricing-hero {
+  text-align: left;          /* matches your current layout */
+  margin: 0 0 1rem;        /* no extra top margin */
+}
+
 .billing-toggle { display:inline-flex; gap:.5rem; align-items:center; border:1px solid #e5e7eb; border-radius:999px; padding:.25rem; }
 .billing-toggle button{
   border:0; background:transparent; padding:.5rem .9rem; border-radius:999px; min-height:unset; color:var(--muted);
@@ -162,7 +358,10 @@ p{margin:0 0 1em}
   background:#fff; border:1px solid #e5e7eb; border-radius: var(--radius);
   padding:1.25rem; display:flex; flex-direction:column; gap:.9rem;
 }
-.plan--focus{ outline:2px solid var(--brand); outline-offset:2px; }
+.plan--focus {
+  outline: none;      /* remove old blue halo */
+}
+
 .plan .badge{ display:inline-block; font-size: var(--step--1); padding:.25rem .5rem; border-radius:999px; background:#eef2ff; color:#3730a3; }
 .price{ font-size: clamp(28px,2.3vw + 16px,40px); font-weight:700; }
 .per{ color:var(--muted); font-weight:400; font-size: var(--step--1); margin-left:.25rem; }
@@ -172,7 +371,30 @@ p{margin:0 0 1em}
 .features svg{ flex:0 0 auto; margin-top:.2rem; }
 .save-pill{ font-size: var(--step--1); padding:.15rem .5rem; border-radius:999px; background:#ecfdf5; color:#065f46; }
 
+
+
 /* ===== Footer ===== */
+
+/* Navy footer variant */
+.footer.footer-band-navy {
+  background: var(--navy);
+  color: #e5e7eb;
+  border-top: 1px solid #111827; /* subtle top edge */
+}
+
+.footer.footer-band-navy a {
+  color: #e5e7eb;
+}
+
+.footer.footer-band-navy a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.footer.footer-band-navy small {
+  color: #9ca3af; /* softer legal line */
+}
+
 .footer {
   margin-top: 3rem;
   border-top: 1px solid #e5e7eb;
@@ -200,52 +422,382 @@ p{margin:0 0 1em}
   }
 }
 
-/* ===== Features ===== */
-.features-grid { gap: 1rem; grid-template-columns: 1fr; } /* mobile 1-col */
-.feature-card {
+/* === TikoZap navy footer variant === */
+
+.footer--navy {
+  background: var(--navy);
+  border-top: none;
+  color: #e5e7eb;
+}
+
+.footer--navy h3 {
+  color: #e5e7eb;
+  font-size: var(--step-0);
+  margin: 0 0 0.5rem;
+}
+
+.footer--navy a {
+  color: #e5e7eb;
+}
+
+.footer--navy a:hover,
+.footer--navy a:focus-visible {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* Brand block in footer */
+.footer__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.footer__brand-logo {
+  height: 1.6rem;
+  width: auto;
+  display: block;
+}
+
+.footer__brand-name {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 1rem;
+}
+
+.footer__brand-copy {
+  margin: 0;
+  max-width: 24rem;
+  font-size: var(--step--1);
+  color: #cbd5f5;
+}
+
+/* Lists in the link columns */
+.footer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: var(--step--1);
+}
+
+/* Bottom row: copyright + reassurance line */
+.footer__bottom-row {
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--step--1);
+  color: #9ca3af;
+}
+
+@media (max-width: 640px) {
+  .footer__bottom-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+/* ===== Legacy Features grid (scoped so it won't collide) ===== */
+
+/* Keep this if you still use the old 3-up tiles elsewhere */
+.features-grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+.features-grid .feature-card {
   background:#fff; border:1px solid #e5e7eb; border-radius:var(--radius);
   padding:1rem; display:grid; gap:.5rem;
 }
-.feature-card h3 { margin:0; font-size:var(--step-1); }
-.feature-icon { width:28px; height:28px; }
-
+.features-grid .feature-card h3 { margin:0; font-size:var(--step-1); }
+.features-grid .feature-icon { width:28px; height:28px; }
 @media (min-width: 48rem) { /* tablet+ */
   .features-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-
 @media (prefers-color-scheme: dark){
-  .feature-card{ background:#0f172a; border-color:#1f2937; }
+  .features-grid .feature-card{ background:#0f172a; border-color:#1f2937; }
 }
 
+/* ===== Features page: 9-square grid ===== */
+
+.features-page .features-main {
+  padding: 1.75rem 0 2.5rem;
+}
+
+.features-page .features-main__intro {
+  max-width: 40rem;
+  margin-bottom: 1.5rem;
+  display: grid;
+  gap: .35rem;
+  font-size: .95rem;
+}
+
+.features-page .features-main__intro .lead {
+  font-weight: 500;
+}
+
+.features-page .features-main__intro .hint {
+  opacity: .9;
+}
+
+/* 3×3 grid, responsive */
+.features-page .features-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+/* 3 columns on medium screens */
+@media (min-width: 768px) {
+  .features-page .features-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* 3 columns on larger screens (the “nine-square” look) */
+@media (min-width: 1024px) {
+  .features-page .features-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Feature card */
+.features-page .feature-card {
+  border-radius: var(--radius);
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 1rem .95rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  min-height: 100%;
+}
+
+/* Icon avatar */
+.features-page .feature-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  background: radial-gradient(circle at 30% 0, #e0f2fe 0, #ecfdf5 40%, #ffffff 100%);
+  box-shadow: 0 6px 15px rgba(15, 23, 42, 0.10);
+  margin-bottom: .25rem;
+}
+
+.features-page .feature-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.features-page .feature-body {
+  font-size: .9rem;
+  opacity: .9;
+  margin: 0;
+}
+
+.features-page .feature-link-wrap {
+  margin-top: .4rem;
+}
+
+.features-page .feature-link {
+  font-size: .85rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.features-page .feature-link:hover,
+.features-page .feature-link:focus-visible {
+  border-bottom-color: currentColor;
+}
+
+/* Dark mode polish */
+@media (prefers-color-scheme: dark){
+  .features-page .features-toc,
+  .features-page .feature-card { background:#0f172a; border-color:#1f2937; }
+}
+
+/* Subtle fade-up */
+.features-page [data-anim="fade-up"]{
+  opacity:0; transform: translateY(8px);
+  animation: featuresFadeUp .45s ease-out forwards;
+}
+@keyframes featuresFadeUp { to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){
+  .features-page [data-anim="fade-up"]{ animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+
 /* ===== Pricing: FAQ + Compare ===== */
+
+.faq { margin-top: 2rem; }
+
+.faq details {
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: .9rem 1rem;
+  background: #fff;
+}
+
+/* space between rows */
+
+.faq details + details { margin-top: .75rem; }
+.faq p { margin: .5rem 0 0; color: var(--fg); }
+@media (prefers-color-scheme: dark){
+  .faq details{ background:#0f172a; border-color:#1f2937; }
+}
+
+/* make summary a flex row and leave room for arrow on the right */
+
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 1.75rem; /* room for arrow */
+}
+
+/* kill the browser’s default little triangle (all browsers) */
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::marker { content: ''; }
+
+/* we don't want the old pill icon, so hide the last real child */
+.faq summary > *:last-child {
+  display: none;
+}
+
 .faq { margin-top: 2rem; }
 .faq details {
   border: 1px solid #e5e7eb; border-radius: var(--radius);
   padding: .9rem 1rem; background: #fff;
 }
 .faq details + details { margin-top: .75rem; }
-.faq summary { cursor: pointer; font-weight: 600; list-style: none; }
-.faq summary::-webkit-details-marker { display: none; }
 .faq p { margin: .5rem 0 0; color: var(--fg); }
-@media (prefers-color-scheme: dark){
-  .faq details{ background:#0f172a; border-color:#1f2937; }
+
+
+/* FAQ headings with hollow chevron arrows */
+
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 1.9rem; /* room for arrow on the right */
 }
 
-/* Compare table */
-.compare { margin-top: 2rem; }
-.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.compare table { width: 100%; border-collapse: collapse; min-width: 640px; }
-.compare th, .compare td {
-  padding: .75rem .75rem; text-align: left; border-bottom: 1px solid #e5e7eb;
+/* remove native marker (tiny solid triangle) */
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::marker { content: ''; }
+
+/* hide the old trailing pill icon inside the summary */
+.faq summary > *:last-child {
+  display: none;
 }
-.compare th { font-weight: 700; }
-.compare tbody tr:last-child td { border-bottom: 0; }
-.compare .center { text-align: center; }
+
+/* chevron: two borders making a hollow V */
+
+.faq summary::after {
+  content: "";
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+
+  width: 12px;
+  height: 12px;
+
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+
+  /* points DOWN by default */
+
+  transform: translateY(-55%) rotate(90deg);
+  transform-origin: center;
+
+  transition: transform .18s ease, border-color .18s ease;
+}
+
+/* open state: rotate to point UP and darken */
+
+.faq details[open] > summary::after {
+  transform: translateY(-45%) rotate(-135deg);
+  border-color: var(--fg);
+}
+
+
+/* Compare table */
+
+.compare {
+  margin-top: 2rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.compare table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;               /* ← allow shrinking on mobile instead of 640px */
+}
+
+/* Cells */
+.compare th,
+.compare td {
+  padding: .75rem .6rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: .86rem;
+}
+
+/* Header band – “menu” row */
+.compare thead th {
+  background: #f9fafb;        /* light gray band */
+  font-weight: 600;
+}
+
+/* Last row: no extra line */
+.compare tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.compare .center {
+  text-align: center;
+}
+
+@media (max-width: 640px){
+  .compare th,
+  .compare td {
+    padding: .5rem .35rem;    /* tighter padding on phones */
+    font-size: .78rem;        /* a touch smaller so 4 columns fit */
+  }
+}
+
 @media (prefers-color-scheme: dark){
-  .compare th, .compare td { border-bottom-color:#1f2937; }
+  .compare th,
+  .compare td {
+    border-bottom-color:#1f2937;
+  }
+
+  .compare thead th {
+    background: #020617;      /* darker band in dark mode */
+  }
 }
 
 /* ===== Global polish ===== */
+
 
 /* Skip to content (keyboard users) */
 .skip {
@@ -257,13 +809,14 @@ p{margin:0 0 1em}
 .skip:focus { transform: translateY(0); outline: none; }
 
 /* Body padding to clear sticky nav */
-.has-sticky { padding-top: 64px; }
-@media (min-width: 48rem) { .has-sticky { padding-top: 72px; } }
+.has-sticky { padding-top: 56px; }
+@media (min-width: 48rem) { .has-sticky { padding-top: 68px; } }
 
 /* Footer legal text a touch quieter */
 .footer small { color: var(--muted); font-size: var(--step--1); }
 
 /* ===== Pricing: FAQ + Compare ===== */
+
 .faq { margin-top: 2rem; }
 .faq details {
   border: 1px solid #e5e7eb; border-radius: var(--radius);
@@ -275,6 +828,35 @@ p{margin:0 0 1em}
 .faq p { margin: .5rem 0 0; color: var(--fg); }
 @media (prefers-color-scheme: dark){
   .faq details{ background:#0f172a; border-color:#1f2937; }
+}
+
+/* Clean up any old custom markers if present */
+.faq summary::before {
+  content: none;
+}
+
+/* Simple chevron arrow on the right */
+.faq summary {
+  position: relative;
+  padding-right: 1.75rem; /* room for arrow */
+}
+
+/* Closed state: pointing down */
+.faq summary::after {
+  content: '▾';
+  position: absolute;
+  right: .5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: .9rem;
+  color: var(--muted);
+  transition: transform .18s ease, color .18s ease;
+}
+
+/* Open state: pointing up, slightly darker */
+.faq details[open] > summary::after {
+  content: '▴';
+  color: var(--fg);
 }
 
 /* Compare table */
@@ -291,26 +873,829 @@ p{margin:0 0 1em}
   .compare th, .compare td { border-bottom-color:#1f2937; }
 }
 
-/* ===== Hero polish ===== */
-.hero { text-align: center; }
-.hero h1 { line-height: 1.1; }
-.hero .sub {
-  /* bigger + not muted */
-  color: var(--fg);
-  font-size: var(--step-0);
-  opacity: 0.95;
-  margin-inline: auto;
-  max-width: 70ch;
+/* ===== Hero polish (final) ===== */
+
+.hero { padding: 2rem 0 3rem; }
+
+.hero h1{
+  text-align:center;
+  font-weight:800;
+  line-height:1.1;
+  font-size: clamp(32px, 3.3vw + 10px, 32px);
+  margin: 0 0 .35rem;
 }
-.hero .cluster { justify-content: center; }
+
+/* unified subheading rules */
+.hero .sub{
+  color: var(--fg);
+  line-height: 1.1;
+  text-align:center;         /* centered everywhere */
+  margin: 0.25rem auto 0;
+  display:block;
+  max-width:70ch;
+  font-size: calc(var(--step-0) * 0.92);
+}
+
+/* mobile: force single line + slightly smaller */
+@media (max-width: 480px){
+  .hero .sub{
+    font-size: var(--step--1);
+    white-space: Norway;       /* keep on one line */
+    word-break: keep-all;
+    overflow-wrap: normal;
+    margin-left:auto; margin-right:auto;
+  }
+}
+
+/* desktop: a touch larger, still centered */
+@media (min-width: 64rem){
+  .hero { padding: 2.25rem 0 1.5rem; }
+  .hero .sub{ font-size: var(--step-1); }
+}
+
+/* Helpers under CTAs */
+.hero .helpers{
+  display:flex; gap:.75rem; justify-content:center; align-items:center;
+  color:var(--muted); font-size:var(--step--1);
+}
+.hero .dot{ width:.25rem; height:.25rem; border-radius:999px; background:currentColor; opacity:.6; }
+
+
+/* Hide the manual line break on larger screens so it becomes one line if space allows */
+@media (min-width: 48rem) {
+  .hero .only-mobile-br { display: none; }
+}
+
+/* --- Hero tweaks --- */
+.hero-title{
+  Text-align:center;            /* keep H1 center */
+  line-height:1.1;
+}
+
+.hero .sub{
+  text-align:center;          /* center the subheading everywhere */
+  line-height:1.4;            /* per request */
+  margin: 3rem auto 0;      /* pull it closer to the H1 */
+  display:block;              /* avoid inline centering quirks */
+  max-width:80ch;             /* readable width on desktop */
+}
+
+/* mobile: make sure it really centers and wraps nicely */
+@media (max-width: 480px){
+  .hero .sub{
+    margin-left:auto;
+    margin-right:auto;
+    max-width:70ch;           /* tighten for small screens */
+  }
+}
+
+/* desktop+ can stay centered; H1 remains left */
+@media (min-width: 1024px){
+  .hero .sub{ text-align:center; }
+}
+
+/* ===== How it works ===== */
+.hiw { padding: 2rem 0; }
+.hiw header { text-align:left; margin-bottom: 1.25rem; }
+.flow { display: grid; gap: 1rem; }
+.flow-title { font-weight: 700; margin: .25rem 0 .5rem; }
+.flow-rail {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: 1fr;
+}
+.step {
+  display: grid; grid-template-columns: auto 1fr; align-items: start; gap: .75rem;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: var(--radius); padding: .75rem .9rem;
+}
+.step .num {
+  width: 28px; height: 28px; border-radius: 999px;
+  display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--brand);
+}
+.step h4 { margin: 0; font-size: var(--step-1); }
+.step p  { margin: .25rem 0 0; color: var(--fg); }
+.step .icon { width: 22px; height: 22px; color: var(--brand); margin-top: .15rem; }
 
 @media (min-width: 48rem) {
-  .hero .sub { font-size: var(--step-1); }
+  .flows { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+  .flow-rail { grid-template-columns: 1fr; }
+}
+@media (prefers-color-scheme: dark){
+  .step { background:#0f172a; border-color:#1f2937; }
 }
 
-/* Hero helpers (tiny trust text under CTAs) */
-.hero .helpers {
-  display: flex; gap: .75rem; justify-content: center; align-items: center;
-  color: var(--muted); font-size: var(--step--1);
+/* ===== How it works — animation ===== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.hero .dot { width: .25rem; height: .25rem; border-radius: 999px; background: currentColor; opacity: .6; }
+@keyframes pulseDot {
+  0% { box-shadow: 0 0 0 0 rgba(37,99,235,.35); }
+  70% { box-shadow: 0 0 0 10px rgba(37,99,235,0); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+@keyframes drawLine {
+  from { stroke-dashoffset: 120; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* stagger helper */
+[data-anim="fade-up"]{
+  opacity: 0; transform: translateY(10px);
+  animation: fadeUp .55s ease forwards;
+  animation-delay: var(--delay, 0s);
+}
+.step .num {
+  position: relative;
+}
+.step .num::after{
+  content:""; position:absolute; inset:-4px;
+  border-radius:999px; animation: pulseDot 1.8s ease-out infinite;
+}
+.connector line, .connector path {
+  stroke: var(--brand); stroke-width: 2; fill: none;
+  stroke-dasharray: 120; stroke-dashoffset: 120;
+  animation: drawLine .9s ease forwards; animation-delay: var(--delay, .2s);
+}
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  [data-anim], .connector line, .connector path, .step .num::after {
+    animation: none !important; opacity: 1 !important; transform: none !important;
+    box-shadow: none !important; stroke-dashoffset: 0 !important;
+  }
+}
+
+/* --- How it works animation gates --- */
+.hiw-svg .hiw-node { opacity: 0; transform: translateY(6px); }
+.hiw-svg.animate .hiw-node {
+  animation: hiwFadeUp .6s var(--d, 0s) both ease-out;
+}
+
+.hiw-svg .hiw-arrow {
+  /* set initial offset so dashed line is hidden */
+  stroke-dasharray: var(--len, 160);
+  stroke-dashoffset: var(--len, 160);
+}
+.hiw-svg.animate .hiw-arrow {
+  animation: hiwDraw 0.9s var(--d, 0s) both ease-out;
+}
+
+.hiw-svg .hiw-center { opacity: 0; transform: scale(.96); }
+.hiw-svg.animate .hiw-center {
+  animation: hiwPop .5s .15s both cubic-bezier(.2,.7,.2,1);
+}
+
+@keyframes hiwFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hiwDraw {
+  from { stroke-dashoffset: var(--len, 160); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes hiwPop {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* === How it works: dashed, sequenced, looping === */
+.hiw-svg .hiw-arrow {
+  /* dashed look */
+  stroke: var(--brand, #2563eb);
+  stroke-width: 2.5px;
+  fill: none;
+
+  /* dash pattern & marching distance (per-path overridable) */
+  stroke-dasharray: var(--dash, 12 10);
+  stroke-dashoffset: 0;
+
+  /* animation timing controlled via CSS vars that we set inline per arrow */
+  animation-name: hiwMarch;
+  animation-duration: var(--dur, 0.9s);      /* one “march” */
+  animation-timing-function: linear;
+  animation-delay: var(--start, 0s);         /* when this arrow begins */
+  animation-iteration-count: var(--reps, 3); /* repeat count per arrow before moving on */
+  animation-fill-mode: none;                 /* don’t freeze between repeats */
+}
+
+/* Move the dash pattern along the path to create motion */
+@keyframes hiwMarch {
+  to { stroke-dashoffset: calc(-1 * var(--march, 22)); }
+}
+
+/* Gentle pulse on the center to feel alive (optional) */
+.hiw-svg .hiw-center {
+  animation: hiwPulse 2.2s ease-in-out 0.2s infinite;
+}
+@keyframes hiwPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.15); }
+  70%  { box-shadow: 0 0 0 14px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hiw-svg .hiw-arrow,
+  .hiw-svg .hiw-center { animation: none !important; }
+}
+/* === HIW: ensure nodes are visible (wins over any earlier gates) === */
+.hiw-svg .hiw-node,
+.hiw-svg .hiw-center{
+  opacity: 1 !important;
+  transform: none !important;
+}
+/* === HIW: dashed arrows thickness + marching loop === */
+.hiw-svg .hiw-arrow{
+  stroke: var(--brand, #2563eb);
+  stroke-width: 3.5px;         /* was 2–2.5; thicker for mobile */
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: var(--dash, 12 10);
+  stroke-dashoffset: 0;
+  animation-name: hiwMarch;
+  animation-duration: var(--dur, .9s);
+  animation-timing-function: linear;
+  animation-delay: var(--start, 0s);
+  animation-iteration-count: var(--reps, 3);
+  animation-fill-mode: none;
+}
+
+@keyframes hiwMarch { to { stroke-dashoffset: calc(-1 * var(--march, 22)); } }
+
+.hiw-svg .hiw-center { animation: hiwPulse 2.2s ease-in-out .2s infinite; }
+@keyframes hiwPulse {
+  0% { box-shadow: 0 0 0 0 rgba(37,99,235,.15); }
+  70% { box-shadow: 0 0 0 14px rgba(37,99,235,0); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .hiw-svg .hiw-arrow, .hiw-svg .hiw-center { animation: none !important; }
+}
+
+
+
+.nowrap { white-space: nowrap; }
+
+/* Let the HIW section use a wider container than body text */
+.container-wide { width: min(100% - 2rem, 1280px); margin-inline: auto; }
+
+/* --- HIW sizing & zoom (tunable) --- */
+.hiw-section { padding: 1.1rem 0; }
+
+.hiw-inner {                     /* cap overall width a bit tighter */
+  width: min(100% - 2rem, 1100px);
+  margin-inline: auto;
+}
+
+/* Default scale (desktop/laptop) */
+.hiw-wrap { --hiw-scale: 1.12; } /* ↓ smaller than 1.28 */
+
+/* SVG zoom */
+.hiw-wrap .hiw-svg{
+  display:block;
+  width:100%;
+  height:auto;
+  margin-inline:auto;
+
+  transform-box: fill-box;
+  transform-origin: 450px 320px;   /* center of 900x640 viewBox */
+  transform: scale(var(--hiw-scale));
+  overflow: visible;
+}
+
+/* Tablet */
+@media (max-width: 1024px){
+  .hiw-wrap { --hiw-scale: 1.10; }
+  .hiw-inner { width: min(100% - 2rem, 1000px); }
+}
+
+/* Large phones / small tablets */
+@media (max-width: 768px){
+  .hiw-wrap { --hiw-scale: 1.38; }
+}
+
+/* Phones */
+@media (max-width: 480px){
+  .hiw-wrap { --hiw-scale: 1.38; }  /* still larger than default, but not huge */
+}
+
+/* HIW: allow overflow so shifted SVG isn't clipped */
+.hiw-inner { overflow: visible; }
+
+/* Default (desktop/tablet) – centered, no shift */
+.hiw-wrap{
+  --hiw-scale: 1.00;
+  --hiw-shift-x: 0%;
+  --hiw-shift-y: -160.00px;
+}
+
+.hiw-wrap .hiw-svg{
+  transform-box: fill-box;
+  transform-origin: 450px 320px;      /* viewBox center */
+  transform: translate(var(--hiw-shift-x), var(--hiw-shift-y))
+             scale(var(--hiw-scale));
+  will-change: transform;
+}
+
+/* Phones: keep it big, move slightly right & down */
+@media (max-width: 480px){
+  .hiw-wrap{
+    --hiw-scale: 1.58;      /* your current larger size */
+    --hiw-shift-x: 36%;    /* → move right (increase/decrease as needed) */
+    --hiw-shift-y: 60px;    /* ↓ move down (tweak 12–28px range) */
+  }
+
+  /* small breathing room so the top doesn’t touch the heading */
+  .hiw-section { padding-top: 1.25rem; }
+}
+
+/* ====== TikoZap – HERO + HIW final pack ====== */
+
+/* Tighten hero heading ↔ subheading spacing */
+.hero h1{ margin-bottom: .08rem; }
+.hero .sub{ margin-top: .10rem; }
+
+@media (min-width: 64rem){
+  .hero h1{ margin-bottom: .06rem; }
+  .hero .sub{ margin-top: .10rem; }
+}
+
+/* --- HIW section sizing/layout --- */
+
+.hiw-section {
+  padding: 0.25rem 1.1rem 2.5rem;  /* top, left/right, bottom */
+}
+
+
+.container-wide { width: min(100% - 2rem, 1200px); margin-inline: auto; }
+
+.hiw-inner {
+  width: min(100% - 2rem, 1200px);
+  margin-inline: auto;
+}
+
+.hiw-wrap {
+  /* defaults (desktop/laptop) */
+  --hiw-scale: 1.12;
+  --hiw-shift-x: 0%;
+  --hiw-shift-y: 0px;
+}
+
+.hiw-wrap .hiw-svg{
+  display:block;
+  width:100%;
+  height:auto;
+  margin-inline:auto;
+
+  /* zoom & nudge */
+  transform-box: fill-box;
+  transform-origin: 450px 320px;       /* center of 900x640 viewBox */
+  transform:
+    translate(var(--hiw-shift-x), var(--hiw-shift-y))
+    scale(var(--hiw-scale));
+  overflow: visible;
+}
+
+/* Tablet tune */
+@media (max-width: 1024px){
+  .hiw-wrap { --hiw-scale: 1.10; }
+  .hiw-inner { width: min(100% - 2rem, 1000px); }
+}
+
+/* Large phones / small tablets */
+@media (max-width: 768px){
+  .hiw-wrap { --hiw-scale: 1.08; }
+}
+
+/* Phones: keep it big, move slightly right & down */
+@media (max-width: 480px){
+  .hiw-wrap{
+    --hiw-scale: 1.30;   /* adjust to taste (1.28–1.38) */
+    --hiw-shift-x: 20%;
+    --hiw-shift-y: 18px;
+  }
+  .hiw-section { padding-top: 1.25rem; } /* keep away from heading */
+}
+
+/* Lighter node borders (match card borders) */
+.hiw-svg .st23{
+  stroke: #e5e7eb;
+  stroke-width: 1px;
+}
+@media (prefers-color-scheme: dark){
+  .hiw-svg .st23{ stroke:#1f2937; stroke-width:1px; }
+}
+
+/* Soften arrows (dashed, no marching) */
+.hiw-svg .hiw-arrow{
+  stroke: var(--brand, #2563eb);
+  stroke-linecap: round;
+  stroke-dasharray: 12 10;
+  stroke-width: 3px;
+  opacity: .35;
+  animation: none;
+}
+
+/* ===== HIW Node Attention — punchier & Safari-proof ===== */
+/* 6 nodes total → each gets 1/6th of the loop. */
+:root { --loopDur: 18s; } /* make 12–24s to taste */
+
+.hiw-svg .hiw-node{
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hiwNodeLoop var(--loopDur) linear infinite;
+  animation-delay: calc((var(--i,1) - 1) * (var(--loopDur) / 6));
+}
+
+/* Rects: animate stroke color/weight + scale (very visible) */
+.hiw-svg .st23.hiw-node{
+  /* resting state matches your card border */
+  stroke: #e5e7eb;
+  stroke-width: 1px;
+  fill: #fff; /* keep your current fill */
+}
+
+@keyframes hiwNodeLoop{
+  /* Rest */
+  0%   { transform: scale(1.00); }
+  /* Active window (make it obvious) */
+  6%   { transform: scale(1.06); }
+  16%  { transform: scale(1.06); }
+  /* Back to rest */
+  22%  { transform: scale(1.00); }
+  100% { transform: scale(1.00); }
+}
+
+/* While active, “brand” the border strongly (no filters) */
+.hiw-svg .st23.hiw-node {
+  animation-name: hiwNodeLoop, hiwStrokePulse;
+  animation-duration: var(--loopDur), var(--loopDur);
+  animation-timing-function: linear, linear;
+  animation-iteration-count: infinite, infinite;
+  animation-delay:
+    calc((var(--i,1) - 1) * (var(--loopDur) / 6)),
+    calc((var(--i,1) - 1) * (var(--loopDur) / 6));
+}
+
+@keyframes hiwStrokePulse{
+  0%   { stroke:#e5e7eb; stroke-width:1px; }
+  6%   { stroke: var(--brand, #2563eb); stroke-width: 2.5px; }
+  16%  { stroke: var(--brand, #2563eb); stroke-width: 2.5px; }
+  22%  { stroke:#e5e7eb; stroke-width:1px; }
+  100% { stroke:#e5e7eb; stroke-width:1px; }
+}
+
+/* Text groups: brighten during the active window */
+.hiw-svg .st6.hiw-node text { transition: opacity .2s ease; }
+.hiw-svg .st6.hiw-node {
+  animation-name: hiwNodeLoop, hiwTextPulse;
+  animation-duration: var(--loopDur), var(--loopDur);
+  animation-timing-function: linear, linear;
+  animation-iteration-count: infinite, infinite;
+  animation-delay:
+    calc((var(--i,1) - 1) * (var(--loopDur) / 6)),
+    calc((var(--i,1) - 1) * (var(--loopDur) / 6));
+}
+@keyframes hiwTextPulse{
+  0%   { opacity:.85; }
+  6%   { opacity:1; }
+  16%  { opacity:1; }
+  22%  { opacity:.85; }
+  100% { opacity:.85; }
+}
+
+/* Reduced motion = no animation */
+@media (prefers-reduced-motion: reduce){
+  .hiw-svg .hiw-node{
+    animation: none !important;
+    transform: none !important;
+  }
+  .hiw-svg .st23.hiw-node{ stroke-width:1px !important; }
+  .hiw-svg .st6.hiw-node text{ opacity:1 !important; }
+}
+
+/* === HIW: mobile legibility + subtle spacing tweaks === */
+
+/* 1) Make SVG node text a bit larger on phones */
+@media (max-width: 480px){
+  .hiw-svg .st0,
+  .hiw-svg .st1,
+  .hiw-svg .st2,
+  .hiw-svg .st3,
+  .hiw-svg .st4,
+  .hiw-svg .st5,
+  .hiw-svg .st7,
+  .hiw-svg .st8,
+  .hiw-svg .st9,
+  .hiw-svg .st10{
+    font-size: 1.1em; /* ~10% bump without reflowing boxes */
+  }
+}
+
+/* 2) Pull HIW subhead a touch closer to its heading */
+#how-it-works header .small { margin-top: .35rem; }
+
+/* 3) Tone arrows down a hair more so nodes win the eye */
+.hiw-svg .hiw-arrow { opacity: .28; }
+
+/* 4) Hero micro-gap: slightly closer sub to H1 on all screens */
+.hero h1 { margin-bottom: .1rem; }
+.hero .sub { margin-top: .15rem; }
+
+/* === HIW: revert mobile text size bump & darken text === */
+
+/* 1) Revert any earlier mobile font-size increase for SVG node text */
+@media (max-width: 480px){
+  .hiw-svg .st0,
+  .hiw-svg .st1,
+  .hiw-svg .st2,
+  .hiw-svg .st3,
+  .hiw-svg .st4,
+  .hiw-svg .st5,
+  .hiw-svg .st7,
+  .hiw-svg .st8,
+  .hiw-svg .st9,
+  .hiw-svg .st10{
+    font-size: 1em !important; /* back to original so it doesn't overflow */
+  }
+}
+
+/* 2) Darken body text inside nodes (keep headings as-is) */
+.hiw-svg .st0,
+.hiw-svg .st3,
+.hiw-svg .st4,
+.hiw-svg .st5{
+  fill: #0f172a;              /* darker slate-900 for better contrast */
+}
+
+/* 3) Dark mode: lighten for contrast */
+@media (prefers-color-scheme: dark){
+  .hiw-svg .st0,
+  .hiw-svg .st3,
+  .hiw-svg .st4,
+  .hiw-svg .st5{
+    fill: #e5e7eb;            /* slate-200 */
+  }
+}
+
+/* (Optional) tiny crispness boost without changing layout */
+.hiw-svg text{
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* === HIW: node text tuning (smaller + darker) === */
+.hiw-svg .st0,                 /* body text in nodes */
+.hiw-svg .st10,                /* many bold titles */
+.hiw-svg .st7 {                /* some bold titles */
+  fill: var(--fg) !important;  /* darker, matches site text */
+  letter-spacing: 0;           /* reset odd tracking from export */
+  text-rendering: optimizeLegibility;
+}
+
+/* desktop/tablet sizing */
+.hiw-svg .st0  { font-size: 12px !important; }   /* was ~12px */
+.hiw-svg .st10,
+.hiw-svg .st7  { font-size: 14px !important; }   /* was ~14px */
+
+/* phones: nudge down a bit more */
+@media (max-width: 480px){
+  .hiw-svg .st0  { font-size: 12px !important; }
+  .hiw-svg .st10,
+  .hiw-svg .st7  { font-size: 13.5px !important; }
+  /* optional micro-tighten if any line still kisses the border */
+  .hiw-svg .st0 { letter-spacing: -0.1px; }
+}
+
+/* === Homepage hero: mobile spacing === */
+.hero-microtrust {
+  text-align: center;
+}
+
+/* Phones: give hero more breathing room */
+@media (max-width: 480px) {
+  /* More air between heading and subheading */
+  .hero h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .hero .sub {
+    margin-top: 0.1rem;
+    margin-bottom: 1.6rem;  /* pushes CTA block down a bit */
+    line-height: 1.3;
+  }
+
+  /* CTA cluster + helper lines sit in the "middle" */
+  .hero-ctas {
+    margin-bottom: 1rem;
+  }
+
+  .hero .helpers {
+    margin-top: 0.2rem;
+  }
+
+  /* Extra space before “How it works” */
+  .hero-microtrust {
+    margin-top: 0rem;
+    margin-bottom: 1.1rem;
+  }
+}
+
+/* === Docs & FAQ layout === */
+
+.docs-page {
+  padding-bottom: 3rem;
+}
+
+.docs-grid {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.docs-toc h2 {
+  margin: 0 0 0.5rem;
+  font-size: var(--step-0);
+}
+
+.docs-toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: var(--step--1);
+}
+
+.docs-toc a {
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.docs-toc a:hover,
+.docs-toc a:focus-visible {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.docs-sections {
+  max-width: 52rem;
+}
+
+.docs-section h2 {
+  margin: 0 0 0.35rem;
+}
+
+.docs-section p {
+  margin: 0 0 0.65rem;
+}
+
+.docs-section ul,
+.docs-section ol {
+  margin: 0 0 0.75rem 1.1rem;
+  padding: 0;
+}
+
+.docs-faq {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.docs-faq dt {
+  font-weight: 600;
+}
+
+.docs-faq dd {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+@media (min-width: 64rem) {
+  .docs-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.2fr);
+    align-items: flex-start;
+  }
+
+  .docs-toc {
+    position: sticky;
+    top: 88px; /* below the nav + page title */
+  }
+}
+
+/* Shared internal page hero (Features, Pricing, Docs, etc.) */
+.page-hero {
+  padding: 1.5rem 0 1rem;
+}
+
+.page-hero h1 {
+  font-size: var(--step-1);   /* same scale as Plans & pricing */
+  line-height: 1.25;
+  margin: 0 0 .35rem;
+}
+
+/* Optional: keep any subtitle tight and readable */
+.page-hero .sub,
+.page-hero .small,
+.page-hero .page-sub {
+  margin: 0;
+  max-width: 40rem;
+}
+
+/* ===== Safety shields ===== */
+
+.safety {
+  padding: 2rem 0 2.5rem;
+}
+
+.safety-head {
+  text-align: left;
+  align-items: flex-start;
+  margin-bottom: 1.1rem;
+}
+
+.safety-head .eyebrow {
+  font-size: var(--step--1);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin: 0 0 0.3rem;
+}
+
+.safety-head h2 {
+  margin: 0 0 0.35rem;
+}
+
+.safety-head .small {
+  max-width: 40rem;
+}
+
+.safety-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.safety-card {
+  border-radius: var(--radius);
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 1rem 1rem 1.1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.safety-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.97rem;
+}
+
+.safety-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+/* avatar circles */
+.safety-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+}
+
+.safety-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* per-shield colors */
+.safety-icon--green {
+  background: #ecfdf5;
+  color: #16a34a;
+}
+
+.safety-icon--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.safety-icon--purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+@media (min-width: 768px) {
+  .safety-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .safety-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

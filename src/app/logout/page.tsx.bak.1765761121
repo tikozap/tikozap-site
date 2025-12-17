@@ -1,0 +1,33 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const KEYS = [
+  'tz_demo_logged_in',
+  'tz_demo_onboarded',
+  'tz_demo_tenant_name',
+  'tz_demo_tenant_slug',
+];
+
+export default function LogoutPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    try {
+      for (const k of KEYS) window.localStorage.removeItem(k);
+    } finally {
+      router.replace('/demo-login');
+    }
+  }, [router]);
+
+  return (
+    <main id="main">
+      <section className="section-band-white">
+        <div className="container" style={{ padding: '2.25rem 0' }}>
+          <p className="small" style={{ opacity: 0.8 }}>Logging out…</p>
+        </div>
+      </section>
+    </main>
+  );
+}

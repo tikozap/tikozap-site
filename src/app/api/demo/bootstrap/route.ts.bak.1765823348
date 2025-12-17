@@ -1,0 +1,68 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+export const runtime = 'nodejs';
+
+function slugify(input: string) {
+  return (input || '')
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export async function POST(req: Request) {
+  try {
+    const body: any = await req.json().catch(() => ({}));
+
+    const tenantName = (body?.tenantName || 'Three Tree Fashion').toString().trim();
+    const tenantSlug = (body?.tenantSlug || slugify(tenantName) || 'three-tree-fashion')
+      .toString()
+      .trim();
+
+    // Use "any" so this won't crash if your model casing differs.
+    const p: any = prisma as any;
+
+    // Try common model names.
+    const model =
+      p.tenant ?? p.Tenant ??
+      p.workspace ?? p.Workspace ??
+      p.merchant ?? p.Merchant;
+
+    if (!model) {
+      return NextResponse.json(
+        { ok: false, error: 'No tenant model found in Prisma client.' },
+        { status: 500 }
+      );
+    }
+
+    let tenant: any = null;
+
+    if (typeof model.upsert === 'function') {
+      tenant = await model.upsert({
+        where: { slug: tenantSlug },
+        update: { name: tenantName, storeName: tenantName },
+        create: { name: tenantName, slug: tenantSlug, storeName: tenantName },
+      });
+    } else {
+      tenant = await model.findUnique?.({ where: { slug: tenantSlug } });
+      if (!tenant) {
+        tenant = await model.create?.({
+          data: { name: tenantName, slug: tenantSlug, storeName: tenantName },
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      tenant: { id: tenant?.id, name: tenant?.name, slug: tenant?.slug },
+    });
+  } catch (err: any) {
+    console.error('[demo/bootstrap] error', err);
+    return NextResponse.json(
+      { ok: false, error: err?.message || 'bootstrap failed' },
+      { status: 500 }
+    );
+  }
+}

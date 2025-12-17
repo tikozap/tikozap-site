@@ -1,43 +1,89 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
 export default function Footer() {
-  const year = new Date().getFullYear();
+  const pathname = usePathname();
+
+  // Hide footer on the live demo page so the chat has more room,
+  // both on /demo and any nested demo routes.
+  if (pathname && pathname.startsWith('/demo')) {
+    return null;
+  }
+
   return (
-    <footer className="footer">
-      <div className="container footer__inner stack">
+    <footer className="footer footer-band-navy">
+      <div className="container footer__inner">
         <div className="cols">
-          <section className="stack">
-            <h3>TikoZap</h3>
-            <p className="small">AI customer support that’s simple, secure, and always on.</p>
-            <p className="small">© {year} Ala Moda Innovations LLC. All rights reserved.</p>
-          </section>
+          {/* Brand column */}
+          <div className="footer__brand">
+            <div className="footer__brand-row">
+              <img
+                src="/tikozaplogo.svg"
+                alt="TikoZap"
+                className="footer__brand-logo"
+              />
+              <span className="footer__brand-name">TikoZap</span>
+            </div>
+            <p className="footer__brand-copy">
+              Instant AI customer support for your store – with humans always in
+              control.
+            </p>
+          </div>
 
-          <nav className="stack" aria-label="Product">
+          {/* Product links */}
+          <div>
             <h3>Product</h3>
-            <a href="/features">Features</a>
-            <a href="/pricing">Pricing</a>
-            <a href="/docs">Docs</a>
-            <a href="/changelog">Changelog</a>
-          </nav>
+            <ul className="footer__list">
+              <li>
+                <Link href="/features">Features</Link>
+              </li>
+              <li>
+                <Link href="/pricing">Pricing</Link>
+              </li>
+              <li>
+                <Link href="/docs">Docs</Link>
+              </li>
+            </ul>
+          </div>
 
-          <nav className="stack" aria-label="Company">
+          {/* Use cases */}
+          <div>
+            <h3>Use cases</h3>
+            <ul className="footer__list">
+              <li>
+                <Link href="/#how-it-works">E-commerce stores</Link>
+              </li>
+              <li>
+                <Link href="/#how-it-works">Shopify widgets</Link>
+              </li>
+              <li>
+                <Link href="/#how-it-works">Support teams</Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
             <h3>Company</h3>
-            <a href="/about">About</a>
-            <a href="/contact">Contact</a>
-            <a href="/careers">Careers</a>
-            <a href="/press">Press</a>
-          </nav>
-
-          <nav className="stack" aria-label="Legal">
-            <h3>Legal</h3>
-            <a href="/terms">Terms</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/security">Security</a>
-            <a href="/status">Status</a>
-          </nav>
+            <ul className="footer__list">
+              <li>
+                <a href="mailto:support@tikozap.com">Contact</a>
+              </li>
+              <li>
+                <Link href="/docs/privacy">Privacy</Link>
+              </li>
+              <li>
+                <Link href="/docs/terms">Terms</Link>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div className="cluster" style={{ justifyContent: 'space-between' }}>
-          <small>Made with ♥ in New York</small>
-          <small>v0.1.0</small>
+        <div className="footer__bottom-row">
+          <small>© 2025 Ala Moda Innovations LLC · TikoZap</small>
+          <small>Built for secure, human-in-the-loop support.</small>
         </div>
       </div>
     </footer>

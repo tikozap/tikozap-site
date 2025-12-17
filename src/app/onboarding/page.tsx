@@ -1,1 +1,5 @@
-export default function Page(){return <div className='card'>Onboarding wizard placeholder (paste snippet, import FAQs, branding).</div>}
+import { redirect } from 'next/navigation';
+
+export default function OnboardingIndex() {
+  redirect('/onboarding/store');
+}

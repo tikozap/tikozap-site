@@ -1,3 +1,9 @@
 {
-  "/_not-found/page": "app/_not-found/page.js"
+  "/api/conversations/route": "app/api/conversations/route.js",
+  "/api/conversations/[id]/route": "app/api/conversations/[id]/route.js",
+  "/api/conversations/[id]/ai/route": "app/api/conversations/[id]/ai/route.js",
+  "/api/widget/message/route": "app/api/widget/message/route.js",
+  "/api/conversations/[id]/status/route": "app/api/conversations/[id]/status/route.js",
+  "/dashboard/conversations/page": "app/dashboard/conversations/page.js",
+  "/dashboard/widget/page": "app/dashboard/widget/page.js"
 }
