@@ -54,19 +54,24 @@ function buildNewTestChat(aiEnabled: boolean) {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await getAuthedUserAndTenant();
   if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
+  const url = new URL(req.url);
+  const includeArchived = url.searchParams.get('includeArchived') === '1';
+
   const rows = await prisma.conversation.findMany({
-    where: { tenantId: auth.tenant.id },
+    where: {
+      tenantId: auth.tenant.id,
+      ...(includeArchived ? {} : { archivedAt: null }),
+    },
     orderBy: { lastMessageAt: 'desc' },
     include: { messages: { orderBy: { createdAt: 'desc' }, take: 6 } },
   });
 
   const conversations = rows.map((c) => {
-    const preview =
-      c.messages.find((m) => m.role !== 'note') ?? c.messages[0] ?? null;
+    const preview = c.messages.find((m) => m.role !== 'note') ?? c.messages[0] ?? null;
 
     return {
       id: c.id,
@@ -77,9 +82,8 @@ export async function GET() {
       aiEnabled: c.aiEnabled,
       tags: splitTags(c.tags),
       lastMessageAt: c.lastMessageAt,
-      preview: preview
-        ? { role: preview.role, content: preview.content, createdAt: preview.createdAt }
-        : null,
+      archivedAt: c.archivedAt,
+      preview: preview ? { role: preview.role, content: preview.content, createdAt: preview.createdAt } : null,
     };
   });
 
@@ -105,9 +109,8 @@ export async function POST(req: Request) {
       tags: draft.tags,
       aiEnabled: draft.aiEnabled,
       lastMessageAt: new Date(),
-      messages: {
-        create: draft.messages.map((m) => ({ role: m.role, content: m.content })),
-      },
+      archivedAt: null,
+      messages: { create: draft.messages.map((m) => ({ role: m.role, content: m.content })) },
     },
   });
 

@@ -24,8 +24,10 @@ type ListItem = {
   aiEnabled: boolean;
   tags: string[];
   lastMessageAt: string;
+  archivedAt?: string | null;
   preview: Preview | null;
 };
+
 
 type ThreadMessage = { id: string; role: string; content: string; createdAt: string };
 type Thread = {
@@ -37,6 +39,7 @@ type Thread = {
   aiEnabled: boolean;
   tags: string[];
   lastMessageAt: string;
+  archivedAt?: string | null;
   messages: ThreadMessage[];
 };
 
@@ -92,10 +95,12 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ConversationsClient() {
+
   const [list, setList] = useState<ListItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [thread, setThread] = useState<Thread | null>(null);
-
+  const searchParams = useSearchParams();
+  const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'open' | 'waiting' | 'closed'>('all');
 
@@ -132,7 +137,8 @@ export default function ConversationsClient() {
   }, []);
 
   async function refreshList() {
-    const data = await api<{ ok: true; conversations: ListItem[] }>('/api/conversations');
+    const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
+    const data = await api<{ ok: true; conversations: ListItem[] }>(url);
     setList(data.conversations);
     return data.conversations;
   }
@@ -147,16 +153,24 @@ export default function ConversationsClient() {
     (async () => {
       const conversations = await refreshList();
 
-      const saved = localStorage.getItem(KEY_SELECTED) || '';
+      // Prefer cid from URL, then localStorage, then legacy demo key
+      const cid = searchParams?.get('cid') || '';
+      const saved =
+        cid ||
+        localStorage.getItem(KEY_SELECTED) ||
+        localStorage.getItem('tz_demo_conversations_selected') ||
+        '';
+
       const exists = !!saved && conversations.some((c) => c.id === saved);
-      const initial = exists ? saved : (conversations[0]?.id || '');
+      const initial =
+        cid && conversations.some((c) => c.id === cid)
+          ? cid
+          : (exists ? saved : (conversations[0]?.id || ''));
 
       setSelectedId(initial);
-      if (initial) {
-        await refreshThread(initial);
-      }
+      if (initial) await refreshThread(initial);
     })().catch(() => {});
-  }, []);
+  }, [showArchived, searchParams]);
 
   useEffect(() => {
     if (selectedId) localStorage.setItem(KEY_SELECTED, selectedId);
@@ -213,6 +227,20 @@ export default function ConversationsClient() {
   const setConvStatus = async (s: 'open' | 'waiting' | 'closed') => {
     if (!thread) return;
     await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: s }) });
+    await refreshThread(thread.id);
+    await refreshList();
+  };
+
+  const archiveThisChat = async () => {
+    if (!thread) return;
+    await api(`/api/conversations/${thread.id}/archive`, { method: 'POST' });
+    await refreshThread(thread.id);
+    await refreshList();
+  };
+
+  const restoreThisChat = async () => {
+    if (!thread) return;
+    await api(`/api/conversations/${thread.id}/restore`, { method: 'POST' });
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -326,9 +354,15 @@ export default function ConversationsClient() {
         <div className="db-actions">
           <button className="db-btn" onClick={resetInbox}>Reset inbox</button>
           <button className="db-btn primary" onClick={newTestChat}>New test chat</button>
-
           <button className={aiDefault ? 'db-btn primary' : 'db-btn'} onClick={toggleAiDefault} title="Default AI for new chats">
             New chats AI: {aiDefault ? 'ON' : 'OFF'}
+          </button>
+          <button
+            className={showArchived ? 'db-btn primary' : 'db-btn'}
+            onClick={() => setShowArchived((v) => !v)}
+            title={showArchived ? 'Showing active + archived' : 'Showing active only'}
+          >
+            Showing: {showArchived ? 'All' : 'Active'}
           </button>
 
           <select className="db-btn" value={status} onChange={(e) => setStatus(e.target.value as any)}>
@@ -387,6 +421,7 @@ export default function ConversationsClient() {
         </div>
 
         <div className={['db-card cx-pane', threadHidden ? 'is-hidden' : ''].filter(Boolean).join(' ')} style={{ padding: 14 }}>
+
           {!thread ? (
             <div style={{ opacity: 0.7 }}>Select a conversation.</div>
           ) : (
@@ -433,6 +468,12 @@ export default function ConversationsClient() {
                     <button className="db-btn" onClick={() => setConvStatus('open')}>Reopen</button>
                   )}
                   <button className="db-btn" onClick={() => setConvStatus('waiting')}>Mark waiting</button>
+
+                {thread.archivedAt ? (
+                    <button className="db-btn" onClick={restoreThisChat}>Restore</button>
+                  ) : (
+                    <button className="db-btn" onClick={archiveThisChat}>Archive</button>
+                  )}
                 </div>
               </div>
 
