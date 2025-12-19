@@ -37,7 +37,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ok: true,
     conversation: {
       ...convo,
-      tags: (convo.tags || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+      tags: (convo.tags || '').split(',').map((s) => s.trim()).filter(Boolean),
       messages,
     },
   });
