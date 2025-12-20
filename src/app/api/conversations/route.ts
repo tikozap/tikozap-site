@@ -70,8 +70,8 @@ export async function GET(req: Request) {
     include: { messages: { orderBy: { createdAt: 'desc' }, take: 6 } },
   });
 
-  const conversations = rows.map((c) => {
-    const preview = c.messages.find((m) => m.role !== 'note') ?? c.messages[0] ?? null;
+  const conversations = rows.map((c: any) => {
+    const preview = c.messages.find((m: any) => m.role !== 'note') ?? c.messages[0] ?? null;
 
     return {
       id: c.id,
