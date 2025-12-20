@@ -13,3 +13,9 @@ node_modules
 .next
 .vercel
 .DS_Store
+
+# ignore deps + builds
+node_modules
+.next
+.vercel
+.DS_Store
