@@ -7,3 +7,9 @@ node_modules
 /generated/prisma
 
 .next
+
+# ignore dependencies + builds
+node_modules
+.next
+.vercel
+.DS_Store
