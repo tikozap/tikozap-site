@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ConversationsHeader from './ConversationsHeader';
+import ConversationList from './ConversationList';
+import ConversationThread from './ConversationThread';
 
 
 const KEY_SELECTED = 'tz_db_conversations_selected';
@@ -120,21 +123,32 @@ export default function ConversationsClient() {
     setAiDefault((saved ?? '1') === '1');
   }, []);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1000px)');
-    const onChange = () => setIsMobile(mq.matches);
-    onChange();
-    // @ts-expect-error older Safari
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    // @ts-expect-error older Safari
-    else mq.addListener(onChange);
-    return () => {
-      // @ts-expect-error older Safari
-      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
-      // @ts-expect-error older Safari
-      else mq.removeListener(onChange);
-    };
-  }, []);
+useEffect(() => {
+  const mq = window.matchMedia('(max-width: 900px)');
+  const onChange = () => setIsMobile(mq.matches);
+
+  onChange();
+
+  // Modern browsers
+  if (typeof mq.addEventListener === 'function') {
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }
+
+  // Older Safari (MediaQueryList.addListener/removeListener)
+  const legacyMq = mq as unknown as {
+    addListener?: (cb: () => void) => void;
+    removeListener?: (cb: () => void) => void;
+  };
+
+  legacyMq.addListener?.(onChange);
+  return () => legacyMq.removeListener?.(onChange);
+}, []);
+
+
+useEffect(() => {
+  if (!isMobile) setPane('list'); // desktop should show both panes anyway
+}, [isMobile]);
 
   async function refreshList() {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
@@ -196,6 +210,17 @@ export default function ConversationsClient() {
     if (isMobile) setPane('thread');
   };
 
+useEffect(() => {
+  (window as any).__tzToggleCxPane = () => {
+    if (!isMobile) return;
+    setPane((p) => (p === 'list' ? 'thread' : 'list'));
+  };
+
+  return () => {
+    delete (window as any).__tzToggleCxPane;
+  };
+}, [isMobile]);
+
   const toggleAiDefault = () => {
     setAiDefault((prev) => {
       const next = !prev;
@@ -203,6 +228,41 @@ export default function ConversationsClient() {
       return next;
     });
   };
+
+// expose toggle + current pane for DashboardShell top-right button
+useEffect(() => {
+  (window as any).__tzToggleCxPane = () => {
+    if (!isMobile) return;
+    setPane((p) => (p === 'list' ? 'thread' : 'list'));
+  };
+
+  return () => {
+    delete (window as any).__tzToggleCxPane;
+  };
+}, [isMobile]);
+
+useEffect(() => {
+  if (!isMobile) return;
+  window.dispatchEvent(new CustomEvent('tz:cx:pane', { detail: { pane } }));
+}, [isMobile, pane]);
+
+useEffect(() => {
+  const onToggle = () => {
+    if (!isMobile) return;
+    setPane((p) => (p === 'list' ? 'thread' : 'list'));
+  };
+
+  window.addEventListener('tz:cx:toggle-pane', onToggle);
+  return () => window.removeEventListener('tz:cx:toggle-pane', onToggle);
+}, [isMobile]);
+
+
+useEffect(() => {
+  // broadcast current pane so DashboardShell can change the icon
+  window.dispatchEvent(
+    new CustomEvent('tz:cx:pane', { detail: { pane } })
+  );
+}, [pane]);
 
   const resetInbox = async () => {
     await api('/api/conversations/reset', { method: 'POST', body: JSON.stringify({ aiEnabled: aiDefault }) });
@@ -342,217 +402,65 @@ export default function ConversationsClient() {
 
   const listHidden = isMobile && pane === 'thread';
   const threadHidden = isMobile && pane === 'list';
+  const showHeader = !isMobile || pane === 'list';
 
-  return (
-    <div>
-      <div className="db-top">
-        <div>
-          <h1 className="db-title">Conversations</h1>
-          <p className="db-sub">Now backed by SQLite (Prisma). Staff replies never trigger bot replies.</p>
-        </div>
 
-        <div className="db-actions">
-          <button className="db-btn" onClick={resetInbox}>Reset inbox</button>
-          <button className="db-btn primary" onClick={newTestChat}>New test chat</button>
-          <button className={aiDefault ? 'db-btn primary' : 'db-btn'} onClick={toggleAiDefault} title="Default AI for new chats">
-            New chats AI: {aiDefault ? 'ON' : 'OFF'}
-          </button>
-          <button
-            className={showArchived ? 'db-btn primary' : 'db-btn'}
-            onClick={() => setShowArchived((v) => !v)}
-            title={showArchived ? 'Showing active + archived' : 'Showing active only'}
-          >
-            Showing: {showArchived ? 'All' : 'Active'}
-          </button>
+return (
+  <div className="cx-workspace">
+    {showHeader && (
+  <ConversationsHeader
+    aiDefault={aiDefault}
+    showArchived={showArchived}
+    status={status}
+    q={q}
+    onResetInbox={resetInbox}
+    onNewTestChat={newTestChat}
+    onToggleAiDefault={toggleAiDefault}
+    onToggleArchived={() => setShowArchived((v) => !v)}
+    onStatusChange={setStatus}
+    onQueryChange={setQ}
+  />
+)}
+    <div className="cx-grid">
+      <ConversationList
+        items={filtered}
+        selectedId={selectedId}
+        onSelect={selectConversation}
+        fmtTime={fmtTime}
+        roleLabel={roleLabel}
+        hidden={listHidden}
+      />
 
-          <select className="db-btn" value={status} onChange={(e) => setStatus(e.target.value as any)}>
-            <option value="all">All</option>
-            <option value="open">Open</option>
-            <option value="waiting">Waiting</option>
-            <option value="closed">Closed</option>
-          </select>
-
-          <input
-            className="db-btn"
-            style={{ minWidth: 220 }}
-            placeholder="Search (name, subject, tag)…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="cx-grid">
-        <div className={['db-card cx-list cx-pane', listHidden ? 'is-hidden' : ''].filter(Boolean).join(' ')}>
-          {filtered.map((c) => {
-            const active = c.id === selectedId;
-            return (
-              <button
-                key={c.id}
-                onClick={() => selectConversation(c.id)}
-                className={['cx-item', active ? 'active' : ''].filter(Boolean).join(' ')}
-              >
-                <div className="cx-row">
-                  <div className="cx-customer">{c.customerName}</div>
-                  <div className="cx-time">{fmtTime(c.lastMessageAt)}</div>
-                </div>
-
-                <div className="cx-subject">{c.subject}</div>
-
-                <div className="cx-tags">
-                  <span className="db-pill">{c.status}</span>
-                  <span className="db-pill">{c.channel}</span>
-                  <span className="db-pill">{c.aiEnabled ? 'AI' : 'Human'}</span>
-                  {c.tags.slice(0, 2).map((t) => (
-                    <span className="db-pill" key={t}>{t}</span>
-                  ))}
-                </div>
-
-                <div className="cx-preview">
-                  {c.preview ? `${roleLabel(c.preview.role)}: ${c.preview.content.slice(0, 70)}` : 'No messages yet'}
-                </div>
-              </button>
-            );
-          })}
-
-          {!filtered.length && (
-            <div style={{ padding: 12, fontSize: 13, opacity: 0.7 }}>No conversations yet. Click “Reset inbox”.</div>
-          )}
-        </div>
-
-        <div className={['db-card cx-pane', threadHidden ? 'is-hidden' : ''].filter(Boolean).join(' ')} style={{ padding: 14 }}>
-
-          {!thread ? (
-            <div style={{ opacity: 0.7 }}>Select a conversation.</div>
-          ) : (
-            <>
-              <div className="cx-topRow">
-                <div>
-                  <div className="cx-threadName">{thread.customerName}</div>
-                  <div className="cx-threadSubject">{thread.subject}</div>
-                  <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span className="db-pill">{thread.status}</span>
-                    <span className="db-pill">{thread.channel}</span>
-                    <span className="db-pill">Staff: {STAFF_NAME}</span>
-                    <span className="db-pill">Bot: {STORE_ASSISTANT_NAME}</span>
-                    <span className="db-pill">{thread.aiEnabled ? 'AI enabled' : 'Human takeover'}</span>
-                    <span className="db-pill">Updated {fmtTime(thread.lastMessageAt)}</span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {isMobile && (
-                    <button className="db-btn cx-backBtn" onClick={() => setPane('list')}>
-                      ← Inbox
-                    </button>
-                  )}
-
-                  {thread.aiEnabled ? (
-                    <button className="db-btn" onClick={takeOverThisChat} title="Disable AI for this conversation only">
-                      Take over (this chat)
-                    </button>
-                  ) : (
-                    <button className="db-btn" onClick={resumeAiThisChat} title="Enable AI for this conversation only">
-                      Resume AI (this chat)
-                    </button>
-                  )}
-
-                  <button className="db-btn" onClick={generateDraft} title="Create a suggested reply as an internal note (not sent)">
-                    Generate draft
-                  </button>
-
-                  <button className="db-btn" onClick={addInternalNote}>Add note</button>
-                  {thread.status !== 'closed' ? (
-                    <button className="db-btn" onClick={() => setConvStatus('closed')}>Close</button>
-                  ) : (
-                    <button className="db-btn" onClick={() => setConvStatus('open')}>Reopen</button>
-                  )}
-                  <button className="db-btn" onClick={() => setConvStatus('waiting')}>Mark waiting</button>
-
-                {thread.archivedAt ? (
-                    <button className="db-btn" onClick={restoreThisChat}>Restore</button>
-                  ) : (
-                    <button className="db-btn" onClick={archiveThisChat}>Archive</button>
-                  )}
-                </div>
-              </div>
-
-              <div className="cx-tagRow">
-                {thread.tags.map((t) => (
-                  <span className="cx-chip" key={t}>
-                    {t}
-                    <button onClick={() => removeTag(t)} aria-label={`Remove tag ${t}`}>×</button>
-                  </span>
-                ))}
-
-                <input
-                  className="cx-tagInput"
-                  value={tagDraft}
-                  onChange={(e) => setTagDraft(e.target.value)}
-                  placeholder="Add tag…"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                />
-                <button className="db-btn" onClick={addTag}>Add</button>
-              </div>
-
-              <div style={{ marginTop: 12, borderTop: '1px solid #eef2f7', paddingTop: 12 }}>
-                <div className="cx-msgList">
-                  {thread.messages.map((m) => {
-                    const showInsert = m.role === 'note' && isDraftNote(m.content);
-                    return (
-                      <div key={m.id} style={{ display: 'grid', gap: 6 }}>
-                        <div className="cx-msgMeta">
-                          <strong>{roleLabel(m.role)}</strong> · {fmtTime(m.createdAt)}
-                        </div>
-
-                        <div
-                          className={[
-                            'cx-bubble',
-                            m.role === 'staff' ? 'agent' : '',
-                            m.role === 'note' ? 'note' : '',
-                          ].filter(Boolean).join(' ')}
-                        >
-                          <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
-
-                          {showInsert && (
-                            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-                              <button className="db-btn" onClick={() => insertDraftIntoReply(m.content)}>
-                                Insert draft
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="cx-replyBox">
-                  <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                    Reply as Staff {STAFF_NAME}
-                  </div>
-
-                  <textarea
-                    ref={replyRef}
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    rows={3}
-                    placeholder="Type your reply…"
-                    className="cx-textarea"
-                  />
-                  <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-                    <button className="db-btn primary" onClick={sendStaffReply}>Send</button>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
-                  Drafts appear as <strong>Internal note</strong>. Use <strong>Insert draft</strong> to load it into the reply box.
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <ConversationThread
+        thread={thread}
+        hidden={threadHidden}
+        isMobile={isMobile}
+        onBackToList={() => setPane('list')}
+        staffName={STAFF_NAME}
+        assistantName={STORE_ASSISTANT_NAME}
+        fmtTime={fmtTime}
+        roleLabel={roleLabel}
+        isDraftNote={isDraftNote}
+        onTakeOver={takeOverThisChat}
+        onResumeAi={resumeAiThisChat}
+        onGenerateDraft={generateDraft}
+        onAddNote={addInternalNote}
+        onClose={() => setConvStatus('closed')}
+        onReopen={() => setConvStatus('open')}
+        onMarkWaiting={() => setConvStatus('waiting')}
+        onArchive={archiveThisChat}
+        onRestore={restoreThisChat}
+        tagDraft={tagDraft}
+        onTagDraftChange={setTagDraft}
+        onAddTag={addTag}
+        onRemoveTag={removeTag}
+        onInsertDraft={insertDraftIntoReply}
+        draft={draft}
+        onDraftChange={setDraft}
+        onSendReply={sendStaffReply}
+        replyRef={replyRef}
+      />
     </div>
-  );
+  </div>
+);
 }

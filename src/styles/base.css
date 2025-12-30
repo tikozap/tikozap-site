@@ -33,6 +33,15 @@
   .card { background:#0f172a; border-color:#1f2937; }
 }
 
+/* === Global layout width – nav + dashboard share this === */
+
+/* Global container width – nav + main pages */
+.container,
+.container-xl {
+  width: min(100% - 2rem, 1040px); /* same width everywhere */
+  margin-inline: auto;             /* center content */
+}
+
 /* === Global page hero (shared across Features, Pricing, Docs, Auth, Dashboard) === */
 
 .page-hero {
@@ -127,8 +136,6 @@ hr{border:none; border-top:1px solid #e5e7eb; margin:2rem 0}
 
 /* 4) Layout primitives */
 
-.container{width:min(100% - 2rem,var(--max)); margin-inline:auto}
-
 .stack > * + *{margin-top:var(--gap)}
 .cluster{display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center}
 .grid{display:grid; gap:var(--gap); grid-template-columns:1fr}
@@ -209,9 +216,7 @@ p{margin:0 0 1em}
   }
 }
 
-
 /* === Layout primitives: widths & stacks === */
-.container-xl { width: min(100% - 2rem, 1280px); margin-inline: auto; }
 
 .stack--sm > * + * { margin-top: .5rem; }
 .stack--lg > * + * { margin-top: 1.5rem; }
@@ -279,9 +284,16 @@ svg[role="img"] { shape-rendering: geometricPrecision; text-rendering: optimizeL
 }
 
 .nav__inner{
-  display: flex; align-items: center; justify-content: space-between;
+  /* New: narrow & center the nav content */
+  width: min(100% - 2rem, 1120px);  /* tweak 1080–1160 to taste */
+  margin-inline: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: .75rem 0;
 }
+
 .nav__brand{
   font-weight: 700; font-size: var(--step-1);
   color: var(--fg); text-decoration: none;
@@ -420,6 +432,11 @@ a.nav__brand .nav__logo-text {
   .footer .cols {
     grid-template-columns: 2fr 1fr 1fr 1fr; /* brand | 3 link columns */
   }
+}
+
+/* Hide marketing footer on dashboard pages (any page that uses .db-wrap) */
+body:has(.db-wrap) .footer {
+  display: none;
 }
 
 /* === TikoZap navy footer variant === */

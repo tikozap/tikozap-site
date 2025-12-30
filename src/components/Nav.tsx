@@ -135,9 +135,10 @@ export default function Nav() {
         }
 
         /* Keep content from hiding behind fixed nav */
-        :global(main) {
-          padding-top: 4.5rem; /* space for taller nav */
-        }
+
+          :global(.marketing-main) {
+          padding-top: 4.5rem;
+         }
 
         /* Remove bottom border line */
         .nav {

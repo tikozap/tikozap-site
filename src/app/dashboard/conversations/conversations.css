@@ -1,137 +1,750 @@
-.cx-grid{ display:grid; grid-template-columns:360px 1fr; gap:12px; align-items:start; }
-.cx-list{ padding:10px; }
+/* =========================
+   Conversations (clean)
+   ========================= */
+
+:root{
+  --cx-ctrl-h: 26px;
+  --cx-text: #111827;
+  --cx-muted: #6B7280;
+  --cx-border: #d1d5db;
+
+  /* list width behaves like iPad Notes: narrow & stable */
+  --cx-list-w: clamp(260px, 28vw, 360px);
+}
+
+/* ===== Header + toolbar ===== */
+
+/* top: title + subtitle + search */
+.cx-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cx-headerTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cx-headerMain { min-width: 0; }
+
+/* keep using your existing db-title / db-sub styles */
+
+.cx-searchWrap {
+  min-width: 220px;
+  max-width: 320px;
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cx-searchInput{
+  width:100%;
+  height: var(--cx-ctrl-h);
+  border-radius:999px;
+  border:1px solid var(--cx-border);
+  padding: 0 12px;
+  font-size:11px;
+  color: var(--cx-text);
+  background:#fff;
+}
+
+/* second row: controls */
+.cx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cx-toolbarLeft,
+.cx-toolbarRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cx-filter,
+.cx-archived { font-size: 13px; }
+
+/* Toolbar compact button */
+.db-btn--sm{
+  height: var(--cx-ctrl-h);
+  min-height:0;
+  padding: 0 10px;
+  font-size:11px;
+  border-radius:999px;
+  color: var(--cx-text);
+  font-weight:600;
+  line-height:1;
+}
+
+/* =========================
+   Main grid layout
+   ========================= */
+
+/* Page wrapper so header + grid fill the available db-main height */
+.cx-page{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main grid: fill remaining space (no vh math) */
+.cx-workspace{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-grid{
+  flex: 1;
+  min-height: 0;
+  height: auto;     /* important */
+
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+
+  align-items: stretch;
+  overflow: hidden;
+  color: var(--cx-text);
+}
+
+.cx-grid > .cx-pane{ min-height:0; }
+
+@media (max-width:760px){
+  .cx-grid{ grid-template-columns: 1fr; }
+}
+
+/* panes must be allowed to shrink for scrolling to work */
+.cx-pane,
+.cx-listPane,
+.cx-threadPane,
+.cx-thread,
+.cx-messages{
+  min-height: 0;
+}
+
+.cx-pane{ min-width:0; }
+.cx-pane.is-hidden{ display:none !important; }
+
+.cx-listPane,
+.cx-threadPane{
+  height:100%;
+}
+
+/* =========================
+   Left pane – inbox list
+   ========================= */
+
+.cx-listPane{
+  min-height: 0;
+  display:flex;
+  flex-direction:column;
+  overflow: hidden;
+}
+
+.cx-list{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+
 .cx-item{
   width:100%;
   text-align:left;
   border:1px solid transparent;
   background:transparent;
   border-radius:14px;
-  padding:12px;
+  padding:10px;
   cursor:pointer;
-  color:#111827;           /* IMPORTANT: don’t inherit global button color */
+  color:#111827;
+  display:grid;
+  gap:6px;
 }
+
 .cx-item:hover{ background:#f8fafc; }
 .cx-item.active{ background:#f8fafc; border-color:#d1d5db; }
 
-.cx-row{ display:flex; justify-content:space-between; gap:10px; }
-.cx-customer{ font-weight:800; font-size:13px; }
-.cx-time{ font-size:12px; opacity:.7; }
-.cx-subject{ margin-top:4px; font-size:13px; opacity:.85; }
-.cx-tags{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
-.cx-preview{ margin-top:8px; font-size:12px; opacity:.75; }
-
-.cx-threadTop{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.cx-threadName{ font-weight:900; font-size:14px; }
-.cx-threadSubject{ margin-top:2px; opacity:.8; font-size:13px; }
-
-.cx-msgList{ display:grid; gap:10px; }
-.cx-msgMeta{ font-size:12px; opacity:.7; }
-.cx-bubble{
-  border:1px solid #e5e7eb;
-  background:#fff;
-  color:#111827;
-  border-radius:14px;
-  padding:12px;
-  font-size:13px;
-  line-height:1.45;
+/* FIX: inbox items squeezed by global button height */
+button.cx-item,
+.cx-item{
+  height:auto !important;
+  min-height:unset !important;
+  display:grid !important;
+  overflow:visible !important;
+  line-height:1.25;
 }
-.cx-bubble.agent{
-  background:#111827;
-  border-color:#111827;
-  color:#fff;
+button.cx-item *{ line-height:1.25; }
+
+.cx-headRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  column-gap:8px;
+  align-items:center;
+  font-size:12px;
 }
 
-.cx-replyBox{ margin-top:14px; border-top:1px solid #eef2f7; padding-top:12px; }
-.cx-textarea{
-  width:100%;
-  border-radius:14px;
-  border:1px solid #d1d5db;
-  padding:12px;
-  font-size:13px;
-  resize:vertical;
-  color:#111827;
-  background:#fff;
+.cx-customer{ font-weight:700; font-size:13px; }
+
+.cx-time{
+  font-size:11px;
+  color: var(--cx-muted);
+  justify-self:end;
 }
 
-@media (max-width:1000px){ .cx-grid{ grid-template-columns:1fr; } }
+.cx-status{
+  font-size:11px;
+  color: var(--cx-muted);
+  justify-self:end;
+}
 
-.cx-tagRow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.cx-chip{
+.cx-bodyRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  column-gap:8px;
+  align-items:flex-start;
+}
+
+.cx-mainCol{ min-width:0; }
+
+.cx-subject{ margin-top:2px; font-size:13px; opacity:.9; }
+
+.cx-preview{
+  margin-top:4px;
+  font-size:12px;
+  color: var(--cx-muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.cx-sideCol{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-end;
+  font-size:11px;
+}
+
+.cx-sideCol .db-pill{
+  font-size:11px;
+  padding:2px 8px;
+}
+
+/* =========================
+   Shared pills + buttons
+   ========================= */
+
+.cx-pill{
   display:inline-flex;
   align-items:center;
-  gap:6px;
-  padding:4px 10px;
+  height: var(--cx-ctrl-h);
+  padding: 0 10px;
   border-radius:999px;
   border:1px solid #e5e7eb;
-  background:#fff;
-  font-size:12px;
-  color:#111827;
-}
-.cx-chip button{
-  border:none;
-  background:transparent;
-  cursor:pointer;
-  font-size:14px;
+  background:#f9fafb;
+  font-size:11px;
   line-height:1;
-  opacity:.7;
-  color:inherit;
+  white-space:nowrap;
 }
-.cx-chip button:hover{ opacity:1; }
 
-.cx-tagInput{
-  border:1px solid #d1d5db;
+.cx-emptyList{ font-size:12px; color: var(--cx-muted); }
+
+.cx-btn-small,
+.cx-threadHeaderActions button,
+.cx-tagEditor button,
+.cx-draftActions button,
+.cx-replyTopActions button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: var(--cx-ctrl-h);
+  padding: 0 10px;
   border-radius:999px;
-  padding:6px 10px;
-  font-size:12px;
-  color:#111827;
+  border:1px solid var(--cx-border);
   background:#fff;
-  min-width: 160px;
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  color: var(--cx-text);
+  font-weight:600;
 }
 
-.cx-bubble.note{
-  background:#f8fafc;
-  border-color:#e5e7eb;
-  color:#111827;
+.cx-btn-small:hover{ background:#f3f4f6; }
+
+/* Primary button base */
+.cx-btn-primary{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:32px;
+  padding:6px 16px;
+  border-radius:999px;
+  border:none;
+  background:#111827;
+  color:#fff;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+}
+.cx-btn-primary:hover{ background:#030712; }
+
+/* Select styling */
+.cx-statusSelect{
+  height: var(--cx-ctrl-h);
+  border:1px solid var(--cx-border);
+  border-radius:999px;
+  background:#fff;
+  padding: 0 28px 0 12px;
+  color: var(--cx-text);
+  font-size:11px;
+  line-height:1;
 }
 
-/* Mobile pane switching */
-.cx-pane { min-width: 0; }
-.cx-pane.is-hidden { display: none; }
+/* =========================
+   Right pane – thread
+   ========================= */
 
-.cx-topRow{
+.cx-threadPane{
+  padding:12px 16px;
+  height:100%;
+  overflow:hidden;      /* pane does NOT scroll */
+  display:flex;
+  flex-direction:column;
+}
+
+.cx-thread{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  max-width:none;       /* let it use the whole column */
+  margin:0;
+}
+
+/* Sticky header (layout) */
+.cx-threadHeader{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#f9fafb;
+  border-bottom:1px solid #eef2f7;
+  padding-bottom:8px;
+  margin-bottom:6px;
+
+  display:grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap:12px;
+  row-gap:6px;
+  align-items:start;
+}
+
+.cx-threadHeaderMain{ min-width:0; }
+
+.cx-threadTitleRow{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:10px;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+
+.cx-threadTitlePills{
+  display:flex;
+  gap:6px;
   flex-wrap:wrap;
 }
 
-.cx-backBtn{
-  display:inline-flex;
-  align-items:center;
+.cx-threadSubject{ margin-top:2px; font-size:13px; opacity:.85; }
+
+.cx-threadMetaRow{
+  margin-top:6px;
+  display:flex;
+  flex-wrap:wrap;
   gap:6px;
 }
 
-/* Canned replies row */
-.cx-cannedRow{
-  margin-top:10px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:space-between;
+.cx-threadCustomer{ font-size:14px; font-weight:400; }
+.cx-threadName{ font-weight: 800; }
+.cx-threadRest{ font-weight: 200; font-size: 12px; opacity: .85; }
+
+/* Header actions: 2x2 grid */
+.cx-threadHeaderActions{
+  display: grid;
+  grid-template-columns: max-content max-content;
+  grid-template-rows: auto auto;
+  gap: 6px;
+  justify-content: end;
+  align-items: center;
 }
 
-.cx-cannedSelect{
-  border:1px solid #d1d5db;
-  border-radius:14px;
+/* Row 1: Add note | dropdown */
+.cx-threadHeaderActions button:first-of-type{ grid-column: 1; grid-row: 1; }
+.cx-threadHeaderActions .cx-statusSelect{ grid-column: 2; grid-row: 1; }
+
+/* Row 2: AI pill | Archive/Restore */
+.cx-threadHeaderActions .cx-aiPill{ grid-column: 1; grid-row: 2; }
+.cx-threadHeaderActions button:last-of-type{ grid-column: 2; grid-row: 2; }
+
+.cx-threadHeader .cx-pill{
+  font-size: 11px;
+  font-weight: 600;
+  border-color: var(--cx-border);
+  background: #fff;
+  color: var(--cx-text);
+  opacity: 1;
+}
+
+.cx-threadHeader .cx-pill-muted{
+  color: var(--cx-muted);
+  opacity: 1;
+}
+
+/* Tags row hidden (as you chose) */
+.cx-tagRow{ display:none; }
+
+/* =========================
+   Messages (THIS is the scroller)
+   ========================= */
+
+.cx-messages{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  display:grid;
+  gap:10px;
+  padding-top:4px;
+  padding-bottom:12px;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+.cx-messageBlock{ display:grid; gap:4px; }
+
+.cx-msgMeta{
+  font-size:11px;
+  color: var(--cx-muted);
+}
+
+.cx-msgAuthor{ font-weight:600; }
+
+.cx-msgBubble{
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#fff;
   padding:10px 12px;
   font-size:13px;
-  background:#fff;
+  line-height:1.45;
   color:#111827;
-  min-width: 240px;
 }
 
-@media (max-width: 1000px){
-  .cx-cannedSelect{ min-width: 100%; }
+.cx-msgBubble.is-staff{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
 }
+
+.cx-msgBubble.is-note{
+  background:#f9fafb;
+  border-style:dashed;
+}
+
+.cx-msgText{ white-space:pre-wrap; }
+
+.cx-draftActions{
+  margin-top:8px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+.cx-emptyThread{ font-size:13px; color: var(--cx-muted); }
+
+/* =========================
+   Reply composer (always visible)
+   ========================= */
+
+.cx-replyBox{
+  flex: 0 0 auto;
+  margin-top:0;
+  border-top:1px solid #eef2f7;
+  padding-top:10px;
+  padding-bottom:10px;
+  background:#fff;
+
+  position: relative;   /* so .cx-replyActions can absolutely position */
+}
+
+.cx-replyTopRow{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.cx-replyLabel{
+  font-size:12px;
+  color: var(--cx-muted);
+}
+
+.cx-replyTopActions button{
+  height: var(--cx-ctrl-h);
+  font-size:11px;
+  padding: 0 10px;
+}
+
+/* textarea sizing + room for Send circle */
+.cx-textarea{
+  width:100%;
+  min-height:56px;
+  max-height:140px;
+
+  padding: 10px 54px 10px 10px; /* room for the send circle */
+  border-radius:10px;
+  border:1px solid var(--cx-border);
+  font-size:12px;
+  color:#111827;
+  background:#fff;
+  box-sizing:border-box;
+
+  resize: none;
+  overflow:auto;
+}
+
+/* ChatGPT-style Send button (dark circle + centered ↑) */
+.cx-replyActions{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  margin:0;
+  display:block;
+}
+
+.cx-replyActions .cx-btn-primary{
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+
+  background: #111827 !important;
+  border: 1px solid #111827 !important;
+
+  display: grid !important;
+  place-items: center !important;
+
+  /* hide "Send" text visually */
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+
+.cx-replyActions .cx-btn-primary::before{
+  content: "↑";
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.cx-replyActions .cx-btn-primary:hover{ opacity: .92; }
+.cx-replyActions .cx-btn-primary:active{ transform: translateY(1px); }
+
+.cx-replyHint { display:none; }
+
+/* Hard-lock header control sizing (prevents global styles from making them tall) */
+.cx-threadHeaderActions button,
+.cx-threadHeaderActions select,
+.cx-threadHeaderActions .cx-statusSelect,
+.cx-threadHeaderActions .cx-pill{
+  height: 26px !important;
+  min-height: 0 !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+/* Dashboard-only: stop global base.css button sizing from inflating controls */
+.db-wrap .cx-btn-small,
+.db-wrap .cx-btn-primary{
+  min-height: 0 !important;
+}
+
+/* =========================
+   Responsive
+   ========================= */
+
+/* match your JS breakpoint: matchMedia('(max-width: 900px)') */
+@media (max-width: 900px){
+  .cx-grid{ grid-template-columns: 1fr !important; }
+  .cx-threadPane{ padding-top:10px; }
+  .cx-toolbarRight{ justify-content:flex-start; }
+
+  /* thread should take full width on mobile */
+  .cx-threadPane,
+  .cx-thread{
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width:760px){
+  .cx-searchWrap{
+    max-width: none;
+    justify-content: stretch;
+  }
+}
+
+/* =========================================================
+   OVERRIDES (paste at END) — compact header + flex layout
+   ========================================================= */
+
+/* Make the whole Conversations page fill db-main height (no vh math) */
+.cx-page{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header: single-row feel (title + sub inline) */
+.cx-header{ margin-bottom: 8px; }
+.cx-headerTop{
+  align-items: center;
+  gap: 10px;
+}
+
+/* Put title + sub on ONE line */
+.cx-headerMain{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Smaller title to match sidebar/store-name “weight” */
+.cx-header .db-title{
+  margin: 0;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+/* Inline subheading (tiny, truncates, hides on narrower screens) */
+.cx-header .db-sub{
+  margin: 0;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--cx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 520px;
+}
+
+@media (max-width: 1100px){
+  .cx-header .db-sub{ display: none; }
+}
+
+/* Search stays on the same row, right aligned */
+.cx-searchWrap{
+  max-width: 280px;
+  min-width: 220px;
+}
+
+/* =========================================================
+   2) FIX: inbox list not scrolling (remove vh calc layout)
+   ========================================================= */
+
+/* Grid should take remaining height under header */
+.cx-grid{
+  flex: 1;
+  min-height: 0;
+  height: auto !important;       /* kill calc(100vh - ...) */
+  max-height: none !important;
+}
+
+/* Ensure panes can shrink so inner scrollers work */
+.cx-listPane,
+.cx-threadPane,
+.cx-thread,
+.cx-messages{
+  min-height: 0;
+}
+
+/* Ensure list is the scroll container */
+.cx-list{
+  overflow-y: auto !important;
+}
+
+/* Reply composer: anchor absolute send button correctly */
+.cx-replyBox{
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+padding-bottom: 0px; /* increase/decrease: try 8–14px */
+}
+
+/* Send button positioned inside textarea */
+.cx-replyActions{
+  position:absolute;
+  right:12px;
+  bottom:12px;          /* sits nicely inside the typing area */
+  margin:0;
+}
+
+/* Perfect circle + true centering */
+.cx-replyActions .cx-btn-primary{
+  min-height: 0 !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+
+  display: grid !important;
+  place-items: center !important;
+
+  font-size: 0 !important;    /* hide "Send" text */
+  line-height: 0 !important;
+  color: #fff !important;     /* arrow color */
+}
+
+/* Single arrow glyph (no split parts) */
+.cx-replyActions .cx-btn-primary::before{
+  content: "↑";
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+
+  /* center tweak */
+  transform: translateY(8px); /* was -1px */
+}
+
+
+/* Kill any old arrow-head rules */
+.cx-replyActions .cx-btn-primary::after{
+  content: none !important;
+}
+
+/* Make room so typing never goes under the button */
+.cx-textarea{
+  padding-right: 52px;
+  padding-bottom: 6px;
+  margin-bottom: 0px; /* try 6–12px */
+}
+

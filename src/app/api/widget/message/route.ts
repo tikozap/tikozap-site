@@ -6,10 +6,14 @@ export const runtime = 'nodejs';
 
 function assistantAutoReply(customerText: string) {
   const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
+  if (t.includes('return'))
+    return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
+  if (t.includes('ship') || t.includes('delivery'))
+    return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
+  if (t.includes('order') || t.includes('tracking'))
+    return 'I can help—please share your order number and the email used at checkout so I can check the status.';
+  if (t.includes('xl') || t.includes('size'))
+    return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
   return 'Got it. Can you share a little more detail so I can help faster?';
 }
 
@@ -18,51 +22,81 @@ export async function POST(req: Request) {
     const body: any = await req.json().catch(() => ({}));
 
     const text = (body?.text || '').toString().trim();
-    if (!text) return NextResponse.json({ ok: false, error: 'Missing text' }, { status: 400 });
+    if (!text) {
+      return NextResponse.json(
+        { ok: false, error: 'Missing text' },
+        { status: 400 }
+      );
+    }
 
-    // Preferred: if the user is logged into the dashboard, use authed tenant.
+    // Preferred: if logged into dashboard, use authed tenant
     const auth = await getAuthedUserAndTenant().catch(() => null as any);
 
-    // Fallback (demo): allow a tenantSlug, resolve tenant by slug.
+    // Fallback (demo): allow tenantSlug, resolve tenant by slug
     const tenantSlug = (body?.tenantSlug || '').toString().trim();
 
-    let tenantId: string | null = auth?.tenant?.id ?? null;
+    // ✅ IMPORTANT: never use null here (Prisma types reject null)
+    let tenantId: string | undefined = auth?.tenant?.id ?? undefined;
 
     if (!tenantId) {
-      if (!tenantSlug) return NextResponse.json({ ok: false, error: 'Missing tenantSlug' }, { status: 400 });
+      if (!tenantSlug) {
+        return NextResponse.json(
+          { ok: false, error: 'Missing tenantSlug' },
+          { status: 400 }
+        );
+      }
 
       // tolerate model casing
       const p: any = prisma as any;
       const tenantModel =
-        p.tenant ?? p.Tenant ??
-        p.workspace ?? p.Workspace ??
-        p.merchant ?? p.Merchant;
+        p.tenant ??
+        p.Tenant ??
+        p.workspace ??
+        p.Workspace ??
+        p.merchant ??
+        p.Merchant;
 
       if (!tenantModel?.findUnique) {
-        return NextResponse.json({ ok: false, error: 'No tenant model found in Prisma client.' }, { status: 500 });
+        return NextResponse.json(
+          { ok: false, error: 'No tenant model found in Prisma client.' },
+          { status: 500 }
+        );
       }
 
       const tenant = await tenantModel.findUnique({ where: { slug: tenantSlug } });
       if (!tenant?.id) {
-        return NextResponse.json({ ok: false, error: 'Tenant not found for tenantSlug.' }, { status: 404 });
+        return NextResponse.json(
+          { ok: false, error: 'Tenant not found for tenantSlug.' },
+          { status: 404 }
+        );
       }
-      tenantId = tenant.id;
+
+      tenantId = tenant.id as string;
     }
 
-    const customerName = (body?.customerName || 'Sophia').toString().trim() || 'Sophia';
+    // ✅ After this point, tenantId is guaranteed string
+    if (!tenantId) {
+      return NextResponse.json(
+        { ok: false, error: 'Missing tenantId' },
+        { status: 400 }
+      );
+    }
+
+    const customerName =
+      (body?.customerName || 'Sophia').toString().trim() || 'Sophia';
     const channel = (body?.channel || 'web').toString().trim() || 'web';
-    const subject = (body?.subject || 'Widget test').toString().trim() || 'Widget test';
+    const subject =
+      (body?.subject || 'Widget test').toString().trim() || 'Widget test';
     const aiEnabled = body?.aiEnabled === false ? false : true;
 
-    
     let allowAi = aiEnabled;
-let conversationId = (body?.conversationId || '').toString().trim();
+    let conversationId = (body?.conversationId || '').toString().trim();
 
     // Create new conversation if needed
     if (!conversationId) {
       const convo = await prisma.conversation.create({
         data: {
-          tenantId,
+          tenantId, // ✅ string (not null)
           customerName,
           subject,
           status: aiEnabled ? 'open' : 'waiting',
@@ -85,16 +119,15 @@ let conversationId = (body?.conversationId || '').toString().trim();
       },
     });
 
-    // Optional assistant auto-reply (keeps test UX snappy)
-    // Authority rule: DB decides whether AI can reply for THIS conversation.
+    // Authority rule: DB decides if AI can reply for THIS conversation.
     // If staff clicked Take over => conversation.aiEnabled=false => do NOT auto-reply.
     try {
       const existing = await prisma.conversation.findUnique({
         where: { id: conversationId },
         select: { aiEnabled: true },
       });
-      if (typeof existing?.aiEnabled === "boolean") allowAi = existing.aiEnabled;
-    } catch (e) {}
+      if (typeof existing?.aiEnabled === 'boolean') allowAi = existing.aiEnabled;
+    } catch {}
 
     if (allowAi) {
       await prisma.message.create({

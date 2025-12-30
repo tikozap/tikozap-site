@@ -1,4 +1,4 @@
-import HowItWorksOptionB from "../../components/HowItWorksOptionB";
+import HowItWorksOptionB from '@/components/HowItWorksOptionB';
 
 export default function Page() {
   return (

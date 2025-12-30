@@ -1,6 +1,6 @@
 'use client';
 
-import HowItWorksGraphic from '../components/HowItWorksGraphic';
+import HowItWorksGraphic from '@/components/HowItWorksGraphic';
 import SafetyShields from '@/components/SafetyShields';
 
 export default function Page() {

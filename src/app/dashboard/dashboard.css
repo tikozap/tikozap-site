@@ -1,28 +1,66 @@
+/* =========================================================
+   dashboard.css — Standalone workstation (supports db-topbar/db-body drawer)
+   ========================================================= */
+
+:root{
+  --db-gap: 12px;
+  --db-bg: #f3f4f6;
+  --db-card: #ffffff;
+  --db-border: #e5e7eb;
+  --db-text: #111827;
+  --db-muted: #6b7280;
+  --db-radius: 16px;
+
+  /* desktop column widths */
+  --db-sidebar-w: clamp(220px, 18vw, 280px);
+  --db-inbox-w: clamp(280px, 26vw, 360px);
+}
+
+/* full viewport workstation */
 .db-wrap{
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: calc(2.25rem + 72px) 1.25rem 2.5rem;
+  height: 100dvh;
+  padding: var(--db-gap);
+  background: var(--db-bg);
+  overflow: hidden; /* no page scrolling */
 }
 
+/* Outer shell (topbar + body) */
 .db-shell{
+  height: calc(100dvh - (var(--db-gap) * 2));
+  min-height: 0;
+  position: relative;
+}
+
+/* Hide mobile topbar on desktop (prevents the big blue bar) */
+.db-topbar{ display: none; }
+.db-scrim{ display: none; }
+
+/* Body holds sidebar + main (desktop) */
+.db-body{
+  height: 100%;
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: var(--db-sidebar-w) minmax(0, 1fr);
+  gap: var(--db-gap);
+  min-height: 0;
 }
 
+/* Card base */
 .db-card{
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #111827;
-  border-radius: 16px;
+  border: 1px solid var(--db-border);
+  background: var(--db-card);
+  color: var(--db-text);
+  border-radius: var(--db-radius);
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  min-height: 0;
 }
 
+/* Sidebar */
 .db-sidebar{
   padding: 14px;
-  position: sticky;
-  top: 88px;
+  position: static;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .db-brand{
@@ -35,16 +73,8 @@
   margin-bottom: 10px;
 }
 
-.db-ws{
-  font-weight: 800;
-  font-size: 14px;
-}
-
-.db-meta{
-  font-size: 12px;
-  opacity: .75;
-  margin-top: 2px;
-}
+.db-ws{ font-weight: 800; font-size: 14px; }
+.db-meta{ font-size: 12px; color: var(--db-muted); margin-top: 2px; }
 
 .db-nav{
   list-style: none;
@@ -69,46 +99,20 @@
 .db-link:hover{ background: #f8fafc; }
 .db-link.active{ background: #f8fafc; border-color: #d1d5db; }
 
-.db-pill{
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  opacity: .85;
+/* You hide this currently */
+.db-pill{ display: none; }
+
+/* Sidebar footer */
+.db-sidebar-footer{ margin-top: auto; }
+
+.db-sidebar-note{
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--db-muted);
+  line-height: 1.35;
 }
 
-.db-main{
-  padding: 18px;
-}
-
-.db-top{
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.db-title{
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.15;
-  font-weight: 800;
-}
-
-.db-sub{
-  margin: 6px 0 0;
-  opacity: .8;
-  font-size: 13px;
-}
-
-.db-actions{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
+/* Buttons (override global blue marketing button) */
 .db-btn{
   border-radius: 14px;
   padding: 10px 12px;
@@ -117,42 +121,272 @@
   color: #111827;
   cursor: pointer;
   font-size: 13px;
+  min-height: auto; /* override global */
 }
 
 .db-btn:hover{ background: #f8fafc; }
 
-.db-btn.primary{
-  background: #111827;
-  border-color: #111827;
-  color: #fff;
+.db-main{
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.db-btn.primary:hover{ opacity: .92; }
-
+/* Overview grids (if used) */
 .db-grid{
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-
-.db-tile{
-  padding: 14px;
-}
-
-.db-tile h3{
-  margin: 0;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.db-tile p{
-  margin: 6px 0 0;
-  font-size: 13px;
-  opacity: .8;
-}
-
 @media (max-width: 900px){
-  .db-shell{ grid-template-columns: 1fr; }
-  .db-sidebar{ position: static; }
   .db-grid{ grid-template-columns: 1fr; }
+}
+
+/* Conversations: keep inbox + thread side-by-side on desktop */
+.db-main .cx-grid{
+  height: 100%;
+  grid-template-columns: var(--db-inbox-w) minmax(0, 1fr);
+}
+
+/* =========================
+   Mobile: topbar + drawer
+   ========================= */
+@media (max-width: 760px){
+  .db-body{
+    grid-template-columns: 1fr;
+  }
+
+  /* show topbar */
+  .db-topbar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: var(--db-gap);
+    border: 1px solid var(--db-border);
+    border-radius: var(--db-radius);
+    background: #fff;
+  }
+
+  .db-topbarTitle{
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--db-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+.db-iconBtn{
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+
+  display: grid;
+  place-items: center;
+
+  /* ✅ Force the arrow to be visible even if global styles set button text white */
+  color: var(--db-text) !important;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+
+  /* override global */
+  min-height: auto;
+}
+
+.db-iconBtn:hover{ background:#f8fafc; }
+
+
+  .db-topbarSpacer{
+    width: 40px;
+    height: 36px;
+  }
+
+  /* drawer behavior */
+  .db-sidebar{
+    position: fixed;
+    top: calc(var(--db-gap) + 58px); /* below topbar */
+    left: var(--db-gap);
+    right: auto;
+    width: min(86vw, 320px);
+    height: calc(100dvh - (var(--db-gap) * 2) - 58px);
+    z-index: 50;
+    transform: translateX(calc(-100% - 16px));
+    transition: transform .18s ease;
+  }
+
+  .db-scrim{
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.25);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 40;
+    border: 0;
+    padding: 0;
+    min-height: auto; /* override global */
+  }
+
+  .db-shell.is-navOpen .db-sidebar{
+    transform: translateX(0);
+  }
+  .db-shell.is-navOpen .db-scrim{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* on phones, stack inbox/thread (your current behavior) */
+  .db-main{
+    padding: 14px;
+  }
+  .db-main .cx-grid{
+    grid-template-columns: 1fr;
+  }
+.db-main > .cx-grid{
+  flex: 1;
+  min-height: 0;
+}
+}
+
+/* =========================
+   Small workstation polish
+   ========================= */
+
+/* 1) Absolutely no page scroll (defensive) */
+html, body{
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 2) Desktop sidebar: sticky within workstation */
+@media (min-width: 761px){
+  .db-sidebar{
+    position: sticky;
+    top: 0;
+    height: 100%;
+  }
+}
+
+/* 3) Tablet: keep inbox + thread split; only stack on small phones */
+@media (max-width: 760px){
+  /* iPad / large phone landscape: keep 2 columns */
+  .db-main .cx-grid{
+    grid-template-columns: var(--db-inbox-w) minmax(0, 1fr);
+  }
+}
+
+/* Stack ONLY on narrow phones */
+@media (max-width: 520px){
+  .db-main .cx-grid{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   Conversations workstation fixes:
+   - remove the “gap” caused by max-width/centering rules
+   - restore scroll INSIDE list + thread columns
+   ========================================================= */
+
+/* Ensure the dashboard body is a single full-height row */
+.db-body{
+  grid-template-rows: 1fr;
+}
+
+/* Main card must be allowed to constrain children */
+.db-main{
+  height: 100%;
+  min-height: 0;
+}
+
+/* Conversations page wrapper should fill available height */
+.db-main .cx-shell{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header stays natural height; grid takes the rest */
+.db-main .cx-grid{
+  flex: 1;
+  min-height: 0;
+
+  /* stop any old centering/max-width behavior */
+  width: 100%;
+  max-width: none;
+  margin: 0;
+
+  /* keep your 2-column split */
+  display: grid;
+  grid-template-columns: var(--db-inbox-w) minmax(0, 1fr);
+  gap: var(--db-gap);
+}
+
+/* Kill the “dead gap” (usually caused by max-width + auto margins) */
+.db-main .cx-listPane,
+.db-main .cx-threadPane,
+.db-main .cx-thread{
+  max-width: none;
+  margin: 0;
+}
+
+/* Make BOTH columns scrollable within the fixed workstation */
+.db-main .cx-listPane{
+  min-height: 0;
+  overflow: auto;
+}
+
+.db-main .cx-threadPane{
+  min-height: 0;
+  overflow: hidden;            /* thread manages its own inner scroll */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Thread layout: messages scroll, reply stays pinned at bottom */
+.db-main .cx-thread{
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.db-main .cx-messages{
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.db-main .cx-replyBox{
+  flex: 0 0 auto;
+}
+
+/* ===== Stronger “page title” feel ===== */
+.db-ws{
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.db-title{
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin: 0; /* keep tight */
+}
+
+@media (min-width: 1100px){
+  .db-ws{ font-size: 16px; }
+  .db-title{ font-size: 20px; }
 }

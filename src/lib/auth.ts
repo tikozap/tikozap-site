@@ -5,6 +5,31 @@ import { prisma } from '@/lib/prisma';
 
 export async function getAuthedUserAndTenant() {
   const jar = cookies();
+
+  // --- DEMO SHORTCUT: if demo cookies are set, return a fake demo user/tenant ---
+  const demoLoggedIn = jar.get('tz_demo_logged_in')?.value === '1';
+  if (demoLoggedIn) {
+    const slug =
+      jar.get('tz_demo_tenant_slug')?.value || 'three-tree-fashion';
+    const name = decodeURIComponent(
+      jar.get('tz_demo_tenant_name')?.value || 'Three Tree Fashion',
+    );
+
+    return {
+      user: {
+        id: 'demo-user',
+        email: 'demo@tikozap.com',
+        name: 'Demo User',
+      },
+      tenant: {
+        id: 'demo-tenant',
+        slug,
+        name,
+      },
+    };
+  }
+
+  // --- REAL SESSION / PRISMA AUTH (unchanged) ---
   const token = jar.get('tz_session')?.value || '';
   const tenantId = jar.get('tz_tenant')?.value || '';
 
