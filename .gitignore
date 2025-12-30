@@ -20,3 +20,18 @@ node_modules
 .vercel
 .DS_Store
 *.bak.*
+
+# OS / editor
+.DS_Store
+
+# Local Prisma dev database
+prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
+
+# Backup artifacts created during edits
+*.bak.*
+*.tmp
+
+# Your specific tmp pattern
+public/art/~ai-*.tmp
