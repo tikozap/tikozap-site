@@ -8,10 +8,11 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
 
   sessions     Session[]
   memberships  Membership[]
@@ -44,6 +45,7 @@ model Tenant {
   widget        Widget?
   knowledgeDocs KnowledgeDoc[]
   conversations Conversation[]
+  starterLink StarterLink?
 }
 
 model Membership {
@@ -61,11 +63,17 @@ model Membership {
 }
 
 model Widget {
-  id         String   @id @default(cuid())
-  tenantId   String   @unique
-  publicKey  String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  publicKey   String   @unique @default(cuid())
+  createdAt   DateTime @default(now())
   installedAt DateTime?
+
+  // ✅ settings
+  enabled      Boolean  @default(true)
+  assistantName String?
+  greeting      String?
+  brandColor    String? // store like "#111111"
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
@@ -116,4 +124,31 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+model StarterLink {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  slug      String   @unique
+  published Boolean  @default(false)
+
+  title     String?
+  tagline   String?
+  logoUrl   String?
+  phone     String?
+  address   String?
+  city      String?
+
+  // keep JSON as strings for SQLite MVP
+  hoursJson   String? // {"mon":[["09:00","17:00"]], ...}
+  buttonsJson String? // [{"label":"Call","url":"tel:+1..."}, ...]
+
+  greeting  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([published])
 }
