@@ -7,13 +7,12 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    {
+{
   "scripts": {
-    "postinstall": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" && echo \"skip prisma generate on vercel install\" || prisma generate",
-    "vercel-build": "prisma generate && next build",
-    "build": "next build"
+    "vercel-build": "node -e \"console.log('DATABASE_URL set?', !!process.env.DATABASE_URL)\" && prisma generate && next build"
   }
 }
+
 
   },
   "dependencies": {
