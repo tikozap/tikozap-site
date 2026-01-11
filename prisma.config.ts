@@ -1,13 +1,17 @@
 // prisma.config.ts
-import 'dotenv/config';
-import { defineConfig } from 'prisma/config';
+import { defineConfig } from "prisma/config";
 
-const DEFAULT_SQLITE_URL = 'file:./prisma/dev.db';
+const url = process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!url) {
+  throw new Error("Missing MIGRATE_DATABASE_URL or DATABASE_URL");
+}
 
 export default defineConfig({
-  schema: 'prisma/schema.prisma',
-  migrations: { path: 'prisma/migrations' },
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations" },
   datasource: {
-    url: process.env.DATABASE_URL || DEFAULT_SQLITE_URL,
+    url, // should be DIRECT (non-pooler) in production because MIGRATE_DATABASE_URL is set
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL, // optional
   },
 });
