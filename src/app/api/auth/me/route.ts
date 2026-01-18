@@ -1,3 +1,4 @@
+// src/app/api/auth/me/route.ts
 import { NextResponse } from 'next/server';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 
@@ -17,10 +18,10 @@ export async function GET() {
       email: auth.user.email,
       name: auth.user.name ?? null,
     },
-    tenant: {
-      id: auth.tenant.id,
-      slug: auth.tenant.slug,
-      auth.tenant.storeName,
-    },
+tenant: {
+  id: auth.tenant.id,
+  slug: auth.tenant.slug,
+  storeName: auth.tenant.storeName,
+},
   });
 }
