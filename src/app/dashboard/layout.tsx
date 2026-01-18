@@ -1,21 +1,17 @@
-// src/app/dashboard/layout.tsx
-
 import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 import './dashboard.css';
 
-import DemoGate from '../_components/DemoGate';
+import { getAuthedUserAndTenant } from '@/lib/auth';
 import DashboardShell from './_components/DashboardShell';
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  const authed = await getAuthedUserAndTenant();
+  if (!authed) redirect('/login'); // (or /demo-login if you still want demo entry)
+
   return (
-    <DemoGate requireLogin>
-      <div className="db-wrap">
-        <DashboardShell>{children}</DashboardShell>
-      </div>
-    </DemoGate>
+    <div className="db-wrap">
+      <DashboardShell>{children}</DashboardShell>
+    </div>
   );
 }

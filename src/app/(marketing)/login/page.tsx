@@ -1,12 +1,45 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 export default function LoginPage() {
-  const handleSubmit = (e: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO: wire up to real login later
+    if (busy) return;
+
+    setError('');
+    setBusy(true);
+
+    try {
+      const form = new FormData(e.currentTarget);
+      const email = String(form.get('email') || '').trim();
+      const password = String(form.get('password') || '');
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        // same-origin by default; explicit doesn't hurt:
+        credentials: 'same-origin',
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Invalid email or password');
+        return;
+      }
+
+      // IMPORTANT: cookies are httpOnly; easiest is full navigation so server reads them
+      window.location.assign('/dashboard');
+    } catch (err: any) {
+      setError(err?.message || 'Login failed');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -37,6 +70,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   placeholder="you@store.com"
                   required
+                  disabled={busy}
                 />
               </div>
 
@@ -49,11 +83,18 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   placeholder="Enter your password"
                   required
+                  disabled={busy}
                 />
               </div>
 
-              <button type="submit" className="button auth-primary">
-                Log in
+              {error ? (
+                <div className="auth-error" role="alert">
+                  {error}
+                </div>
+              ) : null}
+
+              <button type="submit" className="button auth-primary" disabled={busy}>
+                {busy ? 'Logging in…' : 'Log in'}
               </button>
 
               <p className="small auth-footnote">
@@ -127,6 +168,15 @@ export default function LoginPage() {
           outline: none;
           border-color: #2563eb;
           box-shadow: 0 0 0 1px #2563eb20;
+        }
+
+        .auth-error {
+          border: 1px solid #fecaca;
+          background: #fef2f2;
+          color: #991b1b;
+          padding: 0.6rem 0.75rem;
+          border-radius: 0.75rem;
+          font-size: 0.9rem;
         }
 
         .auth-primary {

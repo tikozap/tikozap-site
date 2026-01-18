@@ -1,6 +1,6 @@
 'use client';
 
-import React, { RefObject, useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 type ThreadMessage = {
   id: string;
@@ -60,10 +60,13 @@ type Props = {
 export default function ConversationThread({
   thread,
   hidden,
-  isMobile,
-  onBackToList,
+
+  // keep in Props but do NOT destructure if unused
+  // isMobile,
+  // onBackToList,
   staffName,
-  assistantName,
+  // assistantName,
+
   fmtTime,
   roleLabel,
   isDraftNote,
@@ -89,22 +92,57 @@ export default function ConversationThread({
   const [hiddenDraftIds, setHiddenDraftIds] = useState<string[]>([]);
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
+  const threadId = thread?.id ?? '';
+  const msgLen = thread?.messages?.length ?? 0;
+
+  const scrollPosByThreadRef = useRef<Record<string, number>>({});
+  const stickToBottomRef = useRef(true);
+  const BOTTOM_THRESHOLD = 80;
+
   // Reset hidden draft blocks when switching threads
   useEffect(() => {
     setHiddenDraftIds([]);
-  }, [thread?.id]);
+  }, [threadId]);
 
-  // Always snap to bottom when messages change (demo-friendly behavior)
-  useEffect(() => {
-    if (!thread) return;
+  // Restore scroll position on thread switch (or go bottom first time).
+  // IMPORTANT: do this in layout so the user doesn't see a jump.
+  useLayoutEffect(() => {
+    if (!threadId) return;
     const el = messagesRef.current;
     if (!el) return;
 
-    // Wait for layout/paint, then go to true bottom
+    const saved = scrollPosByThreadRef.current[threadId];
+
+    // Restore previous position if we have it; otherwise default to bottom
+    el.scrollTop = typeof saved === 'number' ? saved : el.scrollHeight;
+
+    // Compute whether we're "near bottom" after restore
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = dist <= BOTTOM_THRESHOLD;
+  }, [threadId]);
+
+  // Auto-scroll on new messages only if user is near bottom
+  useEffect(() => {
+    if (!threadId) return;
+    const el = messagesRef.current;
+    if (!el) return;
+    if (!stickToBottomRef.current) return;
+
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
     });
-  }, [thread?.id, thread?.messages?.length]);
+  }, [threadId, msgLen]);
+
+  // React onScroll handler for the scroll container
+  const handleMessagesScroll = () => {
+    const el = messagesRef.current;
+    if (!el || !threadId) return;
+
+    scrollPosByThreadRef.current[threadId] = el.scrollTop;
+
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = dist <= BOTTOM_THRESHOLD;
+  };
 
   const handleStatusChange = (value: 'open' | 'waiting' | 'closed') => {
     if (!thread) return;
@@ -118,9 +156,7 @@ export default function ConversationThread({
     setHiddenDraftIds((prev) => [...prev, messageId]);
   };
 
-  if (hidden) {
-    return <div className="cx-pane cx-threadPane is-hidden" />;
-  }
+  if (hidden) return <div className="cx-pane cx-threadPane is-hidden" />;
 
   if (!thread) {
     return (
@@ -130,7 +166,9 @@ export default function ConversationThread({
     );
   }
 
-  const showArchive = !thread.archivedAt;
+  // ✅ archivedAt section (safe + explicit)
+  const archivedAt = thread.archivedAt ?? null;
+  const showArchive = !archivedAt;
   const statusValue = thread.status;
 
   return (
@@ -158,8 +196,6 @@ export default function ConversationThread({
             </div>
 
             <div className="cx-threadSubject">{thread.subject}</div>
-
-            {/* keep empty or remove entirely */}
             <div className="cx-threadMetaRow" />
           </div>
 
@@ -180,9 +216,7 @@ export default function ConversationThread({
               <option value="closed">Closed</option>
             </select>
 
-            {thread.aiEnabled && (
-              <span className="cx-pill cx-pill-muted cx-aiPill">AI answering</span>
-            )}
+            {thread.aiEnabled && <span className="cx-pill cx-pill-muted cx-aiPill">AI answering</span>}
 
             {showArchive ? (
               <button type="button" className="cx-btn-small" onClick={onArchive}>
@@ -196,7 +230,7 @@ export default function ConversationThread({
           </div>
         </div>
 
-        {/* Tags row (hidden by your CSS, but left intact) */}
+        {/* Tags row (hidden by CSS, kept intact) */}
         <div className="cx-tagRow">
           <div className="cx-tagList">
             {thread.tags?.map((t) => (
@@ -223,8 +257,8 @@ export default function ConversationThread({
           </div>
         </div>
 
-        {/* Messages (this div is the scrolling container) */}
-        <div className="cx-messages" ref={messagesRef}>
+        {/* Messages (scroll container) */}
+        <div className="cx-messages" ref={messagesRef} onScroll={handleMessagesScroll}>
           {thread.messages.map((m) => {
             const isStaff = m.role === 'staff';
             const isNote = m.role === 'note';
@@ -235,16 +269,11 @@ export default function ConversationThread({
             return (
               <div key={m.id} className="cx-messageBlock">
                 <div className="cx-msgMeta">
-                  <span className="cx-msgAuthor">{roleLabel(m.role)}</span>{' '}
-                  <span>· {fmtTime(m.createdAt)}</span>
+                  <span className="cx-msgAuthor">{roleLabel(m.role)}</span> <span>· {fmtTime(m.createdAt)}</span>
                 </div>
 
                 <div
-                  className={[
-                    'cx-msgBubble',
-                    isStaff ? 'is-staff' : '',
-                    isNote ? 'is-note' : '',
-                  ]
+                  className={['cx-msgBubble', isStaff ? 'is-staff' : '', isNote ? 'is-note' : '']
                     .filter(Boolean)
                     .join(' ')}
                 >
@@ -266,9 +295,7 @@ export default function ConversationThread({
             );
           })}
 
-          {!thread.messages?.length && (
-            <div className="cx-emptyThread">No messages yet.</div>
-          )}
+          {!thread.messages?.length && <div className="cx-emptyThread">No messages yet.</div>}
         </div>
 
         {/* Reply composer */}
@@ -311,8 +338,8 @@ export default function ConversationThread({
           </div>
 
           <div className="cx-replyHint">
-            Drafts appear as internal notes. Use <strong>Generate draft</strong>, then{' '}
-            <strong>Insert draft</strong> to pull them into this box.
+            Drafts appear as internal notes. Use <strong>Generate draft</strong>, then <strong>Insert draft</strong> to pull
+            them into this box.
           </div>
         </div>
       </div>

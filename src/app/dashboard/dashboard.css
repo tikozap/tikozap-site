@@ -181,35 +181,29 @@
     white-space: nowrap;
   }
 
-.db-iconBtn{
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  cursor: pointer;
-
+/* Topbar chevron buttons: clean (no fill) */
+.db-topbar .db-iconBtn{
   display: grid;
   place-items: center;
-
-  /* ✅ Force the arrow to be visible even if global styles set button text white */
-  color: var(--db-text) !important;
-  font-size: 20px;
-  font-weight: 800;
+  width: 36px;
+  height: 36px;
   line-height: 1;
+  font-size: 28px;
+  font-weight: 200;
 
-  /* override global */
-  min-height: auto;
+  background: transparent;          /* <-- removes blue fill */
+  color: #111827;                   /* arrow color */
+  border: none;
+  border-radius: 999px;
 }
 
-.db-iconBtn:hover{ background:#f8fafc; }
+.db-topbar .db-iconBtn:hover{
+  background: #f8fafc;              /* subtle hover only */
+}
 
-
-  .db-topbarSpacer{
-    width: 40px;
-    height: 36px;
-  }
+.db-topbar .db-iconBtn:active{
+  background: #eef2f7;
+}
 
   /* drawer behavior */
   .db-sidebar{

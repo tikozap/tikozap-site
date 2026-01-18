@@ -5,19 +5,22 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const tenantName =
-    'storeName' in auth.tenant ? auth.tenant.storeName : auth.tenant.name;
+  if (!auth?.user || !auth?.tenant) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
   return NextResponse.json({
     ok: true,
-    user: { id: auth.user.id, email: auth.user.email, name: auth.user.name },
+    user: {
+      id: auth.user.id,
+      email: auth.user.email,
+      name: auth.user.name ?? null,
+    },
     tenant: {
       id: auth.tenant.id,
       slug: auth.tenant.slug,
-      storeName: tenantName,
-      name: tenantName, // alias for older code
+      auth.tenant.storeName,
     },
   });
 }

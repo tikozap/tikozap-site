@@ -9,7 +9,7 @@ export default function Page() {
       {/* Hero – full-width light gray band, content in container */}
       <section className="section-band-gray hero-band">
         <div className="container hero stack">
-          <h1 className="hero-title">Instant AI customer support for your store</h1>
+          <h1 className="hero-title">Instant AI customer support</h1>
 
           <p className="sub">
             Easy setup • Affordable pricing •{' '}
@@ -31,12 +31,7 @@ export default function Page() {
             <span>Cancel anytime</span>
           </div>
 
-          <p
-            className="hero-microtrust small"
-            style={{ textAlign: 'center', marginTop: '0.75rem' }}
-          >
-            Actions always under your control.
-          </p>
+
         </div>
       </section>
 

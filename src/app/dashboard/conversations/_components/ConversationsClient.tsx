@@ -1,21 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ConversationsHeader from './ConversationsHeader';
 import ConversationList from './ConversationList';
 import ConversationThread from './ConversationThread';
 
-
 const KEY_SELECTED = 'tz_db_conversations_selected';
 const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
 
-
-// ===== Naming =====
 const STAFF_NAME = 'Kevin';
 const STORE_ASSISTANT_NAME = 'Three Tree Assistant';
 const DRAFT_PREFIX = 'Suggested reply (draft — not sent):';
-
 
 type Preview = { role: string; content: string; createdAt: string };
 type ListItem = {
@@ -30,7 +26,6 @@ type ListItem = {
   archivedAt?: string | null;
   preview: Preview | null;
 };
-
 
 type ThreadMessage = { id: string; role: string; content: string; createdAt: string };
 type Thread = {
@@ -48,7 +43,12 @@ type Thread = {
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function roleLabel(role: string) {
@@ -80,10 +80,14 @@ function extractDraftSuggestion(noteText: string) {
 
 function assistantAutoReply(customerText: string) {
   const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
+  if (t.includes('return'))
+    return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
+  if (t.includes('ship') || t.includes('delivery'))
+    return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
+  if (t.includes('order') || t.includes('tracking'))
+    return 'I can help—please share your order number and the email used at checkout so I can check the status.';
+  if (t.includes('xl') || t.includes('size'))
+    return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
   return 'Got it. Can you share a little more detail so I can help faster?';
 }
 
@@ -98,11 +102,12 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ConversationsClient() {
+  const searchParams = useSearchParams();
 
   const [list, setList] = useState<ListItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [thread, setThread] = useState<Thread | null>(null);
-  const searchParams = useSearchParams();
+
   const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'open' | 'waiting' | 'closed'>('all');
@@ -113,61 +118,59 @@ export default function ConversationsClient() {
   const [aiDefault, setAiDefault] = useState(true);
   const replyRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // mobile split view
   const [isMobile, setIsMobile] = useState(false);
   const [pane, setPane] = useState<'list' | 'thread'>('list');
 
+  // AI default (new chats)
   useEffect(() => {
     const saved = localStorage.getItem(KEY_AI_DEFAULT);
     if (saved === null) localStorage.setItem(KEY_AI_DEFAULT, '1');
     setAiDefault((saved ?? '1') === '1');
   }, []);
 
-useEffect(() => {
-  const mq = window.matchMedia('(max-width: 900px)');
-  const onChange = () => setIsMobile(mq.matches);
+  // Mobile breakpoint
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
 
-  onChange();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
 
-  // Modern browsers
-  if (typeof mq.addEventListener === 'function') {
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }
+    const legacyMq = mq as unknown as {
+      addListener?: (cb: () => void) => void;
+      removeListener?: (cb: () => void) => void;
+    };
 
-  // Older Safari (MediaQueryList.addListener/removeListener)
-  const legacyMq = mq as unknown as {
-    addListener?: (cb: () => void) => void;
-    removeListener?: (cb: () => void) => void;
-  };
+    legacyMq.addListener?.(onChange);
+    return () => legacyMq.removeListener?.(onChange);
+  }, []);
 
-  legacyMq.addListener?.(onChange);
-  return () => legacyMq.removeListener?.(onChange);
-}, []);
+  // When switching to desktop, keep pane reset
+  useEffect(() => {
+    if (!isMobile) setPane('list');
+  }, [isMobile]);
 
-
-useEffect(() => {
-  if (!isMobile) setPane('list'); // desktop should show both panes anyway
-}, [isMobile]);
-
-  async function refreshList() {
+  const refreshList = useCallback(async () => {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
     const data = await api<{ ok: true; conversations: ListItem[] }>(url);
     setList(data.conversations);
     return data.conversations;
-  }
+  }, [showArchived]);
 
-  async function refreshThread(id: string) {
+  const refreshThread = useCallback(async (id: string) => {
     const data = await api<{ ok: true; conversation: Thread }>(`/api/conversations/${id}`);
     setThread(data.conversation);
     return data.conversation;
-  }
+  }, []);
 
+  // Initial load + when archive toggle changes
   useEffect(() => {
     (async () => {
       const conversations = await refreshList();
 
-      // Prefer cid from URL, then localStorage, then legacy demo key
       const cid = searchParams?.get('cid') || '';
       const saved =
         cid ||
@@ -179,12 +182,14 @@ useEffect(() => {
       const initial =
         cid && conversations.some((c) => c.id === cid)
           ? cid
-          : (exists ? saved : (conversations[0]?.id || ''));
+          : exists
+            ? saved
+            : conversations[0]?.id || '';
 
       setSelectedId(initial);
       if (initial) await refreshThread(initial);
     })().catch(() => {});
-  }, [showArchived, searchParams]);
+  }, [refreshList, refreshThread, searchParams]);
 
   useEffect(() => {
     if (selectedId) localStorage.setItem(KEY_SELECTED, selectedId);
@@ -204,22 +209,32 @@ useEffect(() => {
       });
   }, [list, q, status]);
 
-  const selectConversation = async (id: string) => {
-    setSelectedId(id);
-    await refreshThread(id);
-    if (isMobile) setPane('thread');
-  };
+  const selectConversation = useCallback(
+    async (id: string) => {
+      setSelectedId(id);
+      await refreshThread(id);
+      if (isMobile) setPane('thread');
+    },
+    [isMobile, refreshThread]
+  );
 
-useEffect(() => {
-  (window as any).__tzToggleCxPane = () => {
+  // Expose a single toggle function for DashboardShell’s top-right button
+  useEffect(() => {
+    (window as any).__tzToggleCxPane = () => {
+      if (!isMobile) return;
+      setPane((p) => (p === 'list' ? 'thread' : 'list'));
+    };
+
+    return () => {
+      delete (window as any).__tzToggleCxPane;
+    };
+  }, [isMobile]);
+
+  // Broadcast pane so DashboardShell can swap icon if you want
+  useEffect(() => {
     if (!isMobile) return;
-    setPane((p) => (p === 'list' ? 'thread' : 'list'));
-  };
-
-  return () => {
-    delete (window as any).__tzToggleCxPane;
-  };
-}, [isMobile]);
+    window.dispatchEvent(new CustomEvent('tz:cx:pane', { detail: { pane } }));
+  }, [isMobile, pane]);
 
   const toggleAiDefault = () => {
     setAiDefault((prev) => {
@@ -229,43 +244,11 @@ useEffect(() => {
     });
   };
 
-// expose toggle + current pane for DashboardShell top-right button
-useEffect(() => {
-  (window as any).__tzToggleCxPane = () => {
-    if (!isMobile) return;
-    setPane((p) => (p === 'list' ? 'thread' : 'list'));
-  };
-
-  return () => {
-    delete (window as any).__tzToggleCxPane;
-  };
-}, [isMobile]);
-
-useEffect(() => {
-  if (!isMobile) return;
-  window.dispatchEvent(new CustomEvent('tz:cx:pane', { detail: { pane } }));
-}, [isMobile, pane]);
-
-useEffect(() => {
-  const onToggle = () => {
-    if (!isMobile) return;
-    setPane((p) => (p === 'list' ? 'thread' : 'list'));
-  };
-
-  window.addEventListener('tz:cx:toggle-pane', onToggle);
-  return () => window.removeEventListener('tz:cx:toggle-pane', onToggle);
-}, [isMobile]);
-
-
-useEffect(() => {
-  // broadcast current pane so DashboardShell can change the icon
-  window.dispatchEvent(
-    new CustomEvent('tz:cx:pane', { detail: { pane } })
-  );
-}, [pane]);
-
   const resetInbox = async () => {
-    await api('/api/conversations/reset', { method: 'POST', body: JSON.stringify({ aiEnabled: aiDefault }) });
+    await api('/api/conversations/reset', {
+      method: 'POST',
+      body: JSON.stringify({ aiEnabled: aiDefault }),
+    });
     const convos = await refreshList();
     const first = convos[0]?.id || '';
     setSelectedId(first);
@@ -278,7 +261,7 @@ useEffect(() => {
       method: 'POST',
       body: JSON.stringify({ aiEnabled: aiDefault }),
     });
-    const convos = await refreshList();
+    await refreshList();
     setSelectedId(res.id);
     await refreshThread(res.id);
     if (isMobile) setPane('thread');
@@ -286,7 +269,10 @@ useEffect(() => {
 
   const setConvStatus = async (s: 'open' | 'waiting' | 'closed') => {
     if (!thread) return;
-    await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: s }) });
+    await api(`/api/conversations/${thread.id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status: s }),
+    });
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -307,9 +293,15 @@ useEffect(() => {
 
   const takeOverThisChat = async () => {
     if (!thread) return;
-    await api(`/api/conversations/${thread.id}/ai`, { method: 'POST', body: JSON.stringify({ aiEnabled: false }) });
+    await api(`/api/conversations/${thread.id}/ai`, {
+      method: 'POST',
+      body: JSON.stringify({ aiEnabled: false }),
+    });
     if (thread.status !== 'closed') {
-      await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'waiting' }) });
+      await api(`/api/conversations/${thread.id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: 'waiting' }),
+      });
     }
     await refreshThread(thread.id);
     await refreshList();
@@ -317,9 +309,15 @@ useEffect(() => {
 
   const resumeAiThisChat = async () => {
     if (!thread) return;
-    await api(`/api/conversations/${thread.id}/ai`, { method: 'POST', body: JSON.stringify({ aiEnabled: true }) });
+    await api(`/api/conversations/${thread.id}/ai`, {
+      method: 'POST',
+      body: JSON.stringify({ aiEnabled: true }),
+    });
     if (thread.status !== 'closed') {
-      await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'open' }) });
+      await api(`/api/conversations/${thread.id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: 'open' }),
+      });
     }
     await refreshThread(thread.id);
     await refreshList();
@@ -331,7 +329,10 @@ useEffect(() => {
     if (!t) return;
     const nextTags = Array.from(new Set([...(thread.tags || []), t]));
     setTagDraft('');
-    await api(`/api/conversations/${thread.id}/tags`, { method: 'POST', body: JSON.stringify({ tags: nextTags }) });
+    await api(`/api/conversations/${thread.id}/tags`, {
+      method: 'POST',
+      body: JSON.stringify({ tags: nextTags }),
+    });
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -339,7 +340,10 @@ useEffect(() => {
   const removeTag = async (t: string) => {
     if (!thread) return;
     const nextTags = (thread.tags || []).filter((x) => x !== t);
-    await api(`/api/conversations/${thread.id}/tags`, { method: 'POST', body: JSON.stringify({ tags: nextTags }) });
+    await api(`/api/conversations/${thread.id}/tags`, {
+      method: 'POST',
+      body: JSON.stringify({ tags: nextTags }),
+    });
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -404,63 +408,63 @@ useEffect(() => {
   const threadHidden = isMobile && pane === 'list';
   const showHeader = !isMobile || pane === 'list';
 
+  return (
+    <div className="cx-workspace">
+      {showHeader && (
+        <ConversationsHeader
+          aiDefault={aiDefault}
+          showArchived={showArchived}
+          status={status}
+          q={q}
+          onResetInbox={resetInbox}
+          onNewTestChat={newTestChat}
+          onToggleAiDefault={toggleAiDefault}
+          onToggleArchived={() => setShowArchived((v) => !v)}
+          onStatusChange={setStatus}
+          onQueryChange={setQ}
+        />
+      )}
 
-return (
-  <div className="cx-workspace">
-    {showHeader && (
-  <ConversationsHeader
-    aiDefault={aiDefault}
-    showArchived={showArchived}
-    status={status}
-    q={q}
-    onResetInbox={resetInbox}
-    onNewTestChat={newTestChat}
-    onToggleAiDefault={toggleAiDefault}
-    onToggleArchived={() => setShowArchived((v) => !v)}
-    onStatusChange={setStatus}
-    onQueryChange={setQ}
-  />
-)}
-    <div className="cx-grid">
-      <ConversationList
-        items={filtered}
-        selectedId={selectedId}
-        onSelect={selectConversation}
-        fmtTime={fmtTime}
-        roleLabel={roleLabel}
-        hidden={listHidden}
-      />
+      <div className="cx-grid">
+        <ConversationList
+          items={filtered}
+          selectedId={selectedId}
+          onSelect={selectConversation}
+          fmtTime={fmtTime}
+          roleLabel={roleLabel}
+          hidden={listHidden}
+        />
 
-      <ConversationThread
-        thread={thread}
-        hidden={threadHidden}
-        isMobile={isMobile}
-        onBackToList={() => setPane('list')}
-        staffName={STAFF_NAME}
-        assistantName={STORE_ASSISTANT_NAME}
-        fmtTime={fmtTime}
-        roleLabel={roleLabel}
-        isDraftNote={isDraftNote}
-        onTakeOver={takeOverThisChat}
-        onResumeAi={resumeAiThisChat}
-        onGenerateDraft={generateDraft}
-        onAddNote={addInternalNote}
-        onClose={() => setConvStatus('closed')}
-        onReopen={() => setConvStatus('open')}
-        onMarkWaiting={() => setConvStatus('waiting')}
-        onArchive={archiveThisChat}
-        onRestore={restoreThisChat}
-        tagDraft={tagDraft}
-        onTagDraftChange={setTagDraft}
-        onAddTag={addTag}
-        onRemoveTag={removeTag}
-        onInsertDraft={insertDraftIntoReply}
-        draft={draft}
-        onDraftChange={setDraft}
-        onSendReply={sendStaffReply}
-        replyRef={replyRef}
-      />
+        <ConversationThread
+          thread={thread}
+          hidden={threadHidden}
+          isMobile={isMobile}
+          onBackToList={() => setPane('list')}
+          staffName={STAFF_NAME}
+          assistantName={STORE_ASSISTANT_NAME}
+          fmtTime={fmtTime}
+          roleLabel={roleLabel}
+          isDraftNote={isDraftNote}
+          onTakeOver={takeOverThisChat}
+          onResumeAi={resumeAiThisChat}
+          onGenerateDraft={generateDraft}
+          onAddNote={addInternalNote}
+          onClose={() => setConvStatus('closed')}
+          onReopen={() => setConvStatus('open')}
+          onMarkWaiting={() => setConvStatus('waiting')}
+          onArchive={archiveThisChat}
+          onRestore={restoreThisChat}
+          tagDraft={tagDraft}
+          onTagDraftChange={setTagDraft}
+          onAddTag={addTag}
+          onRemoveTag={removeTag}
+          onInsertDraft={insertDraftIntoReply}
+          draft={draft}
+          onDraftChange={setDraft}
+          onSendReply={sendStaffReply}
+          replyRef={replyRef}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
 }

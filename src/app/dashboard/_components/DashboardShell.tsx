@@ -1,14 +1,10 @@
+// src/app/dashboard/_components/DashboardShell.tsx
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-
-const KEY_TENANT_NAME = 'tz_demo_tenant_name';
-const KEY_LOGIN = 'tz_demo_logged_in';
-const KEY_ONBOARDED = 'tz_demo_onboarded';
-const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
 
 function NavItem({
   href,
@@ -36,11 +32,17 @@ function NavItem({
   );
 }
 
-export default function DashboardShell({ children }: { children: ReactNode }) {
-  // ✅ ALL hooks must be inside this function (and above return)
+export default function DashboardShell({
+  children,
+  tenantName: tenantNameProp,
+}: {
+  children: ReactNode;
+  tenantName: string;
+}) {
+  const router = useRouter();
   const pathname = usePathname() || '';
 
-  const [tenantName, setTenantName] = useState('Three Tree Fashion');
+  const [tenantName, setTenantName] = useState(tenantNameProp || 'Your store');
   const [navOpen, setNavOpen] = useState(false);
 
   // (B) track which pane is active on mobile (list vs thread)
@@ -49,17 +51,35 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   const isConversations = pathname.startsWith('/dashboard/conversations');
 
   const toggleConvoPane = () => {
-    // Prefer direct function if you attached it in ConversationsClient
     const fn = (window as any).__tzToggleCxPane;
     if (typeof fn === 'function') fn();
-    // Fallback for the event-based version
     else window.dispatchEvent(new Event('tz:cx:toggle-pane'));
   };
 
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    const name = localStorage.getItem(KEY_TENANT_NAME);
-    if (name) setTenantName(name);
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+
+    // older Safari
+    const legacyMq = mq as unknown as {
+      addListener?: (cb: () => void) => void;
+      removeListener?: (cb: () => void) => void;
+    };
+    legacyMq.addListener?.(onChange);
+    return () => legacyMq.removeListener?.(onChange);
   }, []);
+
+  useEffect(() => {
+    setTenantName(tenantNameProp || 'Your store');
+  }, [tenantNameProp]);
 
   useEffect(() => {
     // close drawer when navigating
@@ -76,12 +96,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('tz:cx:pane', onPane);
   }, []);
 
-  const signOut = () => {
-    localStorage.removeItem(KEY_LOGIN);
-    localStorage.removeItem(KEY_ONBOARDED);
-    localStorage.removeItem(KEY_TENANT_NAME);
-    localStorage.removeItem(KEY_TENANT_SLUG);
-    window.location.href = '/demo-login';
+  const signOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    router.replace('/login'); // or '/demo-login' if you prefer
+    router.refresh();
   };
 
   return (
@@ -91,11 +109,11 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           className="db-iconBtn"
-          onClick={() => setNavOpen(true)}
-          aria-label="Open menu"
-          title="Menu"
+          onClick={() => setNavOpen((v) => (isMobile ? !v : true))}
+          aria-label={isMobile ? (navOpen ? 'Close menu' : 'Open menu') : 'Open menu'}
+          title={isMobile ? (navOpen ? 'Close menu' : 'Open menu') : 'Menu'}
         >
-          ☰
+          {isMobile ? (navOpen ? '<' : '>') : '☰'}
         </button>
 
         <div className="db-topbarTitle">{tenantName}</div>
@@ -108,7 +126,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             aria-label={cxPane === 'list' ? 'Open thread' : 'Back to inbox'}
             title={cxPane === 'list' ? 'Open thread' : 'Back to inbox'}
           >
-            {cxPane === 'list' ? '›' : '‹'}
+            {cxPane === 'list' ? '>' : '<'}
           </button>
         ) : (
           <button
@@ -116,7 +134,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             className="db-iconBtn"
             onClick={signOut}
             aria-label="Sign out"
-            title="Sign out (demo)"
+            title="Sign out"
           >
             ⎋
           </button>
@@ -136,7 +154,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           <div className="db-brand">
             <div>
               <div className="db-ws">{tenantName}</div>
-              <div className="db-meta">Plan: Pro (demo)</div>
+              <div className="db-meta">Plan: Pro</div>
             </div>
           </div>
 
@@ -150,7 +168,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           </ul>
 
           <div className="db-sidebar-footer">
-            <button className="db-btn" onClick={signOut} title="Sign out (demo)">
+            <button className="db-btn" onClick={signOut} title="Sign out">
               Sign out
             </button>
 

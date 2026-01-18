@@ -1,3 +1,4 @@
+// src/app/dashboard/DashboardClient.tsx
 'use client';
 
 import Link from 'next/link';
@@ -49,24 +50,11 @@ export default function DashboardClient() {
             href="/dashboard"
             cta="Open Inbox (next)"
           />
-          <Card
-            title="Knowledge"
-            desc="Edit returns, shipping, sizing and FAQs."
-            href="/onboarding/knowledge"
-            cta="Edit Knowledge"
-          />
-          <Card
-            title="Widget"
-            desc="Customize appearance, greeting, and install snippet."
-            href="/onboarding/widget"
-            cta="Widget Settings"
-          />
-          <Card
-            title="Billing"
-            desc="Manage plan and payment method (we’ll wire Stripe next)."
-            href="/onboarding/billing"
-            cta="Billing Settings"
-          />
+          // in src/app/dashboard/DashboardClient.tsx
+<Card title="Knowledge" ... href="/dashboard/knowledge" cta="Edit Knowledge" />
+<Card title="Widget" ... href="/dashboard/widget" cta="Widget Settings" />
+<Card title="Billing" ... href="/dashboard/billing" cta="Billing Settings" />
+
         </section>
 
         <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">

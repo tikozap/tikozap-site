@@ -7,20 +7,36 @@ function js() {
   if (window.__TIKOZAP_WIDGET_LOADED__) return;
   window.__TIKOZAP_WIDGET_LOADED__ = true;
 
-  const KEY = window.TIKOZAP_PUBLIC_KEY;
+  // Find the <script> that loaded /widget.js so we can read data-* attributes
+  const script =
+    document.currentScript ||
+    [...document.getElementsByTagName('script')].find((s) =>
+      /\\/widget\\.js(\\?|$)/.test(s.src || '')
+    ) ||
+    [...document.getElementsByTagName('script')].slice(-1)[0];
+
+  // Public key:
+  // 1) Prefer data-tikozap-key on the script tag (recommended)
+  // 2) Fallback to window.TIKOZAP_PUBLIC_KEY (legacy/override)
+  const KEY =
+    (script && (script.getAttribute('data-tikozap-key') || script.getAttribute('data-tikozap-public-key'))) ||
+    window.TIKOZAP_PUBLIC_KEY;
+
   if (!KEY) {
-    console.warn('[TikoZap] Missing window.TIKOZAP_PUBLIC_KEY');
+    console.warn('[TikoZap] Missing public key. Add data-tikozap-key="..." to the widget <script>.');
     return;
   }
 
-  // Decide API base:
-  // - Prefer explicit override
-  // - Else: if script served from localhost -> use that origin
-  // - Else: use api.tikozap.com
-  let API_BASE = window.TIKOZAP_API_BASE;
+  // API base:
+  // 1) data-tikozap-api-base
+  // 2) window.TIKOZAP_API_BASE
+  // 3) if widget served from localhost, use that origin; else api.tikozap.com
+  let API_BASE =
+    (script && script.getAttribute('data-tikozap-api-base')) ||
+    window.TIKOZAP_API_BASE;
+
   if (!API_BASE) {
     try {
-      const script = document.currentScript || [...document.getElementsByTagName('script')].slice(-1)[0];
       const src = script?.src || '';
       const u = new URL(src);
       const isLocal = (u.hostname === 'localhost' || u.hostname === '127.0.0.1');
@@ -60,6 +76,7 @@ function js() {
 .tz-send{border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;background:#111827;color:#fff;font-weight:900;cursor:pointer}
 .tz-send[disabled]{opacity:.6;cursor:not-allowed}
 \`;
+
   const style = document.createElement('style');
   style.textContent = css;
   document.head.appendChild(style);
@@ -150,7 +167,7 @@ function js() {
     const open = panel.style.display !== 'none';
     panel.style.display = open ? 'none' : 'block';
     bubble.textContent = open ? '💬' : '×';
-    if (!open) setTimeout(() => msgs.scrollTop = msgs.scrollHeight, 0);
+    if (!open) setTimeout(() => (msgs.scrollTop = msgs.scrollHeight), 0);
   };
 
   bubble.addEventListener('click', toggle);
@@ -190,12 +207,6 @@ function js() {
 
     busy = true;
     sendBtn.setAttribute('disabled', 'true');
-
-    // optimistic render
-    const current = [];
-    msgs.querySelectorAll('.tz-bub').forEach((el) => {
-      // not reconstructing — we’ll just re-render from server reply
-    });
 
     try {
       const res = await fetch(MESSAGE_URL, {

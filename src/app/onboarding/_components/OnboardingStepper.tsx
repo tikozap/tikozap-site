@@ -1,3 +1,4 @@
+// src/app/onboarding/_components/OnboardingStepper.tsx
 'use client';
 
 import Link from 'next/link';
