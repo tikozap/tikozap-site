@@ -47,26 +47,27 @@ export default function DashboardClient() {
           <Card
             title="Conversations"
             desc="View shopper chats and see what your assistant answered."
-            href="/dashboard"
-            cta="Open Inbox (next)"
+            href="/dashboard/conversations"
+            cta="Open Inbox"
           />
 
-          {/* in src/app/dashboard/DashboardClient.tsx */}
           <Card
             title="Knowledge"
-            desc="Add FAQs, policies, and store info to improve answers."
+            desc="Edit policies, FAQs, and store knowledge."
             href="/dashboard/knowledge"
             cta="Edit Knowledge"
           />
+
           <Card
             title="Widget"
-            desc="Customize the chat bubble (name, greeting, color)."
+            desc="Install snippet, style bubble, and run tests."
             href="/dashboard/widget"
             cta="Widget Settings"
           />
+
           <Card
             title="Billing"
-            desc="Manage plan, trial, and payment settings."
+            desc="Plan, trial status, and invoices."
             href="/dashboard/billing"
             cta="Billing Settings"
           />
@@ -75,7 +76,7 @@ export default function DashboardClient() {
         <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="text-sm font-semibold">Next build step</div>
           <p className="mt-1 text-sm opacity-80">
-            We’ll create real pages under <code>/dashboard</code> (overview, conversations, settings) and connect auth + tenant data.
+            We’ll create real pages under <code>/dashboard</code> and connect auth + tenant data.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
