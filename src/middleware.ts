@@ -11,7 +11,8 @@ function isAsset(pathname: string) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/robots.txt") ||
-    pathname.startsWith("/sitemap.xml")
+    pathname.startsWith("/sitemap.xml") ||
+    pathname === "/favicon.ico"
   );
 }
 
@@ -24,16 +25,43 @@ export default function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
   const p = url.pathname;
 
+  // Always allow framework/static assets
   if (isAsset(p)) return NextResponse.next();
 
-  // Allow API everywhere (important)
+  // Always allow API everywhere (critical)
   if (p.startsWith("/api")) return NextResponse.next();
 
-  // ✅ Your app structure suggests these:
-  const DASH_HOME = "/dashboard";
-  const LINK_HOME = "/l"; // you have a `l` folder in src/app
+  // ✅ Always allow the widget loader everywhere (critical)
+  if (p === "/widget.js") return NextResponse.next();
 
+  // Your app structure
+  const DASH_HOME = "/dashboard";
+  const LINK_HOME = "/l";
+
+  // -------------------------
+  // js.tikozap.com → widget loader only
+  // -------------------------
+  if (host === "js.tikozap.com") {
+    // Only serve /widget.js on this subdomain
+    url.hostname = "tikozap.com";
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  // -------------------------
+  // api.tikozap.com → API only
+  // -------------------------
+  if (host === "api.tikozap.com") {
+    // We already allowed /api/* above.
+    // Anything else should go to marketing root.
+    url.hostname = "tikozap.com";
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  // -------------------------
   // app.tikozap.com → dashboard
+  // -------------------------
   if (host === "app.tikozap.com") {
     // Redirect root to dashboard
     if (p === "/") {
@@ -41,8 +69,7 @@ export default function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Optional: keep app subdomain focused (no marketing pages)
-    // Allow dashboard + logout + onboarding if you want
+    // Allow dashboard + logout + onboarding only
     const allowed =
       p.startsWith("/dashboard") ||
       p.startsWith("/logout") ||
@@ -56,14 +83,15 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // -------------------------
   // link.tikozap.com → hosted pages
+  // -------------------------
   if (host === "link.tikozap.com") {
     if (p === "/") {
       url.pathname = LINK_HOME;
       return NextResponse.redirect(url);
     }
 
-    // Optional: keep link subdomain focused
     const allowed = p.startsWith("/l");
     if (!allowed) {
       url.pathname = LINK_HOME;
@@ -73,18 +101,8 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-// api.tikozap.com → API only
-if (host === "api.tikozap.com") {
-  // Allow only /api/* paths on the api subdomain
-  if (!p.startsWith("/api")) {
-    url.hostname = "tikozap.com";
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-  return NextResponse.next();
-}
-
-  // js.tikozap.com → later you can serve a widget loader script;
-  // for now, do nothing special.
+  // -------------------------
+  // tikozap.com (and anything else) → allow normally
+  // -------------------------
   return NextResponse.next();
 }
