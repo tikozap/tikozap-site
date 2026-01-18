@@ -1,34 +1,39 @@
+// src/app/api/widget/public/message/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { storeAssistantReply } from "@/lib/assistant/storeAssistant";
 
 export const runtime = "nodejs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST,OPTIONS",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Max-Age": "86400",
 };
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
+// Debug endpoint to prove the route exists in prod
+export async function GET() {
+  return NextResponse.json(
+    { ok: true, route: "/api/widget/public/message", now: new Date().toISOString() },
+    { headers: corsHeaders }
+  );
 }
 
 const Body = z.object({
   key: z.string().min(8).max(200),
   text: z.string().min(1).max(4000),
 
-  // optional metadata
   customerName: z.string().max(120).optional().nullable(),
   customerEmail: z.string().max(200).optional().nullable(),
   subject: z.string().max(160).optional().nullable(),
-  channel: z.string().max(40).optional().nullable(), // "web" / "shopify" / etc
-  tags: z.string().max(300).optional().nullable(),   // CSV
+  channel: z.string().max(40).optional().nullable(),
+  tags: z.string().max(300).optional().nullable(),
   aiEnabled: z.boolean().optional().nullable(),
 
-  // continue a thread
   conversationId: z.string().optional().nullable(),
 });
 
@@ -48,6 +53,9 @@ function assistantAutoReply(customerText: string) {
 export async function POST(req: Request) {
   try {
     const body = Body.parse(await req.json());
+
+    const { prisma } = await import("@/lib/prisma");
+    const { storeAssistantReply } = await import("@/lib/assistant/storeAssistant");
 
     // 1) Resolve tenant by public key
     const widget = await prisma.widget.findUnique({
