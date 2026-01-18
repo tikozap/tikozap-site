@@ -1,3 +1,4 @@
+// src/app/dashboard/widget/widget-test-client.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -113,13 +114,14 @@ export default function WidgetTestClient() {
     }
   }
 
-  const snippet = useMemo(() => {
-    const pk = widget?.publicKey || 'YOUR_PUBLIC_KEY';
-    return `<script>
-  window.TIKOZAP_PUBLIC_KEY = "${pk}";
-</script>
-<script async src="https://cdn.tikozap.com/widget.js"></script>`;
-  }, [widget?.publicKey]);
+const snippet = useMemo(() => {
+  const pk = widget?.publicKey || 'YOUR_PUBLIC_KEY';
+  return `<!-- TikoZap Widget -->
+<script async
+  src="https://js.tikozap.com/widget.js"
+  data-tikozap-key="${pk}">
+</script>`;
+}, [widget?.publicKey]);
 
   return (
     <div>
