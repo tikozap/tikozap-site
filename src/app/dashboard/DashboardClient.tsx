@@ -50,11 +50,26 @@ export default function DashboardClient() {
             href="/dashboard"
             cta="Open Inbox (next)"
           />
-          // in src/app/dashboard/DashboardClient.tsx
-<Card title="Knowledge" ... href="/dashboard/knowledge" cta="Edit Knowledge" />
-<Card title="Widget" ... href="/dashboard/widget" cta="Widget Settings" />
-<Card title="Billing" ... href="/dashboard/billing" cta="Billing Settings" />
 
+          {/* in src/app/dashboard/DashboardClient.tsx */}
+          <Card
+            title="Knowledge"
+            desc="Add FAQs, policies, and store info to improve answers."
+            href="/dashboard/knowledge"
+            cta="Edit Knowledge"
+          />
+          <Card
+            title="Widget"
+            desc="Customize the chat bubble (name, greeting, color)."
+            href="/dashboard/widget"
+            cta="Widget Settings"
+          />
+          <Card
+            title="Billing"
+            desc="Manage plan, trial, and payment settings."
+            href="/dashboard/billing"
+            cta="Billing Settings"
+          />
         </section>
 
         <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
