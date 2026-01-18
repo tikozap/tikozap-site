@@ -11,8 +11,7 @@ export async function GET() {
   const auth = await getAuthedUserAndTenant();
   if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const tenantName =
-    'storeName' in auth.tenant ? auth.tenant.storeName : auth.tenant.name;
+const tenantName = auth.tenant.storeName || auth.tenant.slug || 'Your store';
 
   return NextResponse.json({
     ok: true,
