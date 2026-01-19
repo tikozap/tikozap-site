@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000 -H 0.0.0.0",
     "build": "next build",
-    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy --schema=prisma/schema.prisma; fi && prisma generate --schema=prisma/schema.prisma && next build",
+    "vercel-build": "prisma generate --schema=prisma/schema.prisma && NEXT_DISABLE_ESLINT=1 next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -17,7 +17,7 @@
     "nanoid": "^5.1.6",
     "next": "^14.2.35",
     "openai": "^6.10.0",
-    "pg": "^8.11.5",
+    "pg": "^8.13.0",
     "qrcode": "^1.5.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",

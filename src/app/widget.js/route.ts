@@ -1,9 +1,7 @@
-// src/app/widget.js/route.ts
 export const runtime = 'edge';
 
 function js() {
-  return `
-(() => {
+  return `(() => {
   if (window.__TIKOZAP_WIDGET_LOADED__) return;
   window.__TIKOZAP_WIDGET_LOADED__ = true;
 
@@ -16,7 +14,7 @@ function js() {
     [...document.getElementsByTagName('script')].slice(-1)[0];
 
   // Public key:
-  // 1) Prefer data-tikozap-key on the script tag (recommended)
+  // 1) Prefer data-tikozap-key (recommended)
   // 2) Fallback to window.TIKOZAP_PUBLIC_KEY (legacy/override)
   const KEY =
     (script && (script.getAttribute('data-tikozap-key') || script.getAttribute('data-tikozap-public-key'))) ||
@@ -57,25 +55,24 @@ function js() {
 
   const cidKey = 'tz_widget_cid_' + KEY;
 
-  const css = \`
-.tz-bubble{position:fixed;right:18px;bottom:18px;width:56px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;cursor:pointer;z-index:999999;border:1px solid rgba(0,0,0,.12)}
-.tz-panel{position:fixed;right:18px;bottom:86px;width:360px;max-width:calc(100% - 36px);background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;z-index:999999;box-shadow:0 12px 30px rgba(0,0,0,.12);font-family:ui-sans-serif,system-ui,-apple-system}
-.tz-hd{padding:12px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:10px}
-.tz-title{font-weight:900;font-size:13px}
-.tz-sub{font-size:11px;opacity:.7;margin-top:2px}
-.tz-actions{display:flex;gap:8px;align-items:center}
-.tz-btn{font-size:12px;border:1px solid #e5e7eb;border-radius:10px;padding:6px 8px;background:#fff;cursor:pointer}
-.tz-msgs{height:260px;overflow:auto;padding:12px;background:#f8fafc}
-.tz-row{display:flex;margin:8px 0}
-.tz-row.me{justify-content:flex-end}
-.tz-bub{max-width:85%;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;white-space:pre-wrap;border:1px solid #e5e7eb}
-.tz-bub.me{background:#fff;color:#111827}
-.tz-bub.ai{background:#111827;color:#fff}
-.tz-ft{padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;background:#fff}
-.tz-in{flex:1;border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;font-size:13px}
-.tz-send{border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;background:#111827;color:#fff;font-weight:900;cursor:pointer}
-.tz-send[disabled]{opacity:.6;cursor:not-allowed}
-\`;
+  const css =
+    ".tz-bubble{position:fixed;right:18px;bottom:18px;width:56px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;cursor:pointer;z-index:999999;border:1px solid rgba(0,0,0,.12)}" +
+    ".tz-panel{position:fixed;right:18px;bottom:86px;width:360px;max-width:calc(100% - 36px);background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;z-index:999999;box-shadow:0 12px 30px rgba(0,0,0,.12);font-family:ui-sans-serif,system-ui,-apple-system}" +
+    ".tz-hd{padding:12px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:10px}" +
+    ".tz-title{font-weight:900;font-size:13px}" +
+    ".tz-sub{font-size:11px;opacity:.7;margin-top:2px}" +
+    ".tz-actions{display:flex;gap:8px;align-items:center}" +
+    ".tz-btn{font-size:12px;border:1px solid #e5e7eb;border-radius:10px;padding:6px 8px;background:#fff;cursor:pointer}" +
+    ".tz-msgs{height:260px;overflow:auto;padding:12px;background:#f8fafc}" +
+    ".tz-row{display:flex;margin:8px 0}" +
+    ".tz-row.me{justify-content:flex-end}" +
+    ".tz-bub{max-width:85%;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;white-space:pre-wrap;border:1px solid #e5e7eb}" +
+    ".tz-bub.me{background:#fff;color:#111827}" +
+    ".tz-bub.ai{background:#111827;color:#fff}" +
+    ".tz-ft{padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;background:#fff}" +
+    ".tz-in{flex:1;border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;font-size:13px}" +
+    ".tz-send{border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;background:#111827;color:#fff;font-weight:900;cursor:pointer}" +
+    ".tz-send[disabled]{opacity:.6;cursor:not-allowed}";
 
   const style = document.createElement('style');
   style.textContent = css;
@@ -197,7 +194,7 @@ function js() {
     const color = safeHex(settings?.brandColor);
     bubble.style.background = color;
     title.textContent = (settings?.assistantName || 'Store Assistant').trim() || 'Store Assistant';
-    greet((settings?.greeting || 'Hi! How can we help today?').trim());
+    greet((settings?.greeting || 'Hi! How can I help today?').trim());
   }
 
   async function send(text) {
@@ -263,8 +260,7 @@ function js() {
     greet('Sorry—widget failed to load settings. Please try again.');
     console.error('[TikoZap] settings load failed', e);
   });
-})();
-`;
+})();`;
 }
 
 export async function GET() {
