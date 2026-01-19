@@ -11,6 +11,7 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+
 enum PlanTier {
   STARTER
   PRO
