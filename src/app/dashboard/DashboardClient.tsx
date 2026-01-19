@@ -1,4 +1,3 @@
-// src/app/dashboard/DashboardClient.tsx
 'use client';
 
 import Link from 'next/link';
@@ -50,21 +49,18 @@ export default function DashboardClient() {
             href="/dashboard/conversations"
             cta="Open Inbox"
           />
-
           <Card
             title="Knowledge"
             desc="Edit policies, FAQs, and store knowledge."
             href="/dashboard/knowledge"
             cta="Edit Knowledge"
           />
-
           <Card
             title="Widget"
             desc="Install snippet, style bubble, and run tests."
             href="/dashboard/widget"
             cta="Widget Settings"
           />
-
           <Card
             title="Billing"
             desc="Plan, trial status, and invoices."
@@ -93,7 +89,17 @@ export default function DashboardClient() {
   );
 }
 
-function Card({ title, desc, href, cta }: { title: string; desc: string; href: string; cta: string }) {
+function Card({
+  title,
+  desc,
+  href,
+  cta,
+}: {
+  title: string;
+  desc: string;
+  href: string;
+  cta: string;
+}) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="text-base font-semibold">{title}</div>
