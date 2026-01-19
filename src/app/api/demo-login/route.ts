@@ -1,3 +1,4 @@
+// src/app/api/demo-login/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
@@ -11,15 +12,15 @@ export async function GET() {
   const auth = await getAuthedUserAndTenant();
   if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
-const tenantName = auth.tenant.storeName || auth.tenant.slug || 'Your store';
+  const tenantName = auth.tenant.storeName || auth.tenant.slug || 'Your store';
 
   return NextResponse.json({
     ok: true,
     tenant: {
       id: auth.tenant.id,
       slug: auth.tenant.slug,
-      name: tenantName,       // what DemoMerchantStart expects
-      storeName: tenantName,  // what dashboard/auth/me expects
+      name: tenantName,       // demo UI expects "name"
+      storeName: tenantName,  // dashboard/auth/me expects "storeName"
     },
   });
 }
@@ -44,16 +45,36 @@ export async function POST() {
     },
   });
 
-  await prisma.membership.upsert({
-    where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
-    update: {},
-    create: {
-      userId: user.id,
-      tenantId: tenant.id,
-      // If Membership has no `role`, delete this:
-      role: 'owner',
-    },
-  });
+// Keep membership (owner)
+await prisma.membership.upsert({
+  where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
+  update: {},
+  create: {
+    userId: user.id,
+    tenantId: tenant.id,
+    role: "owner",
+  },
+});
+
+// Create/update Widget (THIS is what /api/widget/public/settings reads)
+await prisma.widget.upsert({
+  where: { tenantId: tenant.id }, // assumes widget has unique tenantId; if not, use publicKey unique instead
+  update: {
+    enabled: true,
+    publicKey: tenant.id, // TEMP: use tenant id as public key
+    assistantName: "Three Tree Assistant",
+    greeting: "Hi! How can I help today?",
+    brandColor: "#111827",
+  },
+  create: {
+    tenantId: tenant.id,
+    publicKey: tenant.id, // TEMP: use tenant id as public key
+    enabled: true,
+    assistantName: "Three Tree Assistant",
+    greeting: "Hi! How can I help today?",
+    brandColor: "#111827",
+  },
+});
 
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -68,12 +89,14 @@ export async function POST() {
     path: '/',
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    expires: expiresAt,
   });
   jar.set('tz_tenant', tenant.id, {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    expires: expiresAt,
   });
 
   return NextResponse.json({
