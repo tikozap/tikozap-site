@@ -45,30 +45,18 @@ export async function POST() {
     },
   });
 
-// Keep membership (owner)
-await prisma.membership.upsert({
-  where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
-  update: {},
-  create: {
-    userId: user.id,
-    tenantId: tenant.id,
-    role: "owner",
-  },
-});
-
-// Create/update Widget (THIS is what /api/widget/public/settings reads)
-await prisma.widget.upsert({
-  where: { tenantId: tenant.id }, // assumes widget has unique tenantId; if not, use publicKey unique instead
+const widget = await prisma.widget.upsert({
+  where: { tenantId: tenant.id },
   update: {
     enabled: true,
-    publicKey: tenant.id, // TEMP: use tenant id as public key
+    publicKey: tenant.id,
     assistantName: "Three Tree Assistant",
     greeting: "Hi! How can I help today?",
     brandColor: "#111827",
   },
   create: {
     tenantId: tenant.id,
-    publicKey: tenant.id, // TEMP: use tenant id as public key
+    publicKey: tenant.id,
     enabled: true,
     assistantName: "Three Tree Assistant",
     greeting: "Hi! How can I help today?",
@@ -99,13 +87,17 @@ await prisma.widget.upsert({
     expires: expiresAt,
   });
 
-  return NextResponse.json({
-    ok: true,
-    tenant: {
-      id: tenant.id,
-      slug: tenant.slug,
-      name: tenant.storeName,
-      storeName: tenant.storeName,
-    },
-  });
+return NextResponse.json({
+  ok: true,
+  tenant: {
+    id: tenant.id,
+    slug: tenant.slug,
+    name: tenant.storeName,
+    storeName: tenant.storeName,
+  },
+  widget: {
+    publicKey: widget.publicKey,
+    enabled: widget.enabled,
+  },
+});
 }
