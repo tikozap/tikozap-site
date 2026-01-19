@@ -6,23 +6,44 @@ import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const COMMIT =
+  (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 12);
 
 // GET -> check current session (DemoMerchantStart useEffect)
 export async function GET() {
   const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  if (!auth) return NextResponse.json({ ok: false, commit: COMMIT }, { status: 401 });
 
   const tenantName = auth.tenant.storeName || auth.tenant.slug || 'Your store';
 
-  return NextResponse.json({
-    ok: true,
-    tenant: {
-      id: auth.tenant.id,
-      slug: auth.tenant.slug,
-      name: tenantName,       // demo UI expects "name"
-      storeName: tenantName,  // dashboard/auth/me expects "storeName"
+  const widget = await prisma.widget.findUnique({
+    where: { tenantId: auth.tenant.id },
+    select: {
+      publicKey: true,
+      enabled: true,
+      assistantName: true,
+      greeting: true,
+      brandColor: true,
+      installedAt: true,
     },
   });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      commit: COMMIT,
+      tenant: {
+        id: auth.tenant.id,
+        slug: auth.tenant.slug,
+        name: tenantName,
+        storeName: tenantName,
+      },
+      widget,
+    },
+    { headers: { 'cache-control': 'no-store' } }
+  );
 }
 
 // POST -> create/reuse demo user + tenant, make session, set cookies
@@ -45,24 +66,45 @@ export async function POST() {
     },
   });
 
-const widget = await prisma.widget.upsert({
-  where: { tenantId: tenant.id },
-  update: {
-    enabled: true,
-    publicKey: tenant.id,
-    assistantName: "Three Tree Assistant",
-    greeting: "Hi! How can I help today?",
-    brandColor: "#111827",
-  },
-  create: {
-    tenantId: tenant.id,
-    publicKey: tenant.id,
-    enabled: true,
-    assistantName: "Three Tree Assistant",
-    greeting: "Hi! How can I help today?",
-    brandColor: "#111827",
-  },
-});
+  // Keep membership (owner)
+  await prisma.membership.upsert({
+    where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
+    update: {},
+    create: {
+      userId: user.id,
+      tenantId: tenant.id,
+      role: 'owner',
+    },
+  });
+
+  // Create/update Widget (THIS is what /api/widget/public/settings reads)
+  // IMPORTANT: do NOT rotate publicKey on update.
+  const widget = await prisma.widget.upsert({
+    where: { tenantId: tenant.id },
+    update: {
+      enabled: true,
+      assistantName: 'Three Tree Assistant',
+      greeting: 'Hi! How can I help today?',
+      brandColor: '#111827',
+      installedAt: new Date(),
+    },
+    create: {
+      tenantId: tenant.id,
+      enabled: true,
+      assistantName: 'Three Tree Assistant',
+      greeting: 'Hi! How can I help today?',
+      brandColor: '#111827',
+      installedAt: new Date(),
+    },
+    select: {
+      publicKey: true,
+      enabled: true,
+      assistantName: true,
+      greeting: true,
+      brandColor: true,
+      installedAt: true,
+    },
+  });
 
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -87,17 +129,18 @@ const widget = await prisma.widget.upsert({
     expires: expiresAt,
   });
 
-return NextResponse.json({
-  ok: true,
-  tenant: {
-    id: tenant.id,
-    slug: tenant.slug,
-    name: tenant.storeName,
-    storeName: tenant.storeName,
-  },
-  widget: {
-    publicKey: widget.publicKey,
-    enabled: widget.enabled,
-  },
-});
+  return NextResponse.json(
+    {
+      ok: true,
+      commit: COMMIT,
+      tenant: {
+        id: tenant.id,
+        slug: tenant.slug,
+        name: tenant.storeName,
+        storeName: tenant.storeName,
+      },
+      widget,
+    },
+    { headers: { 'cache-control': 'no-store' } }
+  );
 }
