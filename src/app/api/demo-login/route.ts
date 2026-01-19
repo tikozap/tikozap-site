@@ -1,4 +1,3 @@
-// src/app/api/demo-login/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
@@ -6,17 +5,21 @@ import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 const COMMIT =
-  (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 12);
+  (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || '')
+    .slice(0, 7) || 'local';
 
 // GET -> check current session (DemoMerchantStart useEffect)
 export async function GET() {
   const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false, commit: COMMIT }, { status: 401 });
+  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const tenantName = auth.tenant.storeName || auth.tenant.slug || 'Your store';
+  const tenantName =
+    ('storeName' in auth.tenant && auth.tenant.storeName) ||
+    ('name' in auth.tenant && auth.tenant.name) ||
+    auth.tenant.slug ||
+    'Your store';
 
   const widget = await prisma.widget.findUnique({
     where: { tenantId: auth.tenant.id },
@@ -46,7 +49,7 @@ export async function GET() {
   );
 }
 
-// POST -> create/reuse demo user + tenant, make session, set cookies
+// POST -> create/reuse demo user + tenant, make session, set cookies, ensure widget exists
 export async function POST() {
   const demoEmail = 'demo-merchant@tikozap.test';
 
@@ -77,8 +80,7 @@ export async function POST() {
     },
   });
 
-  // Create/update Widget (THIS is what /api/widget/public/settings reads)
-  // IMPORTANT: do NOT rotate publicKey on update.
+  // Ensure widget exists + enabled (publicKey stays stable once created)
   const widget = await prisma.widget.upsert({
     where: { tenantId: tenant.id },
     update: {
@@ -86,7 +88,6 @@ export async function POST() {
       assistantName: 'Three Tree Assistant',
       greeting: 'Hi! How can I help today?',
       brandColor: '#111827',
-      installedAt: new Date(),
     },
     create: {
       tenantId: tenant.id,
@@ -94,7 +95,6 @@ export async function POST() {
       assistantName: 'Three Tree Assistant',
       greeting: 'Hi! How can I help today?',
       brandColor: '#111827',
-      installedAt: new Date(),
     },
     select: {
       publicKey: true,
@@ -140,6 +140,7 @@ export async function POST() {
         storeName: tenant.storeName,
       },
       widget,
+      widgetPublicKey: widget.publicKey,
     },
     { headers: { 'cache-control': 'no-store' } }
   );

@@ -1,4 +1,3 @@
-// src/app/api/auth/me/route.ts
 import { NextResponse } from 'next/server';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 
@@ -11,17 +10,20 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const tenantName =
+    ('storeName' in auth.tenant && auth.tenant.storeName) ||
+    ('name' in auth.tenant && auth.tenant.name) ||
+    auth.tenant.slug ||
+    'Your store';
+
   return NextResponse.json({
     ok: true,
-    user: {
-      id: auth.user.id,
-      email: auth.user.email,
-      name: auth.user.name ?? null,
+    user: auth.user,
+    tenant: {
+      id: auth.tenant.id,
+      slug: auth.tenant.slug,
+      storeName: tenantName,
+      name: tenantName,
     },
-tenant: {
-  id: auth.tenant.id,
-  slug: auth.tenant.slug,
-  storeName: auth.tenant.storeName,
-},
   });
 }
