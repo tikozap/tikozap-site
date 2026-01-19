@@ -1,28 +1,18 @@
 // prisma.config.ts
-import { defineConfig } from 'prisma/config';
-import { config as dotenvConfig } from 'dotenv';
-
-// Load env for Prisma CLI (db pull, studio, migrate)
-dotenvConfig({ path: '.env.local' }); // <-- important
-dotenvConfig({ path: '.env' });       // optional fallback
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
 
 const url =
   process.env.DIRECT_URL ||
-  process.env.MIGRATE_DATABASE_URL || // optional during transition
+  process.env.MIGRATE_DATABASE_URL ||
   process.env.DATABASE_URL;
 
-if (!url) throw new Error('Missing DIRECT_URL or DATABASE_URL');
-if (!url.startsWith('postgresql://') && !url.startsWith('postgres://')) {
-  throw new Error(`Invalid datasource url. Got: ${url.slice(0, 25)}...`);
+if (!url) {
+  throw new Error("Missing DATABASE_URL (or DIRECT_URL / MIGRATE_DATABASE_URL)");
 }
 
-// prisma.config.ts
-export default {
+export default defineConfig({
   schema: "prisma/schema.prisma",
-  // choose connection for migrate/introspection tools
-  datasourceUrl:
-    process.env.DIRECT_URL ||
-    process.env.MIGRATE_DATABASE_URL ||
-    process.env.DATABASE_URL,
-};
-
+  datasource: { url },
+  migrations: { path: "prisma/migrations" },
+});
