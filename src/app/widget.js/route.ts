@@ -1,11 +1,14 @@
+// src/app/widget.js/route.ts
 export const runtime = 'edge';
 
 function js() {
-  return `(() => {
+  const BUILD_MARK = 'wjs-2026-01-19b';
+
+  return `/* tikozap widget build: ${BUILD_MARK} */
+(() => {
   if (window.__TIKOZAP_WIDGET_LOADED__) return;
   window.__TIKOZAP_WIDGET_LOADED__ = true;
 
-  // Find the <script> that loaded /widget.js so we can read data-* attributes
   const script =
     document.currentScript ||
     [...document.getElementsByTagName('script')].find((s) =>
@@ -13,9 +16,6 @@ function js() {
     ) ||
     [...document.getElementsByTagName('script')].slice(-1)[0];
 
-  // Public key:
-  // 1) Prefer data-tikozap-key (recommended)
-  // 2) Fallback to window.TIKOZAP_PUBLIC_KEY (legacy/override)
   const KEY =
     (script && (script.getAttribute('data-tikozap-key') || script.getAttribute('data-tikozap-public-key'))) ||
     window.TIKOZAP_PUBLIC_KEY;
@@ -25,17 +25,13 @@ function js() {
     return;
   }
 
-  // API base:
-  // 1) data-tikozap-api-base
-  // 2) window.TIKOZAP_API_BASE
-  // 3) if widget served from localhost, use that origin; else api.tikozap.com
   let API_BASE =
     (script && script.getAttribute('data-tikozap-api-base')) ||
     window.TIKOZAP_API_BASE;
 
   if (!API_BASE) {
     try {
-      const src = script?.src || '';
+      const src = (script && script.src) || '';
       const u = new URL(src);
       const isLocal = (u.hostname === 'localhost' || u.hostname === '127.0.0.1');
       API_BASE = isLocal ? u.origin : 'https://api.tikozap.com';
@@ -160,14 +156,13 @@ function js() {
 
   const greet = (text) => render(text ? [{ role: 'assistant', content: text }] : []);
 
-  const toggle = () => {
+  bubble.addEventListener('click', () => {
     const open = panel.style.display !== 'none';
     panel.style.display = open ? 'none' : 'block';
     bubble.textContent = open ? '💬' : '×';
     if (!open) setTimeout(() => (msgs.scrollTop = msgs.scrollHeight), 0);
-  };
+  });
 
-  bubble.addEventListener('click', toggle);
   closeBtn.addEventListener('click', () => {
     panel.style.display = 'none';
     bubble.textContent = '💬';
@@ -176,25 +171,25 @@ function js() {
   resetBtn.addEventListener('click', () => {
     localStorage.removeItem(cidKey);
     conversationId = '';
-    greet(settings?.greeting || 'Hi! How can we help today?');
+    greet((settings && settings.greeting) || 'Hi! How can I help today?');
   });
 
   async function loadSettings() {
     const res = await fetch(SETTINGS_URL, { method: 'GET', mode: 'cors' });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load settings');
+    if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || 'Failed to load settings');
 
     settings = data.widget;
-    if (settings?.enabled === false) {
+    if (settings && settings.enabled === false) {
       bubble.remove();
       panel.remove();
       return;
     }
 
-    const color = safeHex(settings?.brandColor);
+    const color = safeHex(settings && settings.brandColor);
     bubble.style.background = color;
-    title.textContent = (settings?.assistantName || 'Store Assistant').trim() || 'Store Assistant';
-    greet((settings?.greeting || 'Hi! How can I help today?').trim());
+    title.textContent = String((settings && settings.assistantName) || 'Store Assistant').trim() || 'Store Assistant';
+    greet(String((settings && settings.greeting) || 'Hi! How can I help today?').trim());
   }
 
   async function send(text) {
@@ -221,7 +216,7 @@ function js() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Send failed');
+      if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || 'Send failed');
 
       if (data.conversationId && data.conversationId !== conversationId) {
         conversationId = data.conversationId;
@@ -230,12 +225,13 @@ function js() {
 
       if (Array.isArray(data.messages)) {
         const filtered = data.messages
-          .filter((x) => x?.role === 'customer' || x?.role === 'assistant')
+          .filter((x) => x && (x.role === 'customer' || x.role === 'assistant'))
           .map((x) => ({ role: x.role, content: x.content }));
         render(filtered);
       }
     } catch (e) {
-      render([{ role: 'assistant', content: 'Sorry—failed to send. (' + (e?.message || 'error') + ')' }]);
+      const msg = (e && e.message) ? e.message : 'error';
+      render([{ role: 'assistant', content: 'Sorry—failed to send. (' + msg + ')' }]);
     } finally {
       busy = false;
       sendBtn.removeAttribute('disabled');
@@ -260,14 +256,17 @@ function js() {
     greet('Sorry—widget failed to load settings. Please try again.');
     console.error('[TikoZap] settings load failed', e);
   });
-})();`;
+})();
+`;
 }
 
 export async function GET() {
+  const BUILD_MARK = 'wjs-2026-01-19b';
   return new Response(js(), {
     headers: {
       'content-type': 'application/javascript; charset=utf-8',
       'cache-control': 'public, max-age=300, s-maxage=300',
+      'x-tikozap-widget-build': BUILD_MARK,
     },
   });
 }
