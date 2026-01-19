@@ -11,7 +11,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="db-wrap">
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell tenantName="Your store">{children}</DashboardShell>
     </div>
   );
 }
