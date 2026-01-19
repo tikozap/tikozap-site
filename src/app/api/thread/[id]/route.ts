@@ -1,17 +1,22 @@
+// src/app/api/thread/[id]/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  const thread = await prisma.thread.findFirst({
-    where: { id: params.id },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-    },
-  });
+export const runtime = "nodejs";
 
-  if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ thread });
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  return NextResponse.json(
+    { ok: false, error: "Thread API not enabled yet", id: params.id },
+    { status: 404, headers: corsHeaders }
+  );
 }
