@@ -2,6 +2,9 @@
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
+  engine: "classic",
   schema: "prisma/schema.prisma",
-  datasourceUrl: process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL,
+  datasource: {
+    url: process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
+  },
 });
