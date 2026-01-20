@@ -354,8 +354,8 @@ export default function ConversationsClient() {
     if (!text) return;
     setDraft('');
     await api(`/api/conversations/${thread.id}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ role: 'staff', content: text }),
+    method: 'POST',
+    body: JSON.stringify({ text }), // no role needed; API defaults to staff
     });
     await refreshThread(thread.id);
     await refreshList();
@@ -366,8 +366,8 @@ export default function ConversationsClient() {
     const note = window.prompt('Internal note (only visible to your team):');
     if (!note || !note.trim()) return;
     await api(`/api/conversations/${thread.id}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ role: 'note', content: note.trim() }),
+    method: 'POST',
+    body: JSON.stringify({ text: note.trim(), internal: true }), // API maps internal -> note
     });
     await refreshThread(thread.id);
     await refreshList();
@@ -385,8 +385,8 @@ export default function ConversationsClient() {
       `Context: last customer message → "${customerText || '(none)'}"`;
 
     await api(`/api/conversations/${thread.id}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ role: 'note', content: note }),
+    method: 'POST',
+    body: JSON.stringify({ text: note, internal: true }),
     });
     await refreshThread(thread.id);
     await refreshList();
