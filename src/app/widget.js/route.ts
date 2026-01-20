@@ -2,7 +2,7 @@
 export const runtime = 'edge';
 
 function js() {
-  const BUILD_MARK = 'wjs-2026-01-19b';
+   const BUILD_MARK = 'wjs-2026-01-20a';
 
   return `/* tikozap widget build: ${BUILD_MARK} */
 (() => {
@@ -319,7 +319,7 @@ await syncThread();
 }
 
 export async function GET() {
-  const BUILD_MARK = 'wjs-2026-01-19b';
+  const BUILD_MARK = 'wjs-2026-01-20a';
   return new Response(js(), {
     headers: {
       'content-type': 'application/javascript; charset=utf-8',
