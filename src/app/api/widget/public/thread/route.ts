@@ -10,21 +10,21 @@ const Query = z.object({
   conversationId: z.string().min(8).max(200),
 });
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,OPTIONS",
-  // IMPORTANT: widget polling sends 'cache-control', so allow it
   "Access-Control-Allow-Headers": "Content-Type, Cache-Control",
   "Access-Control-Max-Age": "86400",
 };
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new Response(null, { status: 204, headers: corsHeaders });
 }
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+
     const parsed = Query.safeParse({
       key: searchParams.get("key") || "",
       conversationId: searchParams.get("conversationId") || "",
@@ -63,4 +63,24 @@ export async function GET(req: Request) {
       );
     }
 
-    // Return ONLY public-vis
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId: conv.id,
+        role: { in: ["customer", "assistant", "staff"] },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true, role: true, content: true, createdAt: true },
+    });
+
+    return NextResponse.json(
+      { ok: true, conversationId: conv.id, messages },
+      { headers: { ...corsHeaders, "cache-control": "no-store" } }
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Server error" },
+      { status: 500, headers: { ...corsHeaders, "cache-control": "no-store" } }
+    );
+  }
+}
