@@ -1,9 +1,9 @@
 // src/app/widget.js/route.ts
 export const runtime = 'edge';
 
-function js() {
-   const BUILD_MARK = 'wjs-2026-01-20a';
+const BUILD_MARK = 'wjs-2026-01-22a';
 
+function js() {
   return `/* tikozap widget build: ${BUILD_MARK} */
 (() => {
   if (window.__TIKOZAP_WIDGET_LOADED__) return;
@@ -40,12 +40,18 @@ function js() {
     }
   }
 
-const SETTINGS_URL = API_BASE + '/api/widget/public/settings?key=' + encodeURIComponent(KEY);
-const MESSAGE_URL = API_BASE + '/api/widget/public/message';
-const THREAD_URL_BASE = API_BASE + '/api/widget/public/thread?key=' + encodeURIComponent(KEY) + '&conversationId=';
+  const SETTINGS_URL = API_BASE + '/api/widget/public/settings?key=' + encodeURIComponent(KEY);
+  const MESSAGE_URL = API_BASE + '/api/widget/public/message';
+  const THREAD_URL_BASE = API_BASE + '/api/widget/public/thread?key=' + encodeURIComponent(KEY) + '&conversationId=';
 
-let pollTimer = null;
-let lastSig = '';
+  const SUBJECT = (script && script.getAttribute('data-tikozap-subject')) || 'Website chat';
+  const TAGS = (script && script.getAttribute('data-tikozap-tags')) || 'widget';
+  const CHANNEL = (script && script.getAttribute('data-tikozap-channel')) || 'web';
+  const CUSTOMER_NAME = (script && script.getAttribute('data-tikozap-customer-name')) || '';
+  const AUTO_OPEN = (script && script.getAttribute('data-tikozap-open')) === '1';
+
+  let pollTimer = null;
+  let lastSig = '';
 
   const safeHex = (v) => {
     const raw = String(v || '').trim();
@@ -160,33 +166,77 @@ let lastSig = '';
 
   const greet = (text) => render(text ? [{ role: 'assistant', content: text }] : []);
 
-bubble.addEventListener('click', () => {
-  const open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'block';
-  bubble.textContent = open ? '💬' : '×';
-
-  if (open) {
-    stopPolling();
-  } else {
-    syncThread();
-    startPolling();
-    setTimeout(() => (msgs.scrollTop = msgs.scrollHeight), 0);
+  function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
   }
-});
 
-closeBtn.addEventListener('click', () => {
-  panel.style.display = 'none';
-  bubble.textContent = '💬';
-  stopPolling();
-});
+  async function syncThread() {
+    if (!conversationId) return;
 
-resetBtn.addEventListener('click', () => {
-  localStorage.removeItem(cidKey);
-  conversationId = '';
-  lastSig = '';
-  stopPolling();
-  greet((settings && settings.greeting) || 'Hi! How can I help today?');
-});
+    try {
+      const url =
+        THREAD_URL_BASE +
+        encodeURIComponent(conversationId) +
+        '&t=' + Date.now();
+
+      const res = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store',
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.ok) return;
+
+      const arr = Array.isArray(data.messages) ? data.messages : [];
+      const filtered = arr
+        .filter((x) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
+        .map((x) => ({ role: x.role, content: x.content }));
+
+      const sig = filtered.map((m) => m.role + ':' + (m.content || '')).join('|');
+      if (sig !== lastSig) {
+        lastSig = sig;
+        render(filtered);
+      }
+    } catch {
+      // ignore transient polling errors
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(syncThread, 2000);
+  }
+
+  function setOpen(open) {
+    panel.style.display = open ? 'block' : 'none';
+    bubble.textContent = open ? '×' : '💬';
+
+    if (open) {
+      syncThread();
+      startPolling();
+      setTimeout(() => (msgs.scrollTop = msgs.scrollHeight), 0);
+    } else {
+      stopPolling();
+    }
+  }
+
+  bubble.addEventListener('click', () => {
+    const open = panel.style.display === 'none';
+    setOpen(open);
+  });
+
+  closeBtn.addEventListener('click', () => setOpen(false));
+
+  resetBtn.addEventListener('click', () => {
+    localStorage.removeItem(cidKey);
+    conversationId = '';
+    lastSig = '';
+    stopPolling();
+    greet((settings && settings.greeting) || 'Hi! How can I help today?');
+    if (panel.style.display !== 'none') startPolling();
+  });
 
   async function loadSettings() {
     const res = await fetch(SETTINGS_URL, { method: 'GET', mode: 'cors' });
@@ -202,48 +252,12 @@ resetBtn.addEventListener('click', () => {
 
     const color = safeHex(settings && settings.brandColor);
     bubble.style.background = color;
+
     title.textContent = String((settings && settings.assistantName) || 'Store Assistant').trim() || 'Store Assistant';
     greet(String((settings && settings.greeting) || 'Hi! How can I help today?').trim());
+
+    if (AUTO_OPEN) setOpen(true);
   }
-
-async function syncThread() {
-  if (!conversationId) return;
-
-  try {
-    const res = await fetch(THREAD_URL_BASE + encodeURIComponent(conversationId), {
-      method: 'GET',
-      mode: 'cors',
-      headers: { 'cache-control': 'no-cache' },
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data || !data.ok) return;
-
-    const arr = Array.isArray(data.messages) ? data.messages : [];
-    const filtered = arr
-      .filter((x) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
-      .map((x) => ({ role: x.role, content: x.content }));
-
-    // tiny signature to avoid re-render spam
-    const sig = filtered.map((m) => m.role + ':' + (m.content || '')).join('|');
-    if (sig !== lastSig) {
-      lastSig = sig;
-      render(filtered);
-    }
-  } catch {
-    // ignore transient polling errors
-  }
-}
-
-function startPolling() {
-  stopPolling();
-  pollTimer = setInterval(syncThread, 2000);
-}
-
-function stopPolling() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = null;
-}
 
   async function send(text) {
     if (busy) return;
@@ -262,31 +276,29 @@ function stopPolling() {
           key: KEY,
           text: t,
           conversationId: conversationId || undefined,
-          channel: 'web',
-          subject: 'Website chat',
-          tags: 'widget',
+          channel: CHANNEL,
+          subject: SUBJECT,
+          tags: TAGS,
+          customerName: CUSTOMER_NAME || undefined,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || 'Send failed');
 
-if (data.conversationId && data.conversationId !== conversationId) {
-  conversationId = data.conversationId;
-  localStorage.setItem(cidKey, conversationId);
-}
+      if (data.conversationId && data.conversationId !== conversationId) {
+        conversationId = data.conversationId;
+        localStorage.setItem(cidKey, conversationId);
+      }
 
-// Show immediate response (customer + assistant + staff if ever returned)
-if (Array.isArray(data.messages)) {
-  const filtered = data.messages
-    .filter((x) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
-    .map((x) => ({ role: x.role, content: x.content }));
-  render(filtered);
-}
+      if (Array.isArray(data.messages)) {
+        const filtered = data.messages
+          .filter((x) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
+          .map((x) => ({ role: x.role, content: x.content }));
+        render(filtered);
+      }
 
-// Then sync from DB (source of truth) so staff replies show ASAP
-await syncThread();
-
+      await syncThread();
     } catch (e) {
       const msg = (e && e.message) ? e.message : 'error';
       render([{ role: 'assistant', content: 'Sorry—failed to send. (' + msg + ')' }]);
@@ -319,7 +331,6 @@ await syncThread();
 }
 
 export async function GET() {
-  const BUILD_MARK = 'wjs-2026-01-20a';
   return new Response(js(), {
     headers: {
       'content-type': 'application/javascript; charset=utf-8',

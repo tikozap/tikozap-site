@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Cache-Control",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -85,8 +85,10 @@ export async function POST(req: Request) {
 
     let conversationId = (body.conversationId || "").toString().trim();
     let allowAi = aiEnabled;
+    let resetConversationId = false;
 
-    // 2) If continuing, confirm convo belongs to tenant
+    // 2) If continuing, confirm convo belongs to tenant.
+    // If it's stale/invalid, auto-start a new thread instead of failing.
     if (conversationId) {
       const existing = await prisma.conversation.findFirst({
         where: { id: conversationId, tenantId },
@@ -94,13 +96,11 @@ export async function POST(req: Request) {
       });
 
       if (!existing?.id) {
-        return NextResponse.json(
-          { ok: false, error: "Conversation not found for tenant" },
-          { status: 404, headers: corsHeaders }
-        );
+        resetConversationId = true;
+        conversationId = "";
+      } else {
+        if (typeof existing.aiEnabled === "boolean") allowAi = existing.aiEnabled;
       }
-
-      if (typeof existing.aiEnabled === "boolean") allowAi = existing.aiEnabled;
     }
 
     // 3) Create conversation if new
@@ -170,16 +170,17 @@ export async function POST(req: Request) {
       data: { lastMessageAt: new Date() },
     });
 
-    const messages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, role: true, content: true, createdAt: true },
-    });
+const messages = await prisma.message.findMany({
+  where: { conversationId, role: { in: ["customer", "assistant", "staff"] } },
+  orderBy: { createdAt: "asc" },
+  select: { id: true, role: true, content: true, createdAt: true },
+});
 
     return NextResponse.json(
-      { ok: true, conversationId, messages },
+      { ok: true, conversationId, messages, resetConversationId },
       { headers: corsHeaders }
     );
+
   } catch (err: any) {
     console.error("[public/widget/message] error", err);
     return NextResponse.json(

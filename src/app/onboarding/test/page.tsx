@@ -15,6 +15,9 @@ type WidgetSettings = {
 const KEY_TENANT_NAME = 'tz_demo_tenant_name';
 const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
 
+// IMPORTANT: always point widget/public endpoints at the API host
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://api.tikozap.com').replace(/\/$/, '');
+
 export default function OnboardingTestPage() {
   const [tenantSlug, setTenantSlug] = useState('three-tree-fashion');
   const [storeName, setStoreName] = useState('Three Tree Fashion');
@@ -34,6 +37,9 @@ export default function OnboardingTestPage() {
   const [widgetError, setWidgetError] = useState('');
   const [widgetLoaded, setWidgetLoaded] = useState(false);
   const injectedRef = useRef(false);
+
+  // Signature guard to avoid re-render spam during polling
+  const lastSigRef = useRef<string>('');
 
   // 1) Pull tenant context from demo storage (set by /demo-login quick start)
   useEffect(() => {
@@ -90,7 +96,8 @@ export default function OnboardingTestPage() {
     return `<!-- TikoZap Widget -->
 <script async
   src="https://js.tikozap.com/widget.js"
-  data-tikozap-key="${key}">
+  data-tikozap-key="${key}"
+  data-tikozap-api-base="${API_BASE}">
 </script>`;
   }, [publicKey]);
 
@@ -109,11 +116,39 @@ export default function OnboardingTestPage() {
     s.async = true;
     s.src = 'https://js.tikozap.com/widget.js';
     s.setAttribute('data-tikozap-key', publicKey);
+    s.setAttribute('data-tikozap-api-base', API_BASE);
 
     s.onload = () => setWidgetLoaded(true);
     s.onerror = () => setWidgetError('Failed to load https://js.tikozap.com/widget.js');
 
     document.body.appendChild(s);
+  }
+
+  // Hard reset bubble thread (fixes "Conversation not found for tenant" immediately)
+  function resetBubbleThread() {
+    if (!publicKey) return;
+
+    try {
+      // Clear the widget’s stored conversation id
+      window.localStorage.removeItem(`tz_widget_cid_${publicKey}`);
+
+      // Remove widget DOM (bubble/panel) so it can re-init cleanly
+      document.querySelectorAll('.tz-bubble, .tz-panel').forEach((el) => el.remove());
+
+      // Remove injected widget script tag
+      document.querySelectorAll('script[data-tikozap-key]').forEach((el) => el.remove());
+
+      // Reset the widget "already loaded" guard
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).__TIKOZAP_WIDGET_LOADED__;
+    } catch {}
+
+    injectedRef.current = false;
+    setWidgetLoaded(false);
+    setWidgetError('');
+
+    // Re-inject
+    setTimeout(() => injectWidget(), 0);
   }
 
   // Auto-inject once when we have a key (so you SEE the real widget on this page)
@@ -122,30 +157,90 @@ export default function OnboardingTestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicKey]);
 
+  async function syncThread() {
+    if (!publicKey || !conversationId) return;
+
+    try {
+      const url = new URL(`${API_BASE}/api/widget/public/thread`);
+      url.searchParams.set('key', publicKey);
+      url.searchParams.set('conversationId', conversationId);
+      url.searchParams.set('t', String(Date.now())); // avoid caches
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store',
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) return;
+
+      const arr = Array.isArray(data.messages) ? data.messages : [];
+      const filtered: Msg[] = arr
+        .filter((x: any) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
+        .map((x: any) => ({ id: x.id, role: x.role, content: x.content, createdAt: x.createdAt }));
+
+      const sig = filtered.map((m) => `${m.role}:${m.content || ''}`).join('|');
+      if (sig !== lastSigRef.current) {
+        lastSigRef.current = sig;
+        setMessages(filtered);
+      }
+    } catch {
+      // ignore transient polling errors
+    }
+  }
+
+  // Poll thread so staff replies appear in the simulator
+  useEffect(() => {
+    if (!publicKey || !conversationId) return;
+
+    let alive = true;
+    syncThread();
+
+    const timer = window.setInterval(() => {
+      if (!alive) return;
+      syncThread();
+    }, 2000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicKey, conversationId]);
+
   async function send() {
     const t = text.trim();
     if (!t || busy) return;
+
+    // Guard BEFORE setting busy, so we don't get stuck busy=true
+    if (!publicKey) {
+      setMessages((m) => [...m, { role: 'assistant', content: 'Sorry—widget public key not loaded yet.' }]);
+      return;
+    }
+
     setBusy(true);
     setText('');
-
     setMessages((m) => [...m, { role: 'customer', content: t }]);
 
     try {
-      const res = await fetch('/api/widget/message', {
+      const res = await fetch(`${API_BASE}/api/widget/public/message`, {
         method: 'POST',
+        mode: 'cors',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          tenantSlug, // important: forces same tenant for demo path
+          key: publicKey,
           customerName: 'Web shopper',
           conversationId: conversationId || undefined,
           text: t,
           channel: 'web',
           subject: 'Onboarding widget test',
+          tags: 'onboarding',
           aiEnabled: true,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Request failed');
 
       if (data.conversationId && data.conversationId !== conversationId) {
@@ -154,13 +249,18 @@ export default function OnboardingTestPage() {
       }
 
       if (Array.isArray(data.messages) && data.messages.length) {
-        setMessages(data.messages);
+        const filtered: Msg[] = data.messages
+          .filter((x: any) => x && (x.role === 'customer' || x.role === 'assistant' || x.role === 'staff'))
+          .map((x: any) => ({ id: x.id, role: x.role, content: x.content, createdAt: x.createdAt }));
+
+        lastSigRef.current = filtered.map((m) => `${m.role}:${m.content || ''}`).join('|');
+        setMessages(filtered);
       }
+
+      // One immediate sync so staff replies show ASAP if they already exist
+      await syncThread();
     } catch (e: any) {
-      setMessages((m) => [
-        ...m,
-        { role: 'assistant', content: `Sorry—something went wrong sending that message. (${e?.message || 'error'})` },
-      ]);
+      setMessages((m) => [...m, { role: 'assistant', content: `Sorry—something went wrong. (${e?.message || 'error'})` }]);
     } finally {
       setBusy(false);
     }
@@ -169,6 +269,7 @@ export default function OnboardingTestPage() {
   function resetThread() {
     setConversationId('');
     window.localStorage.removeItem(storageKey);
+    lastSigRef.current = '';
     setMessages([{ role: 'assistant', content: `Hi! Welcome to ${storeName}. Ask me about orders, shipping, returns, or sizing.` }]);
   }
 
@@ -177,9 +278,7 @@ export default function OnboardingTestPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Storefront chat preview</h2>
-          <p className="text-sm opacity-80">
-            This simulates a shopper chatting on your website. Messages are saved into the inbox (DB).
-          </p>
+          <p className="text-sm opacity-80">This simulates a shopper chatting on your website. Messages are saved into the inbox (DB).</p>
           <p className="mt-1 text-xs opacity-70">
             Tenant: <span className="font-mono">{tenantSlug}</span>
           </p>
@@ -219,15 +318,13 @@ export default function OnboardingTestPage() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') send();
+            }}
             placeholder="Ask about returns, shipping, order status, or sizing…"
             className="w-full rounded-xl border px-3 py-2 text-sm"
           />
-          <button
-            onClick={send}
-            disabled={busy}
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-          >
+          <button onClick={send} disabled={busy} className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-60">
             Send
           </button>
         </div>
@@ -249,28 +346,38 @@ export default function OnboardingTestPage() {
             <p className="mt-1 text-xs opacity-70">
               Public key: <span className="font-mono">{publicKey || '(loading...)'}</span>
             </p>
+            <p className="mt-1 text-xs opacity-70">
+              API base: <span className="font-mono">{API_BASE}</span>
+            </p>
           </div>
 
-          <button
-            onClick={injectWidget}
-            disabled={!publicKey}
-            className="rounded-lg border px-3 py-2 text-xs hover:bg-zinc-50 disabled:opacity-60"
-          >
-            {widgetLoaded ? 'Widget loaded' : 'Load widget now'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetBubbleThread}
+              disabled={!publicKey}
+              className="rounded-lg border px-3 py-2 text-xs hover:bg-zinc-50 disabled:opacity-60"
+              title="Clears the widget's stored conversationId and reloads the widget"
+            >
+              Reset bubble thread
+            </button>
+
+            <button
+              onClick={injectWidget}
+              disabled={!publicKey}
+              className="rounded-lg border px-3 py-2 text-xs hover:bg-zinc-50 disabled:opacity-60"
+            >
+              {widgetLoaded ? 'Widget loaded' : 'Load widget now'}
+            </button>
+          </div>
         </div>
 
         {widgetError ? (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {widgetError}
-          </div>
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{widgetError}</div>
         ) : null}
 
         <div className="mt-3 rounded-xl border bg-zinc-50 p-3">
           <div className="text-xs font-semibold">Embed snippet</div>
-          <pre className="mt-2 overflow-auto rounded-lg border bg-white p-3 text-[11px] leading-relaxed">
-{embedSnippet}
-          </pre>
+          <pre className="mt-2 overflow-auto rounded-lg border bg-white p-3 text-[11px] leading-relaxed">{embedSnippet}</pre>
         </div>
       </div>
 

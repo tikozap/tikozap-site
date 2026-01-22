@@ -1,3 +1,4 @@
+// src/app/dashboard/conversations/_components/ConversationsClient.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -93,9 +94,15 @@ function assistantAutoReply(customerText: string) {
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, {
+    cache: 'no-store',
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      'cache-control': 'no-cache',
+      ...(init?.headers || {}),
+    },
   });
+
   const data = await r.json().catch(() => ({}));
   if (!r.ok || !data?.ok) throw new Error(data?.error || `Request failed (${r.status})`);
   return data as T;
@@ -391,6 +398,44 @@ export default function ConversationsClient() {
     await refreshThread(thread.id);
     await refreshList();
   };
+
+  // Auto-refresh (driven by <AutoRefresh/> in page.tsx)
+  useEffect(() => {
+    let inFlight = false;
+
+    const run = async () => {
+      if (inFlight) return;
+      if (document.hidden) return;
+      inFlight = true;
+
+      try {
+        const conversations = await refreshList();
+
+        // Keep selectedId stable; if it disappeared, fall back to first
+        let nextId = selectedId;
+        if (!nextId || !conversations.some((c) => c.id === nextId)) {
+          nextId = conversations[0]?.id || '';
+          if (nextId && nextId !== selectedId) setSelectedId(nextId);
+        }
+
+        if (nextId) await refreshThread(nextId);
+      } catch {
+        // ignore transient refresh errors
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const onRefreshEvent = () => void run();
+
+    window.addEventListener('tz:refresh', onRefreshEvent);
+
+    // Optional: also do one immediate refresh when entering the page
+    void run();
+
+    return () => window.removeEventListener('tz:refresh', onRefreshEvent);
+  }, [refreshList, refreshThread, selectedId]);
+
 
   const insertDraftIntoReply = (noteText: string) => {
     const suggestion = extractDraftSuggestion(noteText);
