@@ -1,3 +1,4 @@
+// src/app/api/l/[slug]/route.ts
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

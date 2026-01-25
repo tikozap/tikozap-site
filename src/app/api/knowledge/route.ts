@@ -7,14 +7,46 @@ import { getAuthedUserAndTenant } from '@/lib/auth';
 export const runtime = 'nodejs';
 
 const Body = z.object({
+  // existing
   returns: z.string().optional().nullable(),
   shipping: z.string().optional().nullable(),
   sizing: z.string().optional().nullable(),
+
+  // new (Simple mode)
+  storeInfo: z.string().optional().nullable(),
+  brandVoice: z.string().optional().nullable(),
+  otherNotes: z.string().optional().nullable(),
 });
 
 function norm(s: unknown) {
   const t = String(s ?? '').trim();
   return t.length ? t : '';
+}
+
+async function upsertOrDelete(tenantId: string, title: string, content: string) {
+  const existing = await prisma.knowledgeDoc.findFirst({
+    where: { tenantId, title },
+    select: { id: true },
+  });
+
+  // If user clears a section, delete the doc (keeps the model context clean)
+  if (!content) {
+    if (existing?.id) {
+      await prisma.knowledgeDoc.delete({ where: { id: existing.id } });
+    }
+    return;
+  }
+
+  if (existing?.id) {
+    await prisma.knowledgeDoc.update({
+      where: { id: existing.id },
+      data: { content },
+    });
+  } else {
+    await prisma.knowledgeDoc.create({
+      data: { tenantId, title, content },
+    });
+  }
 }
 
 export async function GET() {
@@ -44,28 +76,18 @@ export async function POST(req: Request) {
 
     const body = Body.parse(await req.json().catch(() => ({})));
 
+    // Titles are intentionally stable so storeAssistantReply can read them reliably
     const desired = [
+      { title: 'Store Info', content: norm(body.storeInfo) },
+      { title: 'Brand Voice', content: norm(body.brandVoice) },
       { title: 'Returns', content: norm(body.returns) },
       { title: 'Shipping', content: norm(body.shipping) },
       { title: 'Sizing', content: norm(body.sizing) },
+      { title: 'Other Notes', content: norm(body.otherNotes) },
     ];
 
     for (const d of desired) {
-      const existing = await prisma.knowledgeDoc.findFirst({
-        where: { tenantId, title: d.title },
-        select: { id: true },
-      });
-
-      if (existing?.id) {
-        await prisma.knowledgeDoc.update({
-          where: { id: existing.id },
-          data: { content: d.content },
-        });
-      } else {
-        await prisma.knowledgeDoc.create({
-          data: { tenantId, title: d.title, content: d.content },
-        });
-      }
+      await upsertOrDelete(tenantId, d.title, d.content);
     }
 
     return NextResponse.json({ ok: true });

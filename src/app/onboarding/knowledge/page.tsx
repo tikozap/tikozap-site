@@ -7,7 +7,8 @@ export default function KnowledgeStep() {
     <div>
       <h2 className="text-lg font-semibold">Store knowledge</h2>
       <p className="mt-1 text-sm opacity-80">
-        Add the basics your store assistant should know. You can edit anytime later in the Dashboard → Knowledge.
+        Simple mode helps you fill the most important store policies fast. You can edit anytime later in
+        Dashboard → Knowledge.
       </p>
 
       <KnowledgeEditor />

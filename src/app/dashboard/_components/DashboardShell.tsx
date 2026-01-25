@@ -35,9 +35,11 @@ function NavItem({
 export default function DashboardShell({
   children,
   tenantName: tenantNameProp,
+  tenantPlan = 'Pro',
 }: {
   children: ReactNode;
   tenantName: string;
+  tenantPlan?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname() || '';
@@ -51,8 +53,8 @@ export default function DashboardShell({
   const isConversations = pathname.startsWith('/dashboard/conversations');
 
   const toggleConvoPane = () => {
-    const fn = (window as any).__tzToggleCxPane;
-    if (typeof fn === 'function') fn();
+    const w = window as unknown as { __tzToggleCxPane?: () => void };
+    if (typeof w.__tzToggleCxPane === 'function') w.__tzToggleCxPane();
     else window.dispatchEvent(new Event('tz:cx:toggle-pane'));
   };
 
@@ -88,17 +90,18 @@ export default function DashboardShell({
 
   // Listen for pane changes from ConversationsClient so we can flip the icon
   useEffect(() => {
-    const onPane = (e: any) => {
-      const next = e?.detail?.pane;
+    const onPane = (e: Event) => {
+      const ce = e as CustomEvent<{ pane?: 'list' | 'thread' }>;
+      const next = ce?.detail?.pane;
       if (next === 'list' || next === 'thread') setCxPane(next);
     };
-    window.addEventListener('tz:cx:pane', onPane);
-    return () => window.removeEventListener('tz:cx:pane', onPane);
+    window.addEventListener('tz:cx:pane', onPane as EventListener);
+    return () => window.removeEventListener('tz:cx:pane', onPane as EventListener);
   }, []);
 
   const signOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    router.replace('/login'); // or '/demo-login' if you prefer
+    router.replace('/login');
     router.refresh();
   };
 
@@ -154,17 +157,21 @@ export default function DashboardShell({
           <div className="db-brand">
             <div>
               <div className="db-ws">{tenantName}</div>
-              <div className="db-meta">Plan: Pro</div>
+              <div className="db-meta">Plan: {tenantPlan}</div>
             </div>
           </div>
 
           <ul className="db-nav">
-            <NavItem href="/dashboard" label="Overview" />
-            <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
-            <NavItem href="/dashboard/knowledge" label="Knowledge" />
-            <NavItem href="/dashboard/widget" label="Widget" />
-            <NavItem href="/dashboard/billing" label="Billing" />
-            <NavItem href="/dashboard/settings" label="Settings" />
+<NavItem href="/dashboard" label="Overview" />
+<NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
+
+{/* Milestone 4 */}
+<NavItem href="/dashboard/link" label="TikoZap Link" pill="No Website Needed" />
+
+<NavItem href="/dashboard/knowledge" label="Knowledge" />
+<NavItem href="/dashboard/widget" label="Widget" />
+<NavItem href="/dashboard/billing" label="Billing" />
+<NavItem href="/dashboard/settings" label="Settings" />
           </ul>
 
           <div className="db-sidebar-footer">

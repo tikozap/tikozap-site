@@ -1,3 +1,4 @@
+// loader/public/widget.js
 (() => {
   if (window.__TIKOZAP_WIDGET_LOADED__) return;
   window.__TIKOZAP_WIDGET_LOADED__ = true;

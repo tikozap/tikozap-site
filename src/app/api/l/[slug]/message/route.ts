@@ -1,3 +1,4 @@
+// "src/app/api/l/[slug]/message/route.ts"
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
@@ -9,6 +10,51 @@ const Body = z.object({
   conversationId: z.string().optional(),
   content: z.string().min(1).max(2000),
 });
+
+function isDateTimeQuestion(text: string) {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return false;
+
+  // Common “date/day” phrasings
+  if (t.includes("what date") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day is it")) return true;
+  if (t.includes("today's date") || t.includes("todays date")) return true;
+  if (t.includes("today's day") || t.includes("todays day")) return true;
+
+  // Month / year
+  if (t.includes("what month") || t.includes("which month")) return true;
+  if (t.includes("what year") || t.includes("which year")) return true;
+
+  // Time
+  if (t.includes("what time") || t.includes("current time") || t.includes("time now")) return true;
+
+  // Explicit “system” wording
+  if (t.includes("current date") || t.includes("date now")) return true;
+  if (t.includes("date in your system") || t.includes("time in your system")) return true;
+
+  return false;
+}
+
+function serverDateTimeReply() {
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZoneName: "short",
+  }).format(now);
+
+  const timeStr = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(now);
+
+  return `Today is ${dateStr}. Current time is ${timeStr}.`;
+}
 
 export async function POST(
   req: Request,
@@ -64,6 +110,26 @@ export async function POST(
         content,
       },
     });
+
+// ✅ Date/time questions: answer from SERVER clock (no OpenAI needed)
+if (isDateTimeQuestion(content)) {
+  const reply = serverDateTimeReply();
+
+  await prisma.message.create({
+    data: {
+      conversationId,
+      role: 'assistant',
+      content: reply,
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { lastMessageAt: new Date() },
+  });
+
+  return NextResponse.json({ conversationId });
+}
 
     // Generate assistant reply (smart, but won't invent facts)
     let reply = '';

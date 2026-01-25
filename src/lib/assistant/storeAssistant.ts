@@ -19,6 +19,76 @@ function clamp(s: string, max = 8000) {
   return t.slice(0, max) + '\n…(truncated)';
 }
 
+function looksLikePlaceholderKey(key: string) {
+  const k = (key || '').trim();
+  if (!k) return true;
+  const lower = k.toLowerCase();
+  return (
+    lower.includes('your_key') ||
+    lower.includes('replace') ||
+    lower.includes('repla') ||
+    lower.includes('paste') ||
+    lower === 'sk-xxxxx' ||
+    lower === 'sk-your-key-here'
+  );
+}
+
+function isDateTimeQuestion(textLower: string) {
+  const t = (textLower || "").toLowerCase().trim();
+  if (!t) return false;
+
+  // Date / day
+  if (t.includes("what date") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day is it")) return true;
+  if (t.includes("today's date") || t.includes("todays date")) return true;
+  if (t.includes("today's day") || t.includes("todays day")) return true;
+
+  // Month / year
+  if (t.includes("what month") || t.includes("which month")) return true;
+  if (t.includes("what year") || t.includes("which year")) return true;
+
+  // Time
+  if (t.includes("what time") || t.includes("current time") || t.includes("time now")) return true;
+
+  // “system” wording
+  if (t.includes("current date") || t.includes("date now")) return true;
+  if (t.includes("date in your system") || t.includes("time in your system")) return true;
+
+  return false;
+}
+
+function serverDateTimeReply() {
+  const now = new Date();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+  const dateLocal = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: tz,
+  }).format(now);
+
+  const timeLocal = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: tz,
+  }).format(now);
+
+  return `Today is ${dateLocal}. Current time is ${timeLocal} (${tz}).`;
+}
+
+const CORE_KB_TITLES = [
+  'Store Info',
+  'Brand Voice',
+  'Returns',
+  'Shipping',
+  'Sizing',
+  'Other Notes',
+] as const;
+
 export async function storeAssistantReply(opts: {
   tenantId: string;
   conversationId: string;
@@ -32,6 +102,34 @@ export async function storeAssistantReply(opts: {
     return `Got it — can you share a little more detail so I can help? (Example: “hours”, “returns”, “shipping”, “order status”)`;
   }
 
+  const lower = text.toLowerCase();
+
+const askedDateTime = isDateTimeQuestion(lower);
+
+if (askedDateTime) {
+  const now = new Date();
+
+  // NOTE: In production servers, timezone is often UTC.
+  // We'll explicitly show timezone so it's always "truthful".
+  const dateStr = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZoneName: 'short',
+  }).format(now);
+
+  const timeStr = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).format(now);
+
+  return `Today is ${dateStr}. Current time is ${timeStr}.`;
+}
+
+  // Load tenant/store profile
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { storeName: true, slug: true },
@@ -45,7 +143,7 @@ export async function storeAssistantReply(opts: {
       phone: true,
       address: true,
       city: true,
-      hoursJson: true, // we'll treat as plain text (option 1)
+      hoursJson: true, // treat as plain text
       buttonsJson: true,
       greeting: true,
       published: true,
@@ -53,12 +151,27 @@ export async function storeAssistantReply(opts: {
     },
   });
 
-  const knowledge = await prisma.knowledgeDoc.findMany({
-    where: { tenantId },
+  // ✅ Always load core knowledge docs by title first (stable behavior)
+  const coreDocs = await prisma.knowledgeDoc.findMany({
+    where: { tenantId, title: { in: [...CORE_KB_TITLES] as any } },
+    select: { title: true, content: true },
+  });
+
+  // Then load some recent “extra” docs (if the store adds many later)
+  const extraDocs = await prisma.knowledgeDoc.findMany({
+    where: { tenantId, title: { notIn: [...CORE_KB_TITLES] as any } },
     orderBy: { updatedAt: 'desc' },
     take: 6,
     select: { title: true, content: true },
   });
+
+  // Order core docs in the exact preferred order
+  const coreByTitle = new Map(coreDocs.map((d) => [d.title, d]));
+  const orderedCore = CORE_KB_TITLES.map((t) => coreByTitle.get(t)).filter(
+    (x): x is { title: string; content: string } => Boolean(x),
+  );
+
+  const knowledge = [...orderedCore, ...extraDocs];
 
   // Pull recent history (newest first → reverse to chronological)
   const msgs = await prisma.message.findMany({
@@ -83,14 +196,14 @@ export async function storeAssistantReply(opts: {
     history = history.slice(0, -1);
   }
 
-  // Safe fallback if no key
-  if (!process.env.OPENAI_API_KEY) {
+  const key = process.env.OPENAI_API_KEY || '';
+  if (!key || looksLikePlaceholderKey(key)) {
+    console.warn('[storeAssistantReply] OPENAI_API_KEY missing or placeholder; using safe fallback');
     return `Got it — can you share a little more detail so I can help? (Example: “hours”, “returns”, “shipping”, “order status”)`;
   }
 
   const storeName = starter?.title || tenant?.storeName || 'this store';
 
-  // Option 1: treat hoursJson as plain text (no JSON parsing)
   const hoursText = starter?.hoursJson ? String(starter.hoursJson).trim() : null;
 
   const starterFactsRaw = [
@@ -100,7 +213,6 @@ export async function storeAssistantReply(opts: {
       ? `Location: ${[starter.address, starter.city].filter(Boolean).join(', ')}`
       : null,
     hoursText ? `Hours: ${hoursText}` : null,
-    starter?.buttonsJson ? `Buttons JSON: ${starter.buttonsJson}` : null,
     channel ? `Channel: ${channel}` : null,
   ]
     .filter(Boolean)
@@ -108,14 +220,14 @@ export async function storeAssistantReply(opts: {
 
   const kbRaw = knowledge.length
     ? knowledge
-        .map((d, i) => `KB${i + 1}: ${d.title}\n${d.content}`)
+        .map((d, i) => `KB${i + 1}: ${d.title}\n${d.content || ''}`)
         .join('\n\n---\n\n')
     : '(No knowledge docs yet)';
 
   const starterFacts = clamp(starterFactsRaw, 2500);
   const kb = clamp(kbRaw, 9000);
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: key });
 
   const response = await client.responses.create({
     model: 'gpt-4.1-mini',
@@ -143,4 +255,3 @@ export async function storeAssistantReply(opts: {
     `Thanks — can you share a bit more detail so I can help?`
   );
 }
-

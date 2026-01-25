@@ -10,7 +10,7 @@ export const revalidate = 0;
 export default function Page() {
   return (
     <>
-      <AutoRefresh intervalMs={2000} />
+     <AutoRefresh intervalMs={8000} />
       <ConversationsClient />
     </>
   );

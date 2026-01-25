@@ -12,7 +12,7 @@ function isTyping() {
 }
 
 export default function AutoRefresh({
-  intervalMs = 2000,
+  intervalMs = 10000,
   enabled = true,
 }: {
   intervalMs?: number;

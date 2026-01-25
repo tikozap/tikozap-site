@@ -399,42 +399,48 @@ export default function ConversationsClient() {
     await refreshList();
   };
 
+   const lastListRefreshAtRef = useRef<number>(0);
+
   // Auto-refresh (driven by <AutoRefresh/> in page.tsx)
-  useEffect(() => {
-    let inFlight = false;
+useEffect(() => {
+  let inFlight = false;
 
-    const run = async () => {
-      if (inFlight) return;
-      if (document.hidden) return;
-      inFlight = true;
+const run = async () => {
+  if (inFlight) return;
+  if (document.hidden) return;
+  inFlight = true;
 
-      try {
-        const conversations = await refreshList();
+  try {
+    const now = Date.now();
 
-        // Keep selectedId stable; if it disappeared, fall back to first
-        let nextId = selectedId;
-        if (!nextId || !conversations.some((c) => c.id === nextId)) {
-          nextId = conversations[0]?.id || '';
-          if (nextId && nextId !== selectedId) setSelectedId(nextId);
-        }
+    // Refresh list at most every 30s (but always if nothing selected yet)
+    const shouldRefreshList = !selectedId || now - lastListRefreshAtRef.current > 30_000;
 
-        if (nextId) await refreshThread(nextId);
-      } catch {
-        // ignore transient refresh errors
-      } finally {
-        inFlight = false;
+    const conversations = shouldRefreshList ? await refreshList() : null;
+    if (shouldRefreshList) lastListRefreshAtRef.current = now;
+
+    // Keep selectedId stable; if it disappeared, fall back to first
+    let nextId = selectedId;
+
+    if (shouldRefreshList && conversations) {
+      if (!nextId || !conversations.some((c) => c.id === nextId)) {
+        nextId = conversations[0]?.id || '';
+        if (nextId && nextId !== selectedId) setSelectedId(nextId);
       }
-    };
+    }
 
-    const onRefreshEvent = () => void run();
+    if (nextId) await refreshThread(nextId);
+  } catch {
+    // ignore transient refresh errors
+  } finally {
+    inFlight = false;
+  }
+};
 
-    window.addEventListener('tz:refresh', onRefreshEvent);
-
-    // Optional: also do one immediate refresh when entering the page
-    void run();
-
-    return () => window.removeEventListener('tz:refresh', onRefreshEvent);
-  }, [refreshList, refreshThread, selectedId]);
+  const onRefreshEvent = () => void run();
+  window.addEventListener('tz:refresh', onRefreshEvent);
+  return () => window.removeEventListener('tz:refresh', onRefreshEvent);
+}, [refreshList, refreshThread, selectedId]);
 
 
   const insertDraftIntoReply = (noteText: string) => {

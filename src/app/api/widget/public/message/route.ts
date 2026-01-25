@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 export const runtime = "nodejs";
+const BUILD_MARK = "widget-public-message-2026-01-25a";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +19,15 @@ export async function OPTIONS() {
 // Debug endpoint to prove the route exists in prod
 export async function GET() {
   return NextResponse.json(
-    { ok: true, route: "/api/widget/public/message", now: new Date().toISOString() },
+    {
+      ok: true,
+      route: "/api/widget/public/message",
+      now: new Date().toISOString(),
+      build: "widget-public-message-2026-01-25a",
+      gitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+      vercelEnv: process.env.VERCEL_ENV ?? null,
+      projectId: process.env.VERCEL_PROJECT_ID ?? null,
+    },
     { headers: corsHeaders }
   );
 }
@@ -48,6 +57,51 @@ function assistantAutoReply(customerText: string) {
   if (t.includes("xl") || t.includes("size"))
     return "I can help with sizing. Which item are you looking at, and what size do you usually wear?";
   return "Got it. Can you share a little more detail so I can help faster?";
+}
+
+function isDateTimeQuestion(text: string) {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return false;
+
+  // Common “date/day” phrasings
+  if (t.includes("what date") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day") && (t.includes("today") || t.includes("it"))) return true;
+  if (t.includes("what day is it")) return true;
+  if (t.includes("today's date") || t.includes("todays date")) return true;
+  if (t.includes("today's day") || t.includes("todays day")) return true;
+
+  // Month / year
+  if (t.includes("what month") || t.includes("which month")) return true;
+  if (t.includes("what year") || t.includes("which year")) return true;
+
+  // Time
+  if (t.includes("what time") || t.includes("current time") || t.includes("time now")) return true;
+
+  // Explicit “system” wording
+  if (t.includes("current date") || t.includes("date now")) return true;
+  if (t.includes("date in your system") || t.includes("time in your system")) return true;
+
+  return false;
+}
+
+function serverDateTimeReply() {
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZoneName: "short",
+  }).format(now);
+
+  const timeStr = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(now);
+
+  return `Today is ${dateStr}. Current time is ${timeStr}.`;
 }
 
 export async function POST(req: Request) {
@@ -130,6 +184,35 @@ export async function POST(req: Request) {
         content: body.text.trim(),
       },
     });
+
+// ✅ Date/time questions: answer from SERVER clock (no OpenAI needed)
+if (isDateTimeQuestion(body.text)) {
+  const reply = serverDateTimeReply();
+
+  await prisma.message.create({
+    data: {
+      conversationId,
+      role: "assistant",
+      content: reply,
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { lastMessageAt: new Date() },
+  });
+
+  const messages = await prisma.message.findMany({
+    where: { conversationId, role: { in: ["customer", "assistant", "staff"] } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, role: true, content: true, createdAt: true },
+  });
+
+  return NextResponse.json(
+    { ok: true, conversationId, messages, resetConversationId },
+    { headers: corsHeaders }
+  );
+}
 
     // 5) Re-check allowAi from DB (staff takeover wins)
     try {

@@ -1,4 +1,4 @@
-// src/app/api/demo-assistant/route.ts
+// src/app/api/demo-assistant-v2/route.ts
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import {
@@ -86,40 +86,32 @@ export async function POST(req: Request) {
     const userText = userTextRaw.trim();
  
    const lower = userText.toLowerCase();
-    // --- Fast path: date/time/month from server clock (keeps answers consistent) ---
-    const now = new Date();
 
-    const isMonthQuestion =
-      /\b(what\s*month(\s*is\s*it)?|which\s*month|current\s*month|this\s*month)\b/i.test(lower);
+// ✅ Date/time questions should answer from server clock
+const isDateTimeQuestion =
+  /\b(what\s*(is|'s)\s*(the\s*)?(date|day)(\s+is\s+it)?(\s+today)?|today'?s\s*date|what\s*time\s*is\s*it|current\s+(date|time)|date\s+in\s+your\s+system)\b/i.test(lower);
 
-    const isDateTimeQuestion =
-      /\b(what\s*(is|'s)\s*(the\s*)?(date|day)\b.*\btoday\b|what\s*day\s*is\s*it|today'?s\s*date|what\s*time\s*is\s*it|current\s+(date|time)|date\s+in\s+your\s+system|time\s+in\s+your\s+system)\b/i.test(lower);
+if (isDateTimeQuestion) {
+  const now = new Date();
 
-    if (isMonthQuestion || isDateTimeQuestion) {
-      const dateLocal = new Intl.DateTimeFormat('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(now);
+  const dateLocal = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(now);
 
-      const monthLocal = new Intl.DateTimeFormat('en-US', {
-        month: 'long',
-        year: 'numeric',
-      }).format(now);
+  const timeLocal = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now);
 
-      const timeLocal = new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now);
-
-      const reply = isMonthQuestion
-        ? `This month is ${monthLocal}.`
-        : `Today is ${dateLocal}. Current time is ${timeLocal}.`;
-
-      return NextResponse.json({ reply }, { status: 200 });
-    }
+  return NextResponse.json(
+    { reply: `Today is ${dateLocal}. Current time is ${timeLocal}.` },
+    { status: 200 }
+  );
+}
 
 const isJustGreeting =
   /^(hi|hello|hey|good morning|good afternoon|good evening)\b[!?.\s]*$/i.test(lower);

@@ -173,10 +173,10 @@ export function demoDetectBucket(text: string): DemoBucketName {
     return 'capabilities';
   }
 
-  // Greetings
-  if (/^(hi|hello|hey|hola|嗨|你好)[!. ]?$/i.test(lower)) {
-    return 'greeting';
-  }
+// Greetings (accept ?, !, ., extra words)
+if (/^(hi|hello|hey|hola|good (morning|afternoon|evening)|嗨|你好)\b[!?.\s]*$/i.test(lower)) {
+  return 'greeting';
+}
 
   return 'off_topic';
 }
