@@ -18,6 +18,11 @@ function safeSlug(s: string) {
     .slice(0, 80);
 }
 
+function tenantDisplayName(t: unknown) {
+  const anyT = t as any;
+  return String(anyT?.storeName || anyT?.name || 'Your store');
+}
+
 async function uniqueSlug(base: string) {
   let slug = base;
   for (let i = 0; i < 5; i++) {
@@ -43,7 +48,12 @@ export async function GET(req: Request) {
   let link = await prisma.starterLink.findFirst({ where: { tenantId } });
 
   if (!link) {
-    const base = safeSlug(String(auth.tenant.slug || auth.tenant.storeName || auth.tenant.name || 'your-store'));
+    const anyT = auth.tenant as any;
+
+    const base = safeSlug(
+      String(anyT?.slug || anyT?.storeName || anyT?.name || 'your-store')
+    );
+
     const slug = await uniqueSlug(base);
 
     link = await prisma.starterLink.create({
@@ -51,7 +61,7 @@ export async function GET(req: Request) {
         tenantId,
         slug,
         published: false,
-        title: String(auth.tenant.storeName || auth.tenant.name || 'Your store'),
+        title: tenantDisplayName(auth.tenant),
         tagline: 'Chat with us anytime.',
         greeting: 'Hi! How can we help today?',
         buttonsJson: '[]',

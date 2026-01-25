@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "^7.3.0",
     "dotenv": "^17.2.3",
     "lucide-react": "0.452.0",
     "nanoid": "^5.1.6",
@@ -35,7 +35,7 @@
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.4",
     "postcss": "8.4.33",
-    "prisma": "^7.2.0",
+    "prisma": "^7.3.0",
     "svgo": "^4.0.0",
     "tailwindcss": "3.4.3",
     "typescript": "5.4.5"
