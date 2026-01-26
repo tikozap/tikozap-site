@@ -6,6 +6,7 @@ import { DEMO_BUCKET_TEXT, type DemoBucketName } from '@/config/demoAssistant';
 // Use Node runtime (not edge) so the SDK works normally.
 export const runtime = 'nodejs';
 const BUILD_MARK = 'demo-assistant-2026-01-25a';
+const DEMO_TZ = 'America/New_York';
 
 type HistoryMessage = {
   role: 'user' | 'assistant';
@@ -110,31 +111,35 @@ function detectClockIntent(lower: string): ClockIntent | null {
 function serverClockReply(intent: ClockIntent) {
   const now = new Date();
 
-  const dateStr = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZoneName: 'short',
-  }).format(now);
+const dateStr = new Intl.DateTimeFormat('en-US', {
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: DEMO_TZ,
+  timeZoneName: 'short',
+}).format(now);
 
-  const monthStr = new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    year: 'numeric',
-    timeZoneName: 'short',
-  }).format(now);
+const monthStr = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: DEMO_TZ,
+  timeZoneName: 'short',
+}).format(now);
 
-  const yearStr = new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    timeZoneName: 'short',
-  }).format(now);
+const yearStr = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  timeZone: DEMO_TZ,
+  timeZoneName: 'short',
+}).format(now);
 
-  const timeStr = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZoneName: 'short',
-  }).format(now);
+const timeStr = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+  timeZone: DEMO_TZ,
+  timeZoneName: 'short',
+}).format(now);
 
   if (intent === 'month') return `This month is ${monthStr}.`;
   if (intent === 'year') return `The current year is ${yearStr}.`;
