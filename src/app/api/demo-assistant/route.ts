@@ -1,14 +1,11 @@
 // src/app/api/demo-assistant/route.ts
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import {
-  DEMO_BUCKET_TEXT,
-  type DemoBucketName,
-} from '@/config/demoAssistant';
+import { DEMO_BUCKET_TEXT, type DemoBucketName } from '@/config/demoAssistant';
 
 // Use Node runtime (not edge) so the SDK works normally.
 export const runtime = 'nodejs';
-const BUILD_MARK = 'demo-assistant-2026-01-24a';
+const BUILD_MARK = 'demo-assistant-2026-01-25a';
 
 type HistoryMessage = {
   role: 'user' | 'assistant';
@@ -77,61 +74,115 @@ function pickBucketReply(bucket: DemoBucketName | undefined): string {
   return picked;
 }
 
+type ClockIntent = 'datetime' | 'time' | 'month' | 'year';
+
+function detectClockIntent(lower: string): ClockIntent | null {
+  const t = (lower || '').trim();
+  if (!t) return null;
+
+  // month/year
+  if (t.includes('what month') || t.includes('which month') || t.includes('current month') || t.includes('this month')) {
+    return 'month';
+  }
+  if (t.includes('what year') || t.includes('which year') || t.includes('current year') || t.includes('this year')) {
+    return 'year';
+  }
+
+  // time only
+  if (t.includes('what time') || t.includes('current time') || t.includes('time now') || t.includes('time in your system')) {
+    return 'time';
+  }
+
+  // date/day/datetime
+  if (t.includes('what date') || t.includes("today's date") || t.includes('todays date') || t.includes('date now') || t.includes('current date')) {
+    return 'datetime';
+  }
+  if (t.includes('what day is it') || (t.includes('what day') && (t.includes('today') || t.includes('it')))) {
+    return 'datetime';
+  }
+  if (t.includes('date in your system')) {
+    return 'datetime';
+  }
+
+  return null;
+}
+
+function serverClockReply(intent: ClockIntent) {
+  const now = new Date();
+
+  const dateStr = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZoneName: 'short',
+  }).format(now);
+
+  const monthStr = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZoneName: 'short',
+  }).format(now);
+
+  const yearStr = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    timeZoneName: 'short',
+  }).format(now);
+
+  const timeStr = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).format(now);
+
+  if (intent === 'month') return `This month is ${monthStr}.`;
+  if (intent === 'year') return `The current year is ${yearStr}.`;
+  if (intent === 'time') return `Current time is ${timeStr}.`;
+  return `Today is ${dateStr}. Current time is ${timeStr}.`;
+}
+
+// Debug endpoint (helps confirm deploy + build mark)
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    route: '/api/demo-assistant',
+    now: new Date().toISOString(),
+    build: BUILD_MARK,
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body: any = await req.json().catch(() => ({}));
 
-    const userTextRaw =
-      typeof body.userText === 'string' ? body.userText : '';
+    const userTextRaw = typeof body.userText === 'string' ? body.userText : '';
     const userText = userTextRaw.trim();
- 
-   const lower = userText.toLowerCase();
-    // --- Fast path: date/time/month from server clock (keeps answers consistent) ---
-    const now = new Date();
+    const lower = userText.toLowerCase();
 
-    const isMonthQuestion =
-      /\b(what\s*month(\s*is\s*it)?|which\s*month|current\s*month|this\s*month)\b/i.test(lower);
-
-    const isDateTimeQuestion =
-      /\b(what\s*(is|'s)\s*(the\s*)?(date|day)\b.*\btoday\b|what\s*day\s*is\s*it|today'?s\s*date|what\s*time\s*is\s*it|current\s+(date|time)|date\s+in\s+your\s+system|time\s+in\s+your\s+system)\b/i.test(lower);
-
-    if (isMonthQuestion || isDateTimeQuestion) {
-      const dateLocal = new Intl.DateTimeFormat('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(now);
-
-      const monthLocal = new Intl.DateTimeFormat('en-US', {
-        month: 'long',
-        year: 'numeric',
-      }).format(now);
-
-      const timeLocal = new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now);
-
-      const reply = isMonthQuestion
-        ? `This month is ${monthLocal}.`
-        : `Today is ${dateLocal}. Current time is ${timeLocal}.`;
-
-      return NextResponse.json({ reply }, { status: 200 });
+    // ✅ Fast path: date/time/month/year from SERVER clock (consistent + truthful)
+    const clockIntent = detectClockIntent(lower);
+    if (clockIntent) {
+      return NextResponse.json(
+        { reply: serverClockReply(clockIntent), build: BUILD_MARK },
+        { status: 200 }
+      );
     }
 
-const isJustGreeting =
-  /^(hi|hello|hey|good morning|good afternoon|good evening)\b[!?.\s]*$/i.test(lower);
+    const isJustGreeting =
+      /^(hi|hello|hey|good morning|good afternoon|good evening)\b[!?.\s]*$/i.test(lower);
 
-if (isJustGreeting) {
-  return NextResponse.json({
-    reply:
-      "Hi! I’m TikoZap Assistant. Want to explore features, pricing, or setup? " +
-      "If you ask a shopper-style question (shipping/returns/order status), I’ll show an example answer too.",
-   build: BUILD_MARK,
-  });
-}
+    if (isJustGreeting) {
+      return NextResponse.json(
+        {
+          reply:
+            "Hi! I’m TikoZap Assistant. Want to explore features, pricing, or setup? " +
+            "If you ask a shopper-style question (shipping/returns/order status), I’ll show an example answer too.",
+          build: BUILD_MARK,
+        },
+        { status: 200 }
+      );
+    }
 
     const bucket = body.bucket as DemoBucketName | undefined;
     const historyRaw = Array.isArray(body.history) ? body.history : [];
@@ -143,7 +194,7 @@ if (isJustGreeting) {
       'hasKey=',
       !!process.env.OPENAI_API_KEY,
       'userText=',
-      userText,
+      userText
     );
 
     const history: HistoryMessage[] = historyRaw
@@ -181,19 +232,17 @@ if (isJustGreeting) {
         `This demo doesn’t connect to real orders—it's a safe preview of how the assistant and workflow behave.\n\n` +
         `What are you evaluating: features, pricing, or setup?`;
 
-      return NextResponse.json({ reply }, { status: 200 });
+      return NextResponse.json({ reply, build: BUILD_MARK }, { status: 200 });
     }
 
     // If somehow no user text, just return a platform-focused canned answer.
     if (!userText) {
       const reply = pickBucketReply(bucket);
-      return NextResponse.json({ reply });
+      return NextResponse.json({ reply, build: BUILD_MARK }, { status: 200 });
     }
 
     // ---------- Translation detection ----------
-    const lastAssistant = [...history]
-      .reverse()
-      .find((m) => m.role === 'assistant');
+    const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
 
     const wantsTranslation =
       lower.includes('translate') ||
@@ -207,15 +256,13 @@ if (isJustGreeting) {
       '[demo-assistant] wantsTranslation=',
       wantsTranslation,
       'hasLastAssistant=',
-      !!lastAssistant,
+      !!lastAssistant
     );
 
     let replyFromModel: string | null = null;
 
     if (process.env.OPENAI_API_KEY) {
-      const client = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
       if (wantsTranslation && lastAssistant) {
         // 🔤 Translation path
@@ -233,9 +280,7 @@ if (isJustGreeting) {
             },
             {
               role: 'user',
-              content:
-                `User request: ${userText}\n\n` +
-                `Text to translate:\n${lastAssistant.content}`,
+              content: `User request: ${userText}\n\nText to translate:\n${lastAssistant.content}`,
             },
           ],
           max_output_tokens: 256,
@@ -243,11 +288,8 @@ if (isJustGreeting) {
 
         replyFromModel = (response as any).output_text ?? null;
       } else {
-        // ✅ PLATFORM ASSISTANT PATH (fixed)
-        const messagesForModel: {
-          role: 'developer' | 'user' | 'assistant';
-          content: string;
-        }[] = [
+        // ✅ PLATFORM ASSISTANT PATH
+        const messagesForModel: { role: 'developer' | 'user' | 'assistant'; content: string }[] = [
           {
             role: 'developer',
             content:
@@ -285,16 +327,14 @@ if (isJustGreeting) {
 
         const response = await client.responses.create({
           model: 'gpt-4.1',
-          input: messagesForModel as any, // cast keeps TS happy
+          input: messagesForModel as any,
           max_output_tokens: 256,
         });
 
         replyFromModel = (response as any).output_text ?? null;
       }
     } else {
-      console.warn(
-        'OPENAI_API_KEY is not set; /api/demo-assistant will use canned demo replies only.',
-      );
+      console.warn('OPENAI_API_KEY is not set; /api/demo-assistant will use canned demo replies only.');
     }
 
     const reply =
@@ -302,9 +342,9 @@ if (isJustGreeting) {
       pickBucketReply(bucket) ||
       FALLBACK_DEFAULT;
 
-return NextResponse.json({ reply, build: BUILD_MARK });
+    return NextResponse.json({ reply, build: BUILD_MARK }, { status: 200 });
   } catch (error) {
     console.error('Error in /api/demo-assistant', error);
-    return NextResponse.json({ reply: FALLBACK_DEFAULT });
+    return NextResponse.json({ reply: FALLBACK_DEFAULT, build: BUILD_MARK }, { status: 200 });
   }
 }
