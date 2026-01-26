@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { storeAssistantReply } from '@/lib/assistant/storeAssistant';
+import { formatNowInTz } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
 

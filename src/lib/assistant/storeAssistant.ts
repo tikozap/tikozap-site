@@ -3,6 +3,7 @@ import 'server-only';
 
 import OpenAI from 'openai';
 import { prisma } from '@/lib/prisma';
+import { formatNowInTz } from '@/lib/timezone';
 
 type Role = 'user' | 'assistant';
 
@@ -132,7 +133,7 @@ if (askedDateTime) {
   // Load tenant/store profile
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { storeName: true, slug: true },
+    select: { storeName: true, slug: true, timeZone: true },
   });
 
   const starter = await prisma.starterLink.findUnique({

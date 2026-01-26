@@ -54,6 +54,8 @@ model Tenant {
   createdAt DateTime @default(now())
   ownerId   String
 
+  timeZone  String   @default("America/New_York")
+
   // ✅ Billing / Plan (MVP)
   plan          PlanTier      @default(PRO)
   billingStatus BillingStatus @default(NONE)
