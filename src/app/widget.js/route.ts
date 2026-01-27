@@ -1,7 +1,7 @@
 // src/app/widget.js/route.ts
 export const runtime = 'edge';
 
-const BUILD_MARK = 'wjs-2026-01-22a';
+const BUILD_MARK = 'wjs-2026-01-26a';
 
 function js() {
   return `/* tikozap widget build: ${BUILD_MARK} */
@@ -50,6 +50,9 @@ function js() {
   const CUSTOMER_NAME = (script && script.getAttribute('data-tikozap-customer-name')) || '';
   const AUTO_OPEN = (script && script.getAttribute('data-tikozap-open')) === '1';
 
+  // Optional: language override for speech recognition
+  const SPEECH_LANG = (script && script.getAttribute('data-tikozap-lang')) || '';
+
   let pollTimer = null;
   let lastSig = '';
 
@@ -67,6 +70,7 @@ function js() {
     ".tz-hd{padding:12px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:10px}" +
     ".tz-title{font-weight:900;font-size:13px}" +
     ".tz-sub{font-size:11px;opacity:.7;margin-top:2px}" +
+    ".tz-status{font-size:11px;opacity:.75;margin-top:4px;display:none}" +
     ".tz-actions{display:flex;gap:8px;align-items:center}" +
     ".tz-btn{font-size:12px;border:1px solid #e5e7eb;border-radius:10px;padding:6px 8px;background:#fff;cursor:pointer}" +
     ".tz-msgs{height:260px;overflow:auto;padding:12px;background:#f8fafc}" +
@@ -75,8 +79,11 @@ function js() {
     ".tz-bub{max-width:85%;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;white-space:pre-wrap;border:1px solid #e5e7eb}" +
     ".tz-bub.me{background:#fff;color:#111827}" +
     ".tz-bub.ai{background:#111827;color:#fff}" +
-    ".tz-ft{padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;background:#fff}" +
+    ".tz-ft{padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;background:#fff;align-items:center}" +
     ".tz-in{flex:1;border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;font-size:13px}" +
+    ".tz-mic{width:44px;min-width:44px;height:42px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}" +
+    ".tz-mic[aria-pressed='true']{background:#111827;color:#fff;border-color:#111827}" +
+    ".tz-mic[disabled]{opacity:.6;cursor:not-allowed}" +
     ".tz-send{border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;background:#111827;color:#fff;font-weight:900;cursor:pointer}" +
     ".tz-send[disabled]{opacity:.6;cursor:not-allowed}";
 
@@ -102,8 +109,14 @@ function js() {
   const sub = document.createElement('div');
   sub.className = 'tz-sub';
   sub.textContent = 'Online';
+
+  const status = document.createElement('div');
+  status.className = 'tz-status';
+  status.textContent = '';
+
   hdLeft.appendChild(title);
   hdLeft.appendChild(sub);
+  hdLeft.appendChild(status);
 
   const actions = document.createElement('div');
   actions.className = 'tz-actions';
@@ -132,11 +145,19 @@ function js() {
   input.className = 'tz-in';
   input.placeholder = 'Type a message…';
 
+  const micBtn = document.createElement('button');
+  micBtn.className = 'tz-mic';
+  micBtn.type = 'button';
+  micBtn.textContent = '🎤';
+  micBtn.setAttribute('aria-label', 'Tap to speak');
+  micBtn.setAttribute('aria-pressed', 'false');
+
   const sendBtn = document.createElement('button');
   sendBtn.className = 'tz-send';
   sendBtn.textContent = 'Send';
 
   ft.appendChild(input);
+  ft.appendChild(micBtn);
   ft.appendChild(sendBtn);
 
   panel.appendChild(hd);
@@ -149,6 +170,12 @@ function js() {
   let settings = null;
   let conversationId = localStorage.getItem(cidKey) || '';
   let busy = false;
+
+  const setStatus = (t) => {
+    const s = String(t || '').trim();
+    status.textContent = s;
+    status.style.display = s ? 'block' : 'none';
+  };
 
   const render = (arr) => {
     msgs.innerHTML = '';
@@ -209,9 +236,100 @@ function js() {
     pollTimer = setInterval(syncThread, 2000);
   }
 
+  // --- Tap-to-Speak (Web Speech API) ---
+  let stopListening = null;
+
+  function initSpeech() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    const host = (location && location.hostname) ? location.hostname : '';
+    const isLocalHost = (host === 'localhost' || host === '127.0.0.1');
+    const isSecure =
+      (typeof window.isSecureContext === 'boolean' ? window.isSecureContext : (location && location.protocol === 'https:')) ||
+      isLocalHost;
+
+    if (!SR || !isSecure) {
+      micBtn.style.display = 'none';
+      return;
+    }
+
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.lang = (SPEECH_LANG || navigator.language || 'en-US');
+
+    let listening = false;
+    let finalText = '';
+
+    const setPressed = (v) => micBtn.setAttribute('aria-pressed', v ? 'true' : 'false');
+
+    function start() {
+      if (busy) return;
+      finalText = '';
+      try {
+        rec.start(); // must be inside a user gesture
+      } catch (e) {
+        setStatus('Voice start failed');
+        listening = false;
+        setPressed(false);
+      }
+    }
+
+    function stop() {
+      try { rec.stop(); } catch {}
+    }
+
+    stopListening = stop;
+
+    micBtn.addEventListener('click', () => {
+      if (busy) return;
+      if (listening) stop();
+      else start();
+    });
+
+    rec.onstart = () => {
+      listening = true;
+      setPressed(true);
+      setStatus('Listening…');
+    };
+
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const txt = (e.results[i] && e.results[i][0] && e.results[i][0].transcript) ? e.results[i][0].transcript : '';
+        if (e.results[i].isFinal) finalText += txt;
+        else interim += txt;
+      }
+      input.value = (finalText + interim).trim();
+    };
+
+    rec.onerror = (e) => {
+      const err = (e && e.error) ? String(e.error) : 'error';
+      let msg = 'Voice error: ' + err;
+      if (err === 'not-allowed' || err === 'service-not-allowed') msg = 'Mic permission denied';
+      else if (err === 'no-speech') msg = 'No speech detected';
+      else if (err === 'network') msg = 'Speech service unavailable';
+
+      setStatus(msg);
+      listening = false;
+      setPressed(false);
+    };
+
+    rec.onend = () => {
+      listening = false;
+      setPressed(false);
+      setStatus('');
+      input.focus();
+    };
+  }
+  // --- end Tap-to-Speak ---
+
   function setOpen(open) {
     panel.style.display = open ? 'block' : 'none';
     bubble.textContent = open ? '×' : '💬';
+
+    if (!open && stopListening) stopListening();
 
     if (open) {
       syncThread();
@@ -230,6 +348,7 @@ function js() {
   closeBtn.addEventListener('click', () => setOpen(false));
 
   resetBtn.addEventListener('click', () => {
+    if (stopListening) stopListening();
     localStorage.removeItem(cidKey);
     conversationId = '';
     lastSig = '';
@@ -264,8 +383,11 @@ function js() {
     const t = String(text || '').trim();
     if (!t) return;
 
+    if (stopListening) stopListening();
+
     busy = true;
     sendBtn.setAttribute('disabled', 'true');
+    micBtn.setAttribute('disabled', 'true');
 
     try {
       const res = await fetch(MESSAGE_URL, {
@@ -305,6 +427,7 @@ function js() {
     } finally {
       busy = false;
       sendBtn.removeAttribute('disabled');
+      micBtn.removeAttribute('disabled');
     }
   }
 
@@ -316,11 +439,15 @@ function js() {
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
+      if (stopListening) stopListening();
       const t = input.value;
       input.value = '';
       send(t);
     }
   });
+
+  // init speech after DOM is ready
+  initSpeech();
 
   loadSettings().catch((e) => {
     greet('Sorry—widget failed to load settings. Please try again.');

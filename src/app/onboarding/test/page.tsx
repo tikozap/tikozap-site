@@ -41,6 +41,43 @@ export default function OnboardingTestPage() {
   // Signature guard to avoid re-render spam during polling
   const lastSigRef = useRef<string>('');
 
+  // ---- Milestone 5: Tap-to-Speak status helpers ----
+  const [speechLang, setSpeechLang] = useState<string>(''); // optional override (e.g. "en-US")
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [secureContext, setSecureContext] = useState(false);
+  const [widgetIndicators, setWidgetIndicators] = useState({
+    bubble: false,
+    panel: false,
+    mic: false,
+  });
+
+  function scanWidgetDom() {
+    if (typeof document === 'undefined') return;
+    setWidgetIndicators({
+      bubble: !!document.querySelector('.tz-bubble'),
+      panel: !!document.querySelector('.tz-panel'),
+      mic: !!document.querySelector('.tz-mic'),
+    });
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // SpeechRecognition support check
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setSpeechSupported(!!SR);
+
+    // Secure context check (Web Speech recognition generally requires https)
+    const host = window.location?.hostname || '';
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+    const isSecure =
+      (typeof window.isSecureContext === 'boolean' ? window.isSecureContext : window.location?.protocol === 'https:') ||
+      isLocalHost;
+    setSecureContext(!!isSecure);
+  }, []);
+  // ---- end Milestone 5 helpers ----
+
   // 1) Pull tenant context from demo storage (set by /demo-login quick start)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -93,13 +130,18 @@ export default function OnboardingTestPage() {
 
   const embedSnippet = useMemo(() => {
     const key = publicKey || 'YOUR_PUBLIC_KEY';
+
+    const langLine = (speechLang || '').trim()
+      ? `  data-tikozap-lang="${(speechLang || '').trim()}"\n`
+      : '';
+
     return `<!-- TikoZap Widget -->
 <script async
   src="https://js.tikozap.com/widget.js"
   data-tikozap-key="${key}"
-  data-tikozap-api-base="${API_BASE}">
+${langLine}  data-tikozap-api-base="${API_BASE}">
 </script>`;
-  }, [publicKey]);
+  }, [publicKey, speechLang]);
 
   function injectWidget() {
     if (!publicKey) return;
@@ -118,7 +160,16 @@ export default function OnboardingTestPage() {
     s.setAttribute('data-tikozap-key', publicKey);
     s.setAttribute('data-tikozap-api-base', API_BASE);
 
-    s.onload = () => setWidgetLoaded(true);
+    // Optional speech language override (Milestone 5)
+    if ((speechLang || '').trim()) {
+      s.setAttribute('data-tikozap-lang', (speechLang || '').trim());
+    }
+
+    s.onload = () => {
+      setWidgetLoaded(true);
+      // give widget a moment to render bubble/panel
+      setTimeout(() => scanWidgetDom(), 50);
+    };
     s.onerror = () => setWidgetError('Failed to load https://js.tikozap.com/widget.js');
 
     document.body.appendChild(s);
@@ -146,9 +197,10 @@ export default function OnboardingTestPage() {
     injectedRef.current = false;
     setWidgetLoaded(false);
     setWidgetError('');
-
-    // Re-inject
-    setTimeout(() => injectWidget(), 0);
+    setTimeout(() => {
+      injectWidget();
+      setTimeout(() => scanWidgetDom(), 100);
+    }, 0);
   }
 
   // Auto-inject once when we have a key (so you SEE the real widget on this page)
@@ -156,6 +208,13 @@ export default function OnboardingTestPage() {
     if (publicKey) injectWidget();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicKey]);
+
+  // Keep scanning widget DOM so the page shows whether mic/bubble exists
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = window.setInterval(() => scanWidgetDom(), 800);
+    return () => window.clearInterval(t);
+  }, []);
 
   async function syncThread() {
     if (!publicKey || !conversationId) return;
@@ -349,6 +408,53 @@ export default function OnboardingTestPage() {
             <p className="mt-1 text-xs opacity-70">
               API base: <span className="font-mono">{API_BASE}</span>
             </p>
+
+            {/* Milestone 5: status block */}
+            <div className="mt-3 rounded-xl border bg-zinc-50 p-3">
+              <div className="text-xs font-semibold">Milestone 5 — Tap-to-Speak status</div>
+              <div className="mt-2 grid gap-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span>SpeechRecognition supported</span>
+                  <span className={`font-mono ${speechSupported ? 'text-green-700' : 'text-red-700'}`}>
+                    {speechSupported ? 'YES' : 'NO'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Secure context (https/localhost)</span>
+                  <span className={`font-mono ${secureContext ? 'text-green-700' : 'text-red-700'}`}>
+                    {secureContext ? 'YES' : 'NO'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Widget bubble present (.tz-bubble)</span>
+                  <span className={`font-mono ${widgetIndicators.bubble ? 'text-green-700' : 'text-red-700'}`}>
+                    {widgetIndicators.bubble ? 'YES' : 'NO'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Widget mic button present (.tz-mic)</span>
+                  <span className={`font-mono ${widgetIndicators.mic ? 'text-green-700' : 'text-red-700'}`}>
+                    {widgetIndicators.mic ? 'YES' : 'NO'}
+                  </span>
+                </div>
+
+                <div className="mt-1">
+                  <div className="text-[11px] opacity-70">
+                    Tip: open the bubble → tap 🎤 → speak → text should appear in the widget input, then Send.
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="text-[11px] opacity-70">Optional speech lang:</label>
+                  <input
+                    value={speechLang}
+                    onChange={(e) => setSpeechLang(e.target.value)}
+                    placeholder="e.g. en-US (blank = browser default)"
+                    className="w-full rounded-lg border bg-white px-2 py-1 text-[11px]"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -362,7 +468,10 @@ export default function OnboardingTestPage() {
             </button>
 
             <button
-              onClick={injectWidget}
+              onClick={() => {
+                injectWidget();
+                setTimeout(() => scanWidgetDom(), 150);
+              }}
               disabled={!publicKey}
               className="rounded-lg border px-3 py-2 text-xs hover:bg-zinc-50 disabled:opacity-60"
             >
