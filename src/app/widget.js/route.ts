@@ -1,7 +1,7 @@
 // src/app/widget.js/route.ts
 export const runtime = 'edge';
 
-const BUILD_MARK = 'wjs-2026-01-26a';
+const BUILD_MARK = 'wjs-2026-01-27a';
 
 function js() {
   return `/* tikozap widget build: ${BUILD_MARK} */
