@@ -92,8 +92,13 @@ model Widget {
   assistantName String?
   greeting      String?
   brandColor    String?
+
+  // ✅ Milestone 7: allowed-domain enforcement
+  allowedDomains String[] @default([])
+
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
+
 
 model KnowledgeDoc {
   id        String   @id @default(cuid())

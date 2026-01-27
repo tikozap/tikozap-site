@@ -1,7 +1,62 @@
 // src/app/api/widget/public/message/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { formatNowInTz } from '@/lib/timezone';
+
+const ALWAYS_ALLOWED_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  'app.tikozap.com',
+  'link.tikozap.com',
+  'tikozap.com',
+]);
+
+function normalizeHost(h: string) {
+  const s = String(h || '').trim().toLowerCase();
+  if (!s) return '';
+  return s.startsWith('www.') ? s.slice(4) : s;
+}
+
+function hostFromUrlHeader(v: string | null) {
+  if (!v) return '';
+  try {
+    const u = new URL(v);
+    return normalizeHost(u.hostname);
+  } catch {
+    return '';
+  }
+}
+
+function getOriginHost(req: Request) {
+  // Prefer Origin; fallback Referer
+  const origin = req.headers.get('origin');
+  const referer = req.headers.get('referer');
+  return hostFromUrlHeader(origin) || hostFromUrlHeader(referer) || '';
+}
+
+function isHostAllowed(host: string, allowedDomains: string[]) {
+  const h = normalizeHost(host);
+  if (!h) return false;
+
+  if (ALWAYS_ALLOWED_HOSTS.has(h)) return true;
+
+  // exact / wildcard match against normalized allowlist
+  for (const raw of allowedDomains || []) {
+    const rule = String(raw || '').trim().toLowerCase();
+    if (!rule) continue;
+
+    if (rule.startsWith('*.')) {
+      const suffix = rule.slice(1); // ".example.com"
+      if (h.endsWith(suffix)) return true;
+      continue;
+    }
+
+    const r = normalizeHost(rule);
+    if (h === r) return true;
+  }
+
+  return false;
+}
 
 export const runtime = "nodejs";
 const BUILD_MARK = "widget-public-message-2026-01-25a";
@@ -85,13 +140,16 @@ function isDateTimeQuestion(text: string) {
   return false;
 }
 
-function serverDateTimeReply() {
+function serverDateTimeReply(timeZone?: string | null) {
+  const tz = timeZone || "America/New_York";
   const now = new Date();
+
   const dateStr = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: tz,
     timeZoneName: "short",
   }).format(now);
 
@@ -99,6 +157,7 @@ function serverDateTimeReply() {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
+    timeZone: tz,
     timeZoneName: "short",
   }).format(now);
 
@@ -114,9 +173,9 @@ export async function POST(req: Request) {
 
     // 1) Resolve tenant by public key
     const widget = await prisma.widget.findUnique({
-      where: { publicKey: body.key },
-      select: { tenantId: true, enabled: true },
-    });
+    where: { publicKey: body.key },
+    select: { tenantId: true, enabled: true, allowedDomains: true },
+});
 
     if (!widget || widget.enabled === false) {
       return NextResponse.json(
@@ -125,7 +184,34 @@ export async function POST(req: Request) {
       );
     }
 
+// ✅ Milestone 7: Allowed-domain enforcement
+const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
+if (allowed.length > 0) {
+  const originHost = getOriginHost(req);
+
+  // If allowlist is set and we can't determine origin -> deny
+  if (!originHost) {
+    return NextResponse.json(
+      { ok: false, error: 'Origin not allowed (missing Origin/Referer)' },
+      { status: 403, headers: corsHeaders }
+    );
+  }
+
+  if (!isHostAllowed(originHost, allowed)) {
+    return NextResponse.json(
+      { ok: false, error: `Origin not allowed: ${originHost}` },
+      { status: 403, headers: corsHeaders }
+    );
+  }
+}
+
     const tenantId = widget.tenantId;
+
+const tenant = await prisma.tenant.findUnique({
+  where: { id: tenantId },
+  select: { timeZone: true },
+});
+const tenantTz = tenant?.timeZone || "America/New_York";
 
     const customerName =
       (body.customerName || "Customer").toString().trim() || "Customer";
@@ -188,7 +274,7 @@ export async function POST(req: Request) {
 
 // ✅ Date/time questions: answer from SERVER clock (no OpenAI needed)
 if (isDateTimeQuestion(body.text)) {
-  const reply = serverDateTimeReply();
+  const reply = serverDateTimeReply(tenantTz);
 
   await prisma.message.create({
     data: {
