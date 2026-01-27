@@ -23,7 +23,7 @@ export default function DemoLoginPage() {
         if (!res.ok || !data?.ok) throw new Error(data?.error || 'Demo login failed');
 
         if (!alive) return;
-        router.replace('/dashboard');
+        router.replace('/onboarding/test');
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message || 'Demo login failed');
