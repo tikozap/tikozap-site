@@ -69,6 +69,8 @@ export default function middleware(req: NextRequest) {
 
     // ✅ Allow these paths on the app subdomain
     const allowed =
+      p === "/demo-login" ||
+      p.startsWith("/demo-login/") ||
       p.startsWith("/dashboard") ||
       p.startsWith("/onboarding") ||
       p.startsWith("/logout") ||
