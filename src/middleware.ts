@@ -31,10 +31,9 @@ export default function middleware(req: NextRequest) {
   // Always allow API everywhere (critical)
   if (p.startsWith("/api")) return NextResponse.next();
 
-  // ✅ Always allow the widget loader everywhere (critical)
+  // Always allow the widget loader everywhere (critical)
   if (p === "/widget.js") return NextResponse.next();
 
-  // Your app structure
   const DASH_HOME = "/dashboard";
   const LINK_HOME = "/l";
 
@@ -42,7 +41,7 @@ export default function middleware(req: NextRequest) {
   // js.tikozap.com → widget loader only
   // -------------------------
   if (host === "js.tikozap.com") {
-    // Only serve /widget.js on this subdomain
+    // /widget.js already allowed above. Everything else goes to marketing.
     url.hostname = "tikozap.com";
     url.pathname = "/";
     return NextResponse.redirect(url);
@@ -52,28 +51,35 @@ export default function middleware(req: NextRequest) {
   // api.tikozap.com → API only
   // -------------------------
   if (host === "api.tikozap.com") {
-    // We already allowed /api/* above.
-    // Anything else should go to marketing root.
+    // /api/* already allowed above. Everything else goes to marketing.
     url.hostname = "tikozap.com";
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
   // -------------------------
-  // app.tikozap.com → dashboard
+  // app.tikozap.com → dashboard (but MUST allow auth pages!)
   // -------------------------
   if (host === "app.tikozap.com") {
-    // Redirect root to dashboard
+    // Root → dashboard
     if (p === "/") {
       url.pathname = DASH_HOME;
       return NextResponse.redirect(url);
     }
 
-    // Allow dashboard + logout + onboarding only
+    // ✅ Allow these paths on the app subdomain
     const allowed =
       p.startsWith("/dashboard") ||
+      p.startsWith("/onboarding") ||
       p.startsWith("/logout") ||
-      p.startsWith("/onboarding");
+      p === "/login" ||
+      p.startsWith("/login/") ||
+      p === "/signup" ||
+      p.startsWith("/signup/") ||
+      p === "/forgot" ||
+      p.startsWith("/forgot/") ||
+      p === "/reset" ||
+      p.startsWith("/reset/");
 
     if (!allowed) {
       url.pathname = DASH_HOME;
