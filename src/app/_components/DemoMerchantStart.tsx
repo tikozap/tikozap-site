@@ -62,8 +62,8 @@ export default function DemoMerchantStart() {
         tenantName: data?.tenant?.name || data?.tenant?.storeName || 'Three Tree Fashion',
       });
 
-      // After cookies are set, go straight into dashboard
-      router.push('/dashboard/conversations');
+      // After cookies are set, go to the widget test page (best for Milestone 5)
+      router.push('/onboarding/test');
       router.refresh();
     } catch (err: any) {
       console.error(err);
