@@ -172,17 +172,49 @@ export async function POST(req: Request) {
     const { storeAssistantReply } = await import("@/lib/assistant/storeAssistant");
 
     // 1) Resolve tenant by public key
-    const widget = await prisma.widget.findUnique({
-    where: { publicKey: body.key },
-    select: { tenantId: true, enabled: true, allowedDomains: true },
+const widget = await prisma.widget.findUnique({
+  where: { publicKey: body.key },
+  select: {
+    tenantId: true,
+    enabled: true,
+    allowedDomains: true,
+    tenant: { select: { timeZone: true } },
+  },
 });
 
-    if (!widget || widget.enabled === false) {
-      return NextResponse.json(
-        { ok: false, error: "Widget not found or disabled" },
-        { status: 404, headers: corsHeaders }
-      );
+if (!widget || widget.enabled === false) {
+  return NextResponse.json(
+    { ok: false, error: "Widget not found or disabled" },
+    { status: 404, headers: corsHeaders }
+  );
+}
+
+const tenantTz = widget.tenant?.timeZone || "America/New_York";
+
+// ✅ Milestone 7: Rate limiting (DB-backed)
+const { rateLimitOrThrow } = await import("@/lib/security/rateLimit");
+
+const rl = await rateLimitOrThrow({
+  prisma,
+  req,
+  namespace: "public_message",
+  widgetKey: body.key,
+  limit: 30,         // 30 requests
+  windowSeconds: 60, // per minute
+});
+
+if (!rl.ok) {
+  return NextResponse.json(
+    { ok: false, error: "Rate limited" },
+    {
+      status: 429,
+      headers: {
+        ...corsHeaders,
+        "Retry-After": String(rl.resetSeconds),
+      },
     }
+  );
+}
 
 // ✅ Milestone 7: Allowed-domain enforcement
 const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
