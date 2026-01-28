@@ -189,6 +189,7 @@ if (!widget || widget.enabled === false) {
   );
 }
 
+const tenantId = widget.tenantId;
 const tenantTz = widget.tenant?.timeZone || "America/New_York";
 
 // ✅ Milestone 7: Rate limiting (DB-backed)
@@ -236,14 +237,6 @@ if (allowed.length > 0) {
     );
   }
 }
-
-    const tenantId = widget.tenantId;
-
-const tenant = await prisma.tenant.findUnique({
-  where: { id: tenantId },
-  select: { timeZone: true },
-});
-const tenantTz = tenant?.timeZone || "America/New_York";
 
     const customerName =
       (body.customerName || "Customer").toString().trim() || "Customer";
