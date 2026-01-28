@@ -92,7 +92,6 @@ export async function GET(req: Request) {
 
     const { key, conversationId } = parsed.data;
 
-    // IMPORTANT: avoid top-level prisma import for consistency
     const { prisma } = await import("@/lib/prisma");
 
     const widget = await prisma.widget.findUnique({
@@ -107,18 +106,16 @@ export async function GET(req: Request) {
       );
     }
 
-    // ✅ Milestone 7: Allowed-domain enforcement (thread)
+    // ✅ Allowed-domain enforcement
     const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
     if (allowed.length > 0) {
       const originHost = getOriginHost(req);
-
       if (!originHost) {
         return NextResponse.json(
           { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
           { status: 403, headers: { ...corsHeaders, "cache-control": "no-store" } }
         );
       }
-
       if (!isHostAllowed(originHost, allowed)) {
         return NextResponse.json(
           { ok: false, error: `Origin not allowed: ${originHost}` },
