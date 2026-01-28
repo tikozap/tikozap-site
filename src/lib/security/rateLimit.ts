@@ -1,10 +1,19 @@
 // src/lib/security/rateLimit.ts
 import crypto from "crypto";
 
-type RateLimitResult = {
+export type RateLimitResult = {
   ok: boolean;
   remaining: number;
   resetSeconds: number;
+};
+
+type BucketRow = {
+  count: number;
+  resetAt: Date;
+};
+
+type TxResult = BucketRow & {
+  blocked: boolean;
 };
 
 function sha1(input: string) {
@@ -23,6 +32,11 @@ function getIp(req: Request) {
  * - windowSeconds: e.g. 60
  * - limit: e.g. 30
  * Keyed by (namespace + widgetKey + ip) so one abusive site/ip can't hammer you.
+ *
+ * Behavior:
+ * - First request in a new window creates row count=1
+ * - Within window: increments until reaching limit
+ * - Once count >= limit: blocks WITHOUT writing (no increment spam)
  */
 export async function rateLimitOrThrow(opts: {
   prisma: any;
@@ -41,40 +55,55 @@ export async function rateLimitOrThrow(opts: {
   const now = new Date();
   const windowMs = windowSeconds * 1000;
 
-  // Use "upsert then increment" pattern with reset handling.
-  // We do a small transaction to keep it consistent.
-  const result = await prisma.$transaction(async (tx: any) => {
-    let row = await tx.rateLimitBucket.findUnique({
+  const result: TxResult = await prisma.$transaction(async (tx: any) => {
+    let row: BucketRow | null = await tx.rateLimitBucket.findUnique({
       where: { key },
-      select: { key: true, count: true, resetAt: true },
+      select: { count: true, resetAt: true },
     });
 
+    // Create if missing (handle concurrent create via P2002)
     if (!row) {
-      row = await tx.rateLimitBucket.create({
-        data: { key, count: 1, resetAt: new Date(now.getTime() + windowMs) },
-        select: { key: true, count: true, resetAt: true },
-      });
-      return row;
+      try {
+        const created: BucketRow = await tx.rateLimitBucket.create({
+          data: { key, count: 1, resetAt: new Date(now.getTime() + windowMs) },
+          select: { count: true, resetAt: true },
+        });
+        return { ...created, blocked: false };
+      } catch (e: any) {
+        if (e?.code !== "P2002") throw e;
+
+        row = await tx.rateLimitBucket.findUnique({
+          where: { key },
+          select: { count: true, resetAt: true },
+        });
+
+        if (!row) throw e; // extremely unlikely, but keeps us honest
+      }
     }
 
-    // If window expired, reset
+    // If window expired, reset to 1
     if (row.resetAt.getTime() <= now.getTime()) {
-      row = await tx.rateLimitBucket.update({
+      const reset: BucketRow = await tx.rateLimitBucket.update({
         where: { key },
         data: { count: 1, resetAt: new Date(now.getTime() + windowMs) },
-        select: { key: true, count: true, resetAt: true },
+        select: { count: true, resetAt: true },
       });
-      return row;
+      return { ...reset, blocked: false };
     }
 
-    // Same window, increment
-    row = await tx.rateLimitBucket.update({
+    // Same window: if at/over limit, block WITHOUT writing
+    if (row.count >= limit) {
+      return { ...row, blocked: true };
+    }
+
+    // Otherwise increment
+    const updated: BucketRow = await tx.rateLimitBucket.update({
       where: { key },
       data: { count: { increment: 1 } },
-      select: { key: true, count: true, resetAt: true },
+      select: { count: true, resetAt: true },
     });
 
-    return row;
+    return { ...updated, blocked: false };
   });
 
   const resetSeconds = Math.max(
@@ -82,14 +111,23 @@ export async function rateLimitOrThrow(opts: {
     Math.ceil((result.resetAt.getTime() - now.getTime()) / 1000)
   );
 
+  if (result.blocked) {
+    return { ok: false, remaining: 0, resetSeconds };
+  }
+
+  // Safety net for rare races (shouldn’t happen often, but harmless)
   if (result.count > limit) {
     return { ok: false, remaining: 0, resetSeconds };
   }
 
-  return { ok: true, remaining: Math.max(0, limit - result.count), resetSeconds };
+  return {
+    ok: true,
+    remaining: Math.max(0, limit - result.count),
+    resetSeconds,
+  };
 }
 
-/** optional cleanup helper you can run manually later */
+/** Optional cleanup helper you can run manually later */
 export async function purgeExpiredRateLimits(prisma: any) {
   const now = new Date();
   await prisma.rateLimitBucket.deleteMany({
