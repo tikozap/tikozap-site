@@ -79,15 +79,28 @@ export async function POST() {
     create: { email: demoEmail, name: "Demo Merchant" },
   });
 
-  const tenant = await prisma.tenant.upsert({
-    where: { slug: "Demo Boutique" },
-    update: { owner: { connect: { id: user.id } } },
-    create: {
-      slug: "Demo Boutique",
-      storeName: "Demo Boutique",
-      owner: { connect: { id: user.id } },
-    },
-  });
+const DEMO_SLUG = "Demo Boutique";
+const DEMO_STORE = "Demo Boutique";
+const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+const tenant = await prisma.tenant.upsert({
+  where: { slug: DEMO_SLUG },
+  update: {
+    storeName: DEMO_STORE,
+    ownerId: user.id,
+    plan: "PRO",
+    billingStatus: "TRIALING",
+    trialEndsAt,
+  },
+  create: {
+    slug: DEMO_SLUG,
+    storeName: DEMO_STORE,
+    ownerId: user.id,
+    plan: "PRO",
+    billingStatus: "TRIALING",
+    trialEndsAt,
+  },
+});
 
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
@@ -96,13 +109,12 @@ export async function POST() {
   });
 
   // IMPORTANT:
-  // - do NOT set publicKey in update
   // - do NOT set publicKey in create (let @default(cuid()) generate it once)
   let widget = await prisma.widget.upsert({
     where: { tenantId: tenant.id },
     update: {
       enabled: true,
-      assistantName: "Demo Boutique",
+      assistantName: `${DEMO_STORE} Assistant`,
       greeting: "Hi! How can I help today?",
       brandColor: "#111827",
       // do NOT touch publicKey

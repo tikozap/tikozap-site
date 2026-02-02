@@ -18,10 +18,12 @@ export async function POST(req: Request) {
     const body: any = await req.json().catch(() => ({}));
 
     const tenantName = (body?.tenantName || 'Demo Boutique').toString().trim();
-    const tenantSlug =
-      (body?.tenantSlug || slugify(tenantName) || 'Demo Boutique')
-        .toString()
-        .trim();
+const rawSlug = (body?.tenantSlug || "").toString().trim();
+const tenantSlug = slugify(rawSlug) || slugify(tenantName) || "demo-boutique";
+
+if (!tenantSlug) {
+  return NextResponse.json({ ok: false, error: "Missing tenantSlug" }, { status: 400 });
+}
 
     const ownerEmail = `owner@${tenantSlug}.demo`;
     const ownerName = 'Demo Owner';
@@ -37,19 +39,32 @@ export async function POST(req: Request) {
     });
 
     // 2️⃣ Ensure tenant exists and is linked to owner
-    const tenant = await prisma.tenant.upsert({
-      where: { slug: tenantSlug },
-      update: {
-        storeName: tenantName,
-      },
-      create: {
-        slug: tenantSlug,
-        storeName: tenantName,
-        owner: {
-          connect: { id: owner.id },
-        },
-      },
-    });
+const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+const tenant = await prisma.tenant.upsert({
+  where: { slug: tenantSlug },
+  update: {
+    storeName: tenantName,
+    ownerId: owner.id,
+    plan: "PRO",
+    billingStatus: "TRIALING",
+    trialEndsAt,
+  },
+  create: {
+    slug: tenantSlug,
+    storeName: tenantName,
+    ownerId: owner.id,
+    plan: "PRO",
+    billingStatus: "TRIALING",
+    trialEndsAt,
+  },
+});
+
+await prisma.widget.upsert({
+  where: { tenantId: tenant.id },
+  update: { enabled: true },
+  create: { tenantId: tenant.id, enabled: true },
+});
 
     return NextResponse.json({
       ok: true,
