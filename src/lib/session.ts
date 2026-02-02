@@ -1,3 +1,4 @@
+// src/lib/session.ts
 import 'server-only';
 import { cookies } from 'next/headers';
 import { nanoid } from 'nanoid';

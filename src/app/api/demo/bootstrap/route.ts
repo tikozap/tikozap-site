@@ -1,3 +1,4 @@
+// src/app/api/demo/bootstrap/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -16,9 +17,9 @@ export async function POST(req: Request) {
   try {
     const body: any = await req.json().catch(() => ({}));
 
-    const tenantName = (body?.tenantName || 'Three Tree Fashion').toString().trim();
+    const tenantName = (body?.tenantName || 'Demo Boutique').toString().trim();
     const tenantSlug =
-      (body?.tenantSlug || slugify(tenantName) || 'three-tree-fashion')
+      (body?.tenantSlug || slugify(tenantName) || 'Demo Boutique')
         .toString()
         .trim();
 

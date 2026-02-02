@@ -1,0 +1,5 @@
+# Ignore Shopify app template in root Next deploy
+apps/
+
+# ignore tool folders
+**/.shopify/

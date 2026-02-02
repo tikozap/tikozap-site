@@ -30,7 +30,7 @@ export default function DemoMerchantStart() {
         if (data?.ok && data?.tenant) {
           setStatus({
             loggedIn: true,
-            tenantName: data.tenant.name || data.tenant.storeName || 'Three Tree Fashion',
+            tenantName: data.tenant.name || data.tenant.storeName || 'Demo Boutique',
           });
         }
       } catch {
@@ -59,7 +59,7 @@ export default function DemoMerchantStart() {
 
       setStatus({
         loggedIn: true,
-        tenantName: data?.tenant?.name || data?.tenant?.storeName || 'Three Tree Fashion',
+        tenantName: data?.tenant?.name || data?.tenant?.storeName || 'Demo Boutique',
       });
 
       // After cookies are set, go to the widget test page (best for Milestone 5)
@@ -124,7 +124,7 @@ export default function DemoMerchantStart() {
             opacity: loading ? 0.85 : 1,
           }}
         >
-          {loading ? 'Continuing…' : 'Continue as Three Tree Fashion'}
+          {loading ? 'Continuing…' : 'Continue as Demo Boutique'}
         </button>
 
         <button

@@ -35,3 +35,4 @@ prisma/*.db-journal
 
 # Your specific tmp pattern
 public/art/~ai-*.tmp
+.env*.local

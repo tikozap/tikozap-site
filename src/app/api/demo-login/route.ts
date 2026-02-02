@@ -80,11 +80,11 @@ export async function POST() {
   });
 
   const tenant = await prisma.tenant.upsert({
-    where: { slug: "three-tree-fashion" },
+    where: { slug: "Demo Boutique" },
     update: { owner: { connect: { id: user.id } } },
     create: {
-      slug: "three-tree-fashion",
-      storeName: "Three Tree Fashion",
+      slug: "Demo Boutique",
+      storeName: "Demo Boutique",
       owner: { connect: { id: user.id } },
     },
   });
@@ -102,7 +102,7 @@ export async function POST() {
     where: { tenantId: tenant.id },
     update: {
       enabled: true,
-      assistantName: "Three Tree Assistant",
+      assistantName: "Demo Boutique",
       greeting: "Hi! How can I help today?",
       brandColor: "#111827",
       // do NOT touch publicKey
@@ -111,7 +111,7 @@ export async function POST() {
     create: {
       tenantId: tenant.id,
       enabled: true,
-      assistantName: "Three Tree Assistant",
+      assistantName: "Demo Boutique",
       greeting: "Hi! How can I help today?",
       brandColor: "#111827",
       installedAt: new Date(),

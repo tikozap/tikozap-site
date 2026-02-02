@@ -1,3 +1,4 @@
+// src/app/onboarding/store/page.tsx
 import OnboardingNav from '../_components/OnboardingNav';
 
 export default function StoreStep() {
@@ -13,8 +14,8 @@ export default function StoreStep() {
           <span className="text-sm font-medium">Store name</span>
           <input
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="Three Tree Fashion"
-            defaultValue="Three Tree Fashion"
+            placeholder="Demo Boutique"
+            defaultValue="Demo Boutique"
           />
         </label>
 
@@ -22,14 +23,14 @@ export default function StoreStep() {
           <span className="text-sm font-medium">Store website (optional)</span>
           <input
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="https://threetreefashion.com"
+            placeholder="https://demoboutique.com"
           />
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1">
             <span className="text-sm font-medium">Support email</span>
-            <input className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm" placeholder="support@threetreefashion.com" />
+            <input className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm" placeholder="support@demoboutique.com" />
           </label>
 
           <label className="grid gap-1">

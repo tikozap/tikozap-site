@@ -1,3 +1,4 @@
+// src/app/onboarding/layout.tsx
 import type { ReactNode } from 'react';
 import './onboarding.css';
 import OnboardingStepper from './_components/OnboardingStepper';
@@ -9,7 +10,7 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
         <h1>Set up your store</h1>
         <p>
           You’re creating your first merchant workspace in TikoZap. (Test tenant:{' '}
-          <strong>Three Tree Fashion</strong>)
+          <strong>Demo Boutique</strong>)
         </p>
       </header>
 

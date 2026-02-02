@@ -67,7 +67,7 @@ model Tenant {
 
   timeZone  String   @default("America/New_York")
 
-  // ✅ Billing / Plan (MVP)
+  // Billing / Plan (MVP)
   plan          PlanTier      @default(PRO)
   billingStatus BillingStatus @default(NONE)
   trialEndsAt   DateTime?
@@ -78,6 +78,9 @@ model Tenant {
   starterLink   StarterLink?
   owner         User           @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   widget        Widget?
+
+  billingAccount BillingAccount?
+  usageMonths    UsageMonth[]
 }
 
 model Membership {
@@ -173,4 +176,54 @@ model StarterLink {
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([published])
+}
+
+// Milestone 8: Billing v1 + usage tracking
+
+model BillingAccount {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique
+
+  stripeCustomerId     String   @unique
+  stripeSubscriptionId String?  @unique
+  stripePriceId        String?
+
+  status               BillingStatus @default(NONE)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+
+  billingEmail         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model BillingWebhookEvent {
+  id        String   @id @default(cuid())
+  provider  String   @default("stripe")
+  eventId   String   @unique
+  type      String
+  createdAt DateTime @default(now())
+  payload   Json
+
+  @@index([type, createdAt])
+}
+
+model UsageMonth {
+  id             String   @id @default(cuid())
+  tenantId        String
+  yearMonth       Int      // e.g. 202602
+
+  messages        Int      @default(0)
+  conversations   Int      @default(0)
+  knowledgeChars  Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, yearMonth])
+  @@index([tenantId, yearMonth])
 }

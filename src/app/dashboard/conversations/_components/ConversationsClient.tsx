@@ -11,7 +11,7 @@ const KEY_SELECTED = 'tz_db_conversations_selected';
 const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
 
 const STAFF_NAME = 'Kevin';
-const STORE_ASSISTANT_NAME = 'Three Tree Assistant';
+const STORE_ASSISTANT_NAME = 'Store Assistant';
 const DRAFT_PREFIX = 'Suggested reply (draft — not sent):';
 
 type Preview = { role: string; content: string; createdAt: string };

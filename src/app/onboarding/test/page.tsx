@@ -19,8 +19,8 @@ const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://api.tikozap.com').replace(/\/$/, '');
 
 export default function OnboardingTestPage() {
-  const [tenantSlug, setTenantSlug] = useState('three-tree-fashion');
-  const [storeName, setStoreName] = useState('Three Tree Fashion');
+  const [tenantSlug, setTenantSlug] = useState('Demo Boutique');
+  const [storeName, setStoreName] = useState('Demo Boutique');
 
   // Per-tenant conversation thread for this test page
   const storageKey = useMemo(() => `tz_widget_convo_${tenantSlug}`, [tenantSlug]);
