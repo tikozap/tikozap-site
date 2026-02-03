@@ -167,9 +167,11 @@ function js() {
   document.body.appendChild(bubble);
   document.body.appendChild(panel);
 
-  let settings = null;
-  let conversationId = localStorage.getItem(cidKey) || '';
-  let busy = false;
+let settings = null;
+let conversationId = localStorage.getItem(cidKey) || '';
+let busy = false;
+let locked = false;        // 👈 paywall/disabled state
+let localMsgs = [];        // 👈 keep current render state
 
   const setStatus = (t) => {
     const s = String(t || '').trim();
@@ -177,19 +179,50 @@ function js() {
     status.style.display = s ? 'block' : 'none';
   };
 
-  const render = (arr) => {
-    msgs.innerHTML = '';
-    (arr || []).forEach((m) => {
-      const row = document.createElement('div');
-      row.className = 'tz-row ' + (m.role === 'customer' ? 'me' : 'ai');
-      const bub = document.createElement('div');
-      bub.className = 'tz-bub ' + (m.role === 'customer' ? 'me' : 'ai');
-      bub.textContent = m.content || '';
-      row.appendChild(bub);
-      msgs.appendChild(row);
-    });
-    msgs.scrollTop = msgs.scrollHeight;
-  };
+const render = (arr) => {
+  localMsgs = Array.isArray(arr) ? arr : [];
+  msgs.innerHTML = '';
+  localMsgs.forEach((m) => {
+    const row = document.createElement('div');
+    row.className = 'tz-row ' + (m.role === 'customer' ? 'me' : 'ai');
+    const bub = document.createElement('div');
+    bub.className = 'tz-bub ' + (m.role === 'customer' ? 'me' : 'ai');
+    bub.textContent = m.content || '';
+    row.appendChild(bub);
+    msgs.appendChild(row);
+  });
+  msgs.scrollTop = msgs.scrollHeight;
+};
+
+const appendMsg = (role, content) => {
+  localMsgs = localMsgs.concat([{ role, content }]);
+  render(localMsgs);
+};
+
+const isPaywall = (res, data) =>
+  (res && res.status === 402) || (data && data.code === 'PAYWALL');
+
+const lockWidget = (data) => {
+  locked = true;
+  stopPolling();
+
+  // disable controls
+  input.setAttribute('disabled', 'true');
+  sendBtn.setAttribute('disabled', 'true');
+  micBtn.setAttribute('disabled', 'true');
+
+  setStatus('Chat unavailable');
+
+  // friendly end-user copy (don’t say “upgrade”)
+  const msg =
+    'Sorry—this chat is temporarily unavailable right now. Please try again later.';
+  appendMsg('assistant', msg);
+
+  // keep console detail for debugging
+  try {
+    console.warn('[TikoZap] paywall', data);
+  } catch {}
+};
 
   const greet = (text) => render(text ? [{ role: 'assistant', content: text }] : []);
 
@@ -348,6 +381,7 @@ function js() {
   closeBtn.addEventListener('click', () => setOpen(false));
 
   resetBtn.addEventListener('click', () => {
+    if (locked) return;
     if (stopListening) stopListening();
     localStorage.removeItem(cidKey);
     conversationId = '';
@@ -358,9 +392,16 @@ function js() {
   });
 
   async function loadSettings() {
-    const res = await fetch(SETTINGS_URL, { method: 'GET', mode: 'cors' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || 'Failed to load settings');
+const res = await fetch(SETTINGS_URL, { method: 'GET', mode: 'cors' });
+const data = await res.json().catch(() => ({}));
+
+if (isPaywall(res, data)) {
+  lockWidget(data);
+  return;
+}
+
+if (!res.ok || !data || !data.ok)
+  throw new Error((data && data.error) || 'Failed to load settings');
 
     settings = data.widget;
     if (settings && settings.enabled === false) {
@@ -379,8 +420,10 @@ function js() {
   }
 
   async function send(text) {
+    if (locked) return;
     if (busy) return;
     const t = String(text || '').trim();
+    appendMsg('customer', t);
     if (!t) return;
 
     if (stopListening) stopListening();
@@ -405,8 +448,15 @@ function js() {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || 'Send failed');
+const data = await res.json().catch(() => ({}));
+
+if (isPaywall(res, data)) {
+  lockWidget(data);
+  return;
+}
+
+if (!res.ok || !data || !data.ok)
+  throw new Error((data && data.error) || 'Send failed');
 
       if (data.conversationId && data.conversationId !== conversationId) {
         conversationId = data.conversationId;
@@ -425,11 +475,12 @@ function js() {
       const msg = (e && e.message) ? e.message : 'error';
       render([{ role: 'assistant', content: 'Sorry—failed to send. (' + msg + ')' }]);
     } finally {
-      busy = false;
-      sendBtn.removeAttribute('disabled');
-      micBtn.removeAttribute('disabled');
-    }
-  }
+busy = false;
+if (!locked) {
+  sendBtn.removeAttribute('disabled');
+  micBtn.removeAttribute('disabled');
+  input.removeAttribute('disabled');
+}
 
   sendBtn.addEventListener('click', () => {
     const t = input.value;

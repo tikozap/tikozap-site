@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getAuthedUserAndTenant } from "@/lib/auth";
+import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 
 export const runtime = "nodejs";
 
@@ -108,29 +109,41 @@ const tenant = await prisma.tenant.upsert({
     create: { userId: user.id, tenantId: tenant.id, role: "owner" },
   });
 
+const DEMO_SLUG = "demo-boutique";
+const DEMO_STORE = "Demo Boutique";
+
   // IMPORTANT:
   // - do NOT set publicKey in create (let @default(cuid()) generate it once)
-  let widget = await prisma.widget.upsert({
+let widget = await prisma.widget.upsert({
+  where: { tenantId: tenant.id },
+  update: {
+    enabled: true,
+    assistantName: `${DEMO_STORE} Assistant`,
+    greeting: "Hi! How can I help today?",
+    brandColor: "#111827",
+  },
+  create: {
+    tenantId: tenant.id,
+    publicKey: newWidgetPublicKey(),   // ✅ force tz_ on create
+    enabled: true,
+    assistantName: `${DEMO_STORE} Assistant`,
+    greeting: "Hi! How can I help today?",
+    brandColor: "#111827",
+    installedAt: new Date(),
+  },
+  select: widgetSelect,
+});
+
+// rotate only when safe
+const canRotate = process.env.NODE_ENV !== "production" || !widget.installedAt;
+
+if (!isTzWidgetKey(widget.publicKey) && canRotate) {
+  widget = await prisma.widget.update({
     where: { tenantId: tenant.id },
-    update: {
-      enabled: true,
-      assistantName: `${DEMO_STORE} Assistant`,
-      greeting: "Hi! How can I help today?",
-      brandColor: "#111827",
-      // do NOT touch publicKey
-      // do NOT touch installedAt (keep first install time)
-    },
-    create: {
-      tenantId: tenant.id,
-      enabled: true,
-      assistantName: "Demo Boutique",
-      greeting: "Hi! How can I help today?",
-      brandColor: "#111827",
-      installedAt: new Date(),
-      // publicKey omitted -> default cuid()
-    },
+    data: { publicKey: newWidgetPublicKey() },
     select: widgetSelect,
   });
+}
 
   // one-time repair ONLY if you previously overwrote publicKey to tenantId
   if (widget.publicKey === tenant.id) {

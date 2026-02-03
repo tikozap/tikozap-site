@@ -1,7 +1,9 @@
+// src/app/api/widget/install/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { newWidgetPublicKey } from "@/lib/widgetKey";
 
 export const runtime = 'nodejs';
 
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
   const widget = await prisma.widget.upsert({
     where: { tenantId },
     create: {
-      tenantId,
+      tenantId, publicKey: newWidgetPublicKey(),
       installedAt: installed ? new Date() : null,
     },
     update: {

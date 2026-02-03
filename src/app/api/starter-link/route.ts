@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -101,12 +102,24 @@ export async function GET() {
   const tenantId = auth.tenant.id;
 
   // ✅ Ensure widget exists so the link page can always embed the bubble
-  const widget = await prisma.widget.upsert({
+const widget = await prisma.widget.upsert({
+  where: { tenantId },
+  update: { /* maybe keep empty */ },
+  create: { tenantId, publicKey: newWidgetPublicKey(), enabled: true }, // ✅
+  select: { publicKey: true, installedAt: true, enabled: true },
+});
+
+const canRotate = process.env.NODE_ENV !== "production" || !widget.installedAt;
+
+let widgetPublicKey = widget.publicKey;
+if (!isTzWidgetKey(widgetPublicKey) && canRotate) {
+  const w2 = await prisma.widget.update({
     where: { tenantId },
-    update: {},
-    create: { tenantId },
+    data: { publicKey: newWidgetPublicKey() },
     select: { publicKey: true },
   });
+  widgetPublicKey = w2.publicKey;
+}
 
   let link = await prisma.starterLink.findFirst({ where: { tenantId } });
 
@@ -130,10 +143,10 @@ export async function GET() {
   const url = `https://link.tikozap.com/l/${encodeURIComponent(link.slug)}`;
 
   // ✅ Return BOTH keys to be backward-compatible with any older UI
-  return NextResponse.json(
-    { ok: true, channel: toChannel(link), link, url, widgetPublicKey: widget.publicKey },
-    { headers: { 'cache-control': 'no-store' } }
-  );
+return NextResponse.json(
+  { ok: true, channel: toChannel(link), link, url, widgetPublicKey }, // ✅
+  { headers: { "cache-control": "no-store" } }
+);
 }
 
 export async function POST(req: Request) {
@@ -161,7 +174,7 @@ export async function POST(req: Request) {
   const widget = await prisma.widget.upsert({
     where: { tenantId },
     update: {},
-    create: { tenantId },
+    create: { tenantId, publicKey: newWidgetPublicKey() },
     select: { publicKey: true },
   });
 

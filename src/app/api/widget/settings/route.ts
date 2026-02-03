@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 
 export const runtime = 'nodejs';
 
@@ -122,9 +123,15 @@ export async function GET() {
     select: selectWidget,
   });
 
-  if (!widget) {
-    widget = await prisma.widget.create({
-      data: { tenantId },
+   if (!widget) {
+widget = await prisma.widget.create({
+  data: { tenantId, publicKey: newWidgetPublicKey() },
+  select: selectWidget,
+});
+  } else if (!isTzWidgetKey(widget.publicKey)) {
+    widget = await prisma.widget.update({
+      where: { tenantId },
+      data: { publicKey: newWidgetPublicKey() },
       select: selectWidget,
     });
   }
@@ -156,7 +163,7 @@ export async function POST(req: Request) {
   const widget = await prisma.widget.upsert({
     where: { tenantId },
     create: {
-      tenantId,
+      tenantId, publicKey: newWidgetPublicKey(),
       enabled: enabledVal ?? true,
       assistantName: has('assistantName') ? body.assistantName ?? null : null,
       greeting: has('greeting') ? body.greeting ?? null : null,

@@ -1,6 +1,7 @@
 // src/app/api/tenants/create/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { newWidgetPublicKey } from "@/lib/widgetKey";
 
 export const runtime = "nodejs";
 
@@ -82,16 +83,15 @@ export async function POST(req: Request) {
             },
           },
 
-          widget: {
-            create: {
-              // ✅ Make defaults tenant-specific (so you don’t see “Three Tree” everywhere)
-              assistantName: `${storeName} Assistant`,
-              greeting: `Hi! Welcome to ${storeName}. How can I help today?`,
-              brandColor: "#111827",
-              allowedDomains: parsed.allowedDomains ?? [],
-            },
-          },
-        },
+widget: {
+  create: {
+    publicKey: newWidgetPublicKey(),   // ✅
+    assistantName: `${storeName} Assistant`,
+    greeting: `Hi! Welcome to ${storeName}. How can I help today?`,
+    brandColor: "#111827",
+    allowedDomains: parsed.allowedDomains ?? [],
+  },
+},
         select: {
           id: true,
           slug: true,
