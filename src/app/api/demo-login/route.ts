@@ -109,9 +109,6 @@ const tenant = await prisma.tenant.upsert({
     create: { userId: user.id, tenantId: tenant.id, role: "owner" },
   });
 
-const DEMO_SLUG = "demo-boutique";
-const DEMO_STORE = "Demo Boutique";
-
   // IMPORTANT:
   // - do NOT set publicKey in create (let @default(cuid()) generate it once)
 let widget = await prisma.widget.upsert({
