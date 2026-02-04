@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 
 const Body = z.object({
   storeName: z.string().min(2).max(80),
-  // Optional: allow passing allowedDomains at creation time
   allowedDomains: z.array(z.string().min(1)).optional(),
 });
 
@@ -22,14 +21,6 @@ function slugify(input: string) {
   return s || "workspace";
 }
 
-/**
- * ✅ Replace this with YOUR real auth.
- * For now, it supports:
- * - cookie "tz_user_id"
- * - header "x-user-id"
- *
- * If neither exists, it returns 401.
- */
 function getUserIdOrNull(req: Request) {
   const cookieHeader = req.headers.get("cookie") || "";
   const m = cookieHeader.match(/(?:^|;\s*)tz_user_id=([^;]+)/);
@@ -56,42 +47,35 @@ export async function POST(req: Request) {
 
     const { prisma } = await import("@/lib/prisma");
 
-    // 1) Make a unique slug
+    // unique slug
     const base = slugify(storeName);
     let slug = base;
     for (let i = 1; i < 50; i++) {
-      const exists = await prisma.tenant.findUnique({
-        where: { slug },
-        select: { id: true },
-      });
+      const exists = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
       if (!exists) break;
       slug = `${base}-${i}`;
     }
 
-    // 2) Create tenant + membership + widget in ONE transaction
-    const created = await prisma.$transaction(async (tx: any) => {
+    const created = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           slug,
           storeName,
           ownerId: userId,
-
           memberships: {
+            create: { userId, role: "owner" },
+          },
+          widget: {
             create: {
-              userId,
-              role: "owner", // your app uses String role; keep simple
+              publicKey: newWidgetPublicKey(), // ✅ tz_...
+              assistantName: `${storeName} Assistant`,
+              greeting: `Hi! Welcome to ${storeName}. How can I help today?`,
+              brandColor: "#111827",
+              allowedDomains: parsed.allowedDomains ?? [],
             },
           },
-
-widget: {
-  create: {
-    publicKey: newWidgetPublicKey(),   // ✅
-    assistantName: `${storeName} Assistant`,
-    greeting: `Hi! Welcome to ${storeName}. How can I help today?`,
-    brandColor: "#111827",
-    allowedDomains: parsed.allowedDomains ?? [],
-  },
-},
+        },
+        // ✅ select MUST be sibling of data (NOT inside data)
         select: {
           id: true,
           slug: true,
@@ -103,7 +87,6 @@ widget: {
       return tenant;
     });
 
-    // 3) (Optional but convenient) set active-tenant cookie
     const res = NextResponse.json({
       ok: true,
       tenant: {
@@ -114,8 +97,6 @@ widget: {
       },
     });
 
-    // If your app already uses a different cookie name for “active tenant”,
-    // rename this to match.
     res.cookies.set("tz_tenant_id", created.id, {
       path: "/",
       httpOnly: true,
@@ -126,9 +107,6 @@ widget: {
     return res;
   } catch (err: any) {
     console.error("[api/tenants/create] error", err);
-    return NextResponse.json(
-      { ok: false, error: err?.message || "Create workspace failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: err?.message || "Create workspace failed" }, { status: 500 });
   }
 }
