@@ -1,3 +1,4 @@
+// src/app/(marketing)/signup/page.tsx
 'use client';
 
 import Link from 'next/link';
@@ -55,14 +56,17 @@ export default function SignupPage() {
               </div>
 
               <div className="field">
-                <label htmlFor="signup-store">Store URL</label>
-                <input
-                  id="signup-store"
-                  name="storeUrl"
-                  type="url"
-                  placeholder="https://yourstore.com"
-                  required
-                />
+                <label htmlFor="signup-store">Store URL (optional)</label>
+<p className="mt-1 text-xs opacity-70">
+  Don’t have a website? No problem — you can use your TikoZap Link (“No Website Needed”).
+</p>
+<input
+  id="signup-store"
+  name="storeUrl"
+  type="url"
+  placeholder="https://yourstore.com"
+  autoComplete="url"
+/>
                 <p className="tiny field-hint">
                   Use your main storefront. You can connect more sites later.
                 </p>
