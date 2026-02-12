@@ -23,6 +23,7 @@
     "react-dom": "18.2.0",
     "scrypt-kdf": "^4.0.0",
     "stripe": "^20.3.0",
+    "twilio": "^5.12.1",
     "zod": "^4.3.4"
   },
   "devDependencies": {
