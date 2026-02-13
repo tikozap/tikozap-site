@@ -9,7 +9,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 enum PlanTier {
   STARTER
   PRO
@@ -22,6 +21,31 @@ enum BillingStatus {
   ACTIVE
   PAST_DUE
   CANCELED
+}
+
+// =======================
+// Milestone 9: Voice + Answer Machine enums
+// =======================
+
+enum CallProvider {
+  TWILIO
+}
+
+enum CallStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum AnswerMachineType {
+  VOICEMAIL
+  CALLBACK
+}
+
+enum AnswerMachineStatus {
+  NEW
+  IN_PROGRESS
+  DONE
 }
 
 model User {
@@ -81,6 +105,13 @@ model Tenant {
 
   billingAccount BillingAccount?
   usageMonths    UsageMonth[]
+
+  // =======================
+  // Milestone 9: Voice + Answer Machine relations
+  // =======================
+  phoneAgentSettings PhoneAgentSettings?
+  callSessions       CallSession[]
+  answerMachineItems AnswerMachineItem[]
 }
 
 model Membership {
@@ -113,7 +144,6 @@ model Widget {
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
-
 model KnowledgeDoc {
   id        String   @id @default(cuid())
   tenantId  String
@@ -141,6 +171,12 @@ model Conversation {
   archivedAt    DateTime?
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   messages      Message[]
+
+  // =======================
+  // Milestone 9: Voice + Answer Machine relations
+  // =======================
+  callSessions       CallSession[]
+  answerMachineItems AnswerMachineItem[]
 
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, archivedAt])
@@ -178,7 +214,9 @@ model StarterLink {
   @@index([published])
 }
 
+// =======================
 // Milestone 8: Billing v1 + usage tracking
+// =======================
 
 model BillingAccount {
   id                   String   @id @default(cuid())
@@ -226,4 +264,108 @@ model UsageMonth {
 
   @@unique([tenantId, yearMonth])
   @@index([tenantId, yearMonth])
+}
+
+// =======================
+// Milestone 9: Voice Agent + Answer Machine models
+// =======================
+
+model PhoneAgentSettings {
+  id                     String   @id @default(cuid())
+  tenantId                String   @unique
+
+  enabled                 Boolean  @default(false) // kill switch
+
+  voiceName               String?
+  greeting                String?
+  fallbackLine            String?
+  afterHoursLine          String?
+  afterHoursVoicemailOnly Boolean  @default(true)
+
+  // keep as string for now; you can later adopt a structured JSON schema
+  businessHoursJson       String?
+  timeZone                String   @default("America/New_York")
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model CallSession {
+  id               String       @id @default(cuid())
+  tenantId          String
+  provider          CallProvider @default(TWILIO)
+  providerCallSid   String       @unique
+
+  fromNumber        String?
+  toNumber          String?
+
+  status            CallStatus   @default(IN_PROGRESS)
+
+  // Link every call to an Inbox thread (Conversation)
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  startedAt         DateTime     @default(now())
+  endedAt           DateTime?
+
+  fallbackTriggeredAt DateTime?
+
+  turns             CallTurn[]
+  answerItems       AnswerMachineItem[]
+
+  tenant            Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startedAt])
+}
+
+model CallTurn {
+  id            String      @id @default(cuid())
+  callSessionId String
+  idx           Int
+
+  sttText       String?
+  assistantText String?
+
+  sttMs         Int?
+  llmMs         Int?
+  ttsMs         Int?
+
+  createdAt     DateTime    @default(now())
+  callSession   CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([callSessionId, idx])
+  @@index([callSessionId, createdAt])
+}
+
+model AnswerMachineItem {
+  id             String              @id @default(cuid())
+  tenantId        String
+  type           AnswerMachineType
+  status         AnswerMachineStatus @default(NEW)
+
+  // Tie to Inbox and optionally to a call session
+  callSessionId   String?
+  conversationId  String
+
+  fromNumber      String?
+  recordingUrl    String?
+  transcriptText  String?
+
+  callbackNumber  String?
+  callbackNotes   String?
+
+  // e.g. after_hours | dtmf_0 | dtmf_1 | fallback | disabled
+  reason          String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  callSession     CallSession?  @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([conversationId])
 }
