@@ -274,7 +274,10 @@ model PhoneAgentSettings {
   id                     String   @id @default(cuid())
   tenantId                String   @unique
 
-  enabled                 Boolean  @default(false) // kill switch
+  // ✅ NEW: the Twilio number assigned to this tenant (E.164 format)
+  inboundNumberE164       String?  @unique
+
+  enabled                 Boolean  @default(false)
 
   voiceName               String?
   greeting                String?
@@ -282,7 +285,6 @@ model PhoneAgentSettings {
   afterHoursLine          String?
   afterHoursVoicemailOnly Boolean  @default(true)
 
-  // keep as string for now; you can later adopt a structured JSON schema
   businessHoursJson       String?
   timeZone                String   @default("America/New_York")
 

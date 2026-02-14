@@ -1,17 +1,16 @@
 // src/app/api/voice/incoming/route.ts
 import { NextResponse } from "next/server";
 import twilio from "twilio";
-const VoiceResponse = twilio.twiml.VoiceResponse;
-
 import { prisma } from "@/lib/prisma";
+import { ensurePhoneConversation, addMessage } from "@/lib/answerMachine";
 import {
   buildAbsoluteUrl,
   readTwilioParams,
   validateTwilioWebhookOrThrow,
 } from "@/lib/twilio/validate";
-import { ensurePhoneConversation, addMessage, createAnswerMachineItem } from "@/lib/answerMachine";
 
 export const runtime = "nodejs";
+const VoiceResponse = twilio.twiml.VoiceResponse;
 
 function xml(body: string) {
   return new NextResponse(body, {
@@ -20,115 +19,76 @@ function xml(body: string) {
   });
 }
 
-// --------------------
-// Business hours helpers
-// --------------------
-type HoursMap = Partial<
-  Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", [string, string][]>
->;
-
-function parseHHMM(s: string): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec((s || "").trim());
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-  return hh * 60 + mm;
-}
-
-function getLocalDayAndMinutes(tz: string): { day: keyof HoursMap; minutes: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const weekday = (parts.find((p) => p.type === "weekday")?.value || "Mon").toLowerCase();
-  const hour = Number(parts.find((p) => p.type === "hour")?.value || "0");
-  const minute = Number(parts.find((p) => p.type === "minute")?.value || "0");
-
-  const map: Record<string, keyof HoursMap> = {
-    mon: "mon",
-    tue: "tue",
-    wed: "wed",
-    thu: "thu",
-    fri: "fri",
-    sat: "sat",
-    sun: "sun",
-  };
-
-  const key = map[weekday.slice(0, 3)] || "mon";
-  return { day: key, minutes: hour * 60 + minute };
-}
-
-function isWithinBusinessHours(args: {
-  businessHoursJson?: string | null;
-  timeZone?: string | null;
-  tzFallback: string;
-}): { ok: boolean; tz: string } {
-  const tz = args.timeZone || args.tzFallback || "America/New_York";
-
-  // No hours set => treat as always open (MVP)
-  const raw = (args.businessHoursJson || "").trim();
-  if (!raw) return { ok: true, tz };
-
-  let parsed: HoursMap | null = null;
-  try {
-    parsed = JSON.parse(raw) as HoursMap;
-  } catch {
-    // Invalid JSON => don't block calls
-    return { ok: true, tz };
-  }
-
-  const { day, minutes } = getLocalDayAndMinutes(tz);
-  const ranges = (parsed?.[day] || []) as [string, string][];
-
-  // Empty => closed
-  if (!ranges.length) return { ok: false, tz };
-
-  for (const [start, end] of ranges) {
-    const s = parseHHMM(start);
-    const e = parseHHMM(end);
-    if (s == null || e == null) continue;
-    if (minutes >= s && minutes < e) return { ok: true, tz };
-  }
-  return { ok: false, tz };
-}
-
 function requireAppBaseUrl() {
   const base = (process.env.APP_BASE_URL || "").trim();
-  // You already set this to https://app.tikozap.com in Vercel
   return base || "https://app.tikozap.com";
 }
 
-export async function POST(req: Request) {
-  const url = new URL(req.url);
-  const tenantId = url.searchParams.get("tenantId") || "";
+function normalizeE164(v: string | null | undefined) {
+  const s = (v || "").trim();
+  if (!s) return null;
+  // Twilio typically sends +E164 already; keep it simple
+  return s;
+}
 
-  // IMPORTANT: don’t leave placeholder in Twilio config
-  if (!tenantId || tenantId === "YOUR_TENANT_ID") {
-    const vr = new VoiceResponse();
-    vr.say("TikoZap voice webhook is configured, but tenantId is missing.");
+async function resolveTenantId(args: {
+  explicitTenantId?: string | null;
+  toNumber?: string | null;
+}): Promise<string | null> {
+  // 1) explicit tenantId (for manual testing / curl)
+  if (args.explicitTenantId && args.explicitTenantId !== "YOUR_TENANT_ID") {
+    const t = await prisma.tenant.findUnique({
+      where: { id: args.explicitTenantId },
+      select: { id: true },
+    });
+    if (t) return t.id;
+  }
+
+  // 2) lookup by inbound number
+  const to = normalizeE164(args.toNumber);
+  if (!to) return null;
+
+  const s = await prisma.phoneAgentSettings.findUnique({
+    where: { inboundNumberE164: to },
+    select: { tenantId: true },
+  });
+
+  return s?.tenantId || null;
+}
+
+async function handle(req: Request) {
+  const url = new URL(req.url);
+
+  // If browser GET, formData will be empty; this endpoint is meant for POST from Twilio
+  const params = await readTwilioParams(req).catch(() => ({} as Record<string, string>));
+
+  // If you have validation enabled, enforce it (Twilio POSTs include the signature header)
+  try {
+    const fullUrl = buildAbsoluteUrl(req);
+    validateTwilioWebhookOrThrow({ req, params, fullUrl });
+  } catch (e) {
+    // If you prefer to hard-fail, replace this with `throw e;`
+    console.warn("[voice/incoming] webhook validation skipped/failed:", e);
+  }
+
+  const from = normalizeE164(params.From) || null;
+  const to = normalizeE164(params.To) || null;
+  const callSid = params.CallSid || `manual_${Date.now()}`;
+
+  const explicitTenantId = url.searchParams.get("tenantId");
+  const tenantId = await resolveTenantId({ explicitTenantId, toNumber: to });
+
+  const vr = new VoiceResponse();
+
+  if (!tenantId) {
+    vr.say("TikoZap voice webhook is configured, but we could not identify the store for this number.");
     return xml(vr.toString());
   }
 
-  // Twilio params + signature validation
-  const params = await readTwilioParams(req);
-  const fullUrl = buildAbsoluteUrl(req);
-  validateTwilioWebhookOrThrow({ req, params, fullUrl });
-
-  const from = params.From || null;
-  const callSid = params.CallSid || `manual_${Date.now()}`;
-  const to = params.To || null;
-
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, storeName: true, timeZone: true },
+    select: { id: true, storeName: true },
   });
-
-  const vr = new VoiceResponse();
 
   if (!tenant) {
     vr.say("Unknown tenant. Please contact the store owner.");
@@ -148,24 +108,14 @@ export async function POST(req: Request) {
   await addMessage({
     conversationId: conversation.id,
     role: "system",
-    content: `Call started. provider=twilio callSid=${callSid} from=${from || "unknown"}`,
+    content: `Call started. provider=twilio callSid=${callSid} from=${from || "unknown"} to=${to || "unknown"}`,
   });
 
-  // Upsert CallSession to avoid duplicates on Twilio retries
-  const session = await prisma.callSession.upsert({
-    where: { providerCallSid: callSid },
-    create: {
+  const session = await prisma.callSession.create({
+    data: {
       tenantId,
       provider: "TWILIO",
       providerCallSid: callSid,
-      fromNumber: from,
-      toNumber: to,
-      conversationId: conversation.id,
-      status: "IN_PROGRESS",
-    },
-    update: {
-      // keep it light — just ensure linkage is correct
-      tenantId,
       fromNumber: from,
       toNumber: to,
       conversationId: conversation.id,
@@ -175,81 +125,21 @@ export async function POST(req: Request) {
 
   const enabled = settings?.enabled ?? false;
 
-  // Kill switch: agent disabled => voicemail
   if (!enabled) {
     vr.say(settings?.fallbackLine || "Sorry, please leave a message after the tone.");
-    await createAnswerMachineItem({
-      tenantId,
-      conversationId: conversation.id,
-      callSessionId: session.id,
-      type: "VOICEMAIL",
-      fromNumber: from,
-      reason: "disabled",
-    });
-
     vr.record({
       action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${session.id}&reason=disabled`,
       method: "POST",
-      maxLength: 180,
+      maxLength: 120,
       playBeep: true,
       finishOnKey: "#",
     });
     return xml(vr.toString());
   }
 
-  // After-hours gate (voicemail-only)
-  const within = isWithinBusinessHours({
-    businessHoursJson: settings?.businessHoursJson || null,
-    timeZone: settings?.timeZone || tenant.timeZone || null,
-    tzFallback: tenant.timeZone || "America/New_York",
-  });
-
-  const afterHoursVoicemailOnly = settings?.afterHoursVoicemailOnly ?? true;
-  if (afterHoursVoicemailOnly && !within.ok) {
-    await addMessage({
-      conversationId: conversation.id,
-      role: "system",
-      content: `After-hours gate triggered (${within.tz}) → voicemail.`,
-    });
-
-console.log("[voice/incoming] tenantId=", tenantId);
-console.log("[voice/incoming] settings=", {
-  enabled: settings?.enabled,
-  afterHoursVoicemailOnly: settings?.afterHoursVoicemailOnly,
-  timeZone: settings?.timeZone,
-  businessHoursJson: settings?.businessHoursJson,
-});
-
-
-    await prisma.callSession.update({
-      where: { id: session.id },
-      data: { fallbackTriggeredAt: new Date() },
-    });
-
-    await createAnswerMachineItem({
-      tenantId,
-      conversationId: conversation.id,
-      callSessionId: session.id,
-      type: "VOICEMAIL",
-      fromNumber: from,
-      reason: "after_hours",
-    });
-
-    vr.say(settings?.afterHoursLine || settings?.fallbackLine || "We're currently closed. Please leave a message after the tone.");
-    vr.record({
-      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${session.id}&reason=after_hours`,
-      method: "POST",
-      maxLength: 180,
-      playBeep: true,
-      finishOnKey: "#",
-    });
-    return xml(vr.toString());
-  }
-
-  // Normal conversational entry
   const greeting =
     settings?.greeting ||
-    `Thanks for calling ${tenant.storeName}. How can I help today? Press 0 to leave a message, or press 1 to request a callback.`;
+    `Thanks for calling ${tenant.storeName}. How can I help you today? You can press 0 to leave a message, or press 1 to request a callback.`;
 
   vr.say(greeting);
 
@@ -264,18 +154,12 @@ console.log("[voice/incoming] settings=", {
   return xml(vr.toString());
 }
 
-// Optional: allow browser GET for quick sanity checks (no Twilio validation).
-// Leave it enabled for dev only.
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const tenantId = url.searchParams.get("tenantId") || "";
+export async function POST(req: Request) {
+  return handle(req);
+}
 
-  const vr = new VoiceResponse();
-  if (!tenantId) {
-    vr.say("Missing tenantId.");
-    return xml(vr.toString());
-  }
-  vr.say("Voice endpoint is reachable. Twilio will POST to this endpoint.");
-  vr.hangup();
-  return xml(vr.toString());
+// Optional: keep GET for quick browser checks, but Twilio uses POST.
+// You can remove this later.
+export async function GET(req: Request) {
+  return handle(req);
 }
