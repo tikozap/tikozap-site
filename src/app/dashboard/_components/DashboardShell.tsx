@@ -164,7 +164,7 @@ export default function DashboardShell({
           <ul className="db-nav">
 <NavItem href="/dashboard" label="Overview" />
 <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
-
+<NavItem href="/dashboard/settings/phone-agent" label="Phone Agent" />
 {/* Milestone 4 */}
 <NavItem href="/dashboard/link" label="TikoZap Link" pill="No Website Needed" />
 
