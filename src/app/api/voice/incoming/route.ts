@@ -61,16 +61,17 @@ async function handle(req: Request) {
   }
 
   // Validate webhook signature (if enabled)
+if (req.method === "POST") {
   try {
     const fullUrl = buildAbsoluteUrl(req);
     validateTwilioWebhookOrThrow({ req, params, fullUrl });
   } catch (e) {
     console.error("[voice/incoming] webhook validation failed:", e);
-    // Return 200 TwiML so Twilio doesn't loop-errors; tell caller error
     const vr = new VoiceResponse();
     vr.say("Sorry, we could not verify this call request.");
     return xml(vr.toString());
   }
+}
 
   const callSid = params.CallSid || `manual_${Date.now()}`;
   const from = normE164(params.From) || null;
@@ -128,13 +129,15 @@ async function handle(req: Request) {
 
   if (!enabled) {
     vr.say(settings?.fallbackLine || "Sorry, please leave a message after the tone.");
-    vr.record({
-      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${session.id}&reason=disabled`,
-      method: "POST",
-      maxLength: 120,
-      playBeep: true,
-      finishOnKey: "#",
-    });
+vr.record({
+  action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${session.id}&reason=disabled`,
+  method: "POST",
+  maxLength: 120,
+  playBeep: true,
+  finishOnKey: "#",
+  transcribe: true,
+  transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${tenantId}&callSessionId=${session.id}`,
+});
     return xml(vr.toString());
   }
 
@@ -159,7 +162,7 @@ export async function POST(req: Request) {
   return handle(req);
 }
 
-// Optional: browser testing
+// Optional: browser testing remove after test
 export async function GET(req: Request) {
   return handle(req);
 }

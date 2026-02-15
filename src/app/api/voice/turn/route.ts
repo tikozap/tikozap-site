@@ -31,6 +31,23 @@ function requireAppBaseUrl() {
   return base || "https://app.tikozap.com";
 }
 
+function recordWithTranscription(args: {
+  tenantId: string;
+  callSessionId: string;
+  reason: string;
+  maxLength?: number;
+}) {
+  return {
+    action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}&reason=${args.reason}`,
+    method: "POST" as const,
+    maxLength: args.maxLength ?? 180,
+    playBeep: true,
+    finishOnKey: "#",
+    transcribe: true,
+    transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}`,
+  };
+}
+
 async function addMessage(args: {
   conversationId: string;
   role: string; // your DB uses free-form strings
@@ -99,17 +116,7 @@ if (turnIdx >= MAX_TURNS) {
   });
 
   vr.say("To help you faster, please leave a message after the tone.");
-  vr.record({
-    action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=max_turns`,
-    method: "POST",
-    maxLength: 180,
-    playBeep: true,
-    finishOnKey: "#",
-
-// ✅ Twilio transcription
-  transcribe: true,
-  transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${tenantId}&callSessionId=${callSessionId}`,
-});
+vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns" }));
 
   return xml(vr.toString());
 }
@@ -134,13 +141,8 @@ if (turnIdx >= MAX_TURNS) {
     });
 
     vr.say("Please leave a message after the tone. When you're done, press pound.");
-    vr.record({
-      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=dtmf_0`,
-      method: "POST",
-      maxLength: 180,
-      playBeep: true,
-      finishOnKey: "#",
-    });
+vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
+
     return xml(vr.toString());
   }
 
@@ -197,13 +199,8 @@ if (turnIdx >= MAX_TURNS) {
       });
 
       vr.say(settings?.fallbackLine || "Sorry — I didn't catch that. Please leave a message after the tone.");
-      vr.record({
-        action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=timeout`,
-        method: "POST",
-        maxLength: 180,
-        playBeep: true,
-        finishOnKey: "#",
-      });
+vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "timeout" }));
+
       return xml(vr.toString());
     }
 
@@ -262,13 +259,8 @@ if (turnIdx >= MAX_TURNS) {
     });
 
     vr.say(settings?.fallbackLine || "Sorry — please leave a message after the tone.");
-    vr.record({
-      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=model_error`,
-      method: "POST",
-      maxLength: 180,
-      playBeep: true,
-      finishOnKey: "#",
-    });
+vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "model_error" }));
+
     return xml(vr.toString());
   }
 
