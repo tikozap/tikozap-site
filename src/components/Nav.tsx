@@ -1,107 +1,75 @@
 // src/components/Nav.tsx
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+
+const MARKETING_ORIGIN = 'https://tikozap.com';
+const APP_ORIGIN = 'https://app.tikozap.com';
 
 const LINKS = [
-  { href: "/features", label: "Features" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/docs", label: "Docs" },
+  { href: '/features', label: 'Features' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/docs', label: 'Docs' },
 ];
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname() || "";
+  const pathname = usePathname();
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
-  const { onAppHost, isLocalhost, marketingOrigin, appOrigin } = useMemo(() => {
-    if (typeof window === "undefined") {
-      return {
-        onAppHost: false,
-        isLocalhost: false,
-        marketingOrigin: "https://tikozap.com",
-        appOrigin: "https://app.tikozap.com",
-      };
-    }
-
-    const hostname = window.location.hostname;
-    const origin = window.location.origin;
-
-    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
-    const onAppHost = hostname === "app.tikozap.com";
-
-    // ✅ Local dev: keep everything same-origin
-    if (isLocalhost) {
-      return { onAppHost: false, isLocalhost: true, marketingOrigin: origin, appOrigin: origin };
-    }
-
-    return {
-      onAppHost,
-      isLocalhost: false,
-      marketingOrigin: "https://tikozap.com",
-      appOrigin: "https://app.tikozap.com",
-    };
+  // ✅ True only in the browser, when running on app.tikozap.com
+  const onAppHost = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.hostname === 'app.tikozap.com';
   }, []);
 
+  // ✅ On app host, marketing links must be absolute to tikozap.com
+  const marketingHref = (path: string) => (onAppHost ? `${MARKETING_ORIGIN}${path}` : path);
+
+  // ✅ On marketing host, login should go to app host. On app host, keep /login.
+  const loginHref = onAppHost ? '/login' : `${APP_ORIGIN}/login`;
+
+  // ✅ Logo/Home: on app host, clicking should go to marketing home
+  const homeHref = onAppHost ? `${MARKETING_ORIGIN}/` : '/';
+
   const isActive = (href: string) =>
-    pathname === href ? "nav__link nav__link--active" : "nav__link";
-
-  // On app host, marketing links should go to tikozap.com
-  const linkHref = (href: string) => (onAppHost ? `${marketingOrigin}${href}` : href);
-
-  // Login link: marketing → app, app → login (same-origin)
-  const loginHref = onAppHost ? "/login" : `${appOrigin}/login`;
-
-  // Brand: app host should go back to marketing; local/marketing stays local
-  const homeHref = onAppHost ? `${marketingOrigin}/` : "/";
-
-  // If cross-origin, use <a>. If same-origin, use <Link>.
-  const Brand = onAppHost ? (
-    <a href={homeHref} className="nav__brand" aria-label="TikoZap home">
-      <img
-        src="/tikozaplogo.svg"
-        alt="TikoZap"
-        className="nav__logo-img"
-        style={{ height: "2rem", width: "auto" }}
-      />
-      <span className="nav__logo-text" style={{ fontSize: "1.5rem", fontWeight: 700 }}>
-        TikoZap
-      </span>
-    </a>
-  ) : (
-    <Link href={homeHref} className="nav__brand" aria-label="TikoZap home">
-      <img
-        src="/tikozaplogo.svg"
-        alt="TikoZap"
-        className="nav__logo-img"
-        style={{ height: "2rem", width: "auto" }}
-      />
-      <span className="nav__logo-text" style={{ fontSize: "1.5rem", fontWeight: 700 }}>
-        TikoZap
-      </span>
-    </Link>
-  );
+    pathname === href ? 'nav__link nav__link--active' : 'nav__link';
 
   return (
     <header className="nav-shell">
       <nav className="nav">
         <div className="container nav__inner">
-          {Brand}
+          {/* ✅ Brand: use <a> so cross-origin navigation is guaranteed */}
+          <a href={homeHref} className="nav__brand" aria-label="TikoZap home">
+            <img
+              src="/tikozaplogo.svg"
+              alt="TikoZap"
+              className="nav__logo-img"
+              style={{ height: '2rem', width: 'auto' }}
+            />
+            <span className="nav__logo-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+              TikoZap
+            </span>
+          </a>
 
+          {/* Desktop links */}
           <div className="nav__links">
             {LINKS.map((item) => {
               const active = pathname === item.href;
-              const href = linkHref(item.href);
+              const href = marketingHref(item.href);
 
+              // ✅ If on app host, use <a> (absolute, cross-origin)
               return onAppHost ? (
                 <a
                   key={item.href}
                   href={href}
                   className={isActive(item.href)}
-                  style={{ color: active ? "#111827" : "#6B7280" }}
+                  style={{ color: active ? '#111827' : '#6B7280' }}
                 >
                   {item.label}
                 </a>
@@ -110,35 +78,33 @@ export default function Nav() {
                   key={item.href}
                   href={href}
                   className={isActive(item.href)}
-                  style={{ color: active ? "#111827" : "#6B7280" }}
+                  style={{ color: active ? '#111827' : '#6B7280' }}
                 >
                   {item.label}
                 </Link>
               );
             })}
 
+            {/* Log in */}
             {onAppHost ? (
-              <Link
-                href={loginHref}
-                className="nav__login nav__login--desktop"
-                style={{ color: "#6B7280" }}
-              >
+              <Link href={loginHref} className="nav__login nav__login--desktop" style={{ color: '#6B7280' }}>
                 Log in
               </Link>
             ) : (
-              <a href={loginHref} className="nav__login nav__login--desktop" style={{ color: "#6B7280" }}>
+              <a href={loginHref} className="nav__login nav__login--desktop" style={{ color: '#6B7280' }}>
                 Log in
               </a>
             )}
           </div>
 
+          {/* Mobile right */}
           <div className="nav__right">
             {onAppHost ? (
-              <Link href={loginHref} className="nav__login nav__login--mobile" style={{ color: "#6B7280" }}>
+              <Link href={loginHref} className="nav__login nav__login--mobile" style={{ color: '#6B7280' }}>
                 Log in
               </Link>
             ) : (
-              <a href={loginHref} className="nav__login nav__login--mobile" style={{ color: "#6B7280" }}>
+              <a href={loginHref} className="nav__login nav__login--mobile" style={{ color: '#6B7280' }}>
                 Log in
               </a>
             )}
@@ -151,9 +117,9 @@ export default function Nav() {
               onClick={() => setOpen((v) => !v)}
               style={{ width: 32, height: 32 }}
             >
-              <span className="nav__toggle-bar" style={{ width: "0.7rem", height: 2, backgroundColor: "#6B7280" }} />
-              <span className="nav__toggle-bar" style={{ width: "0.7rem", height: 2, backgroundColor: "#6B7280" }} />
-              <span className="nav__toggle-bar" style={{ width: "0.7rem", height: 2, backgroundColor: "#6B7280" }} />
+              <span className="nav__toggle-bar" style={{ width: '0.7rem', height: 2, backgroundColor: '#6B7280' }} />
+              <span className="nav__toggle-bar" style={{ width: '0.7rem', height: 2, backgroundColor: '#6B7280' }} />
+              <span className="nav__toggle-bar" style={{ width: '0.7rem', height: 2, backgroundColor: '#6B7280' }} />
             </button>
           </div>
         </div>
@@ -163,24 +129,13 @@ export default function Nav() {
         <div className="nav__overlay" aria-label="Mobile navigation">
           <div className="nav__menu">
             {LINKS.map((item) => {
-              const active = pathname === item.href;
-              const href = linkHref(item.href);
+              const href = marketingHref(item.href);
               return onAppHost ? (
-                <a
-                  key={item.href}
-                  href={href}
-                  className="nav__menu-item"
-                  style={{ color: active ? "#111827" : "#6B7280" }}
-                >
+                <a key={item.href} href={href} className="nav__menu-item" style={{ color: '#6B7280' }}>
                   {item.label}
                 </a>
               ) : (
-                <Link
-                  key={item.href}
-                  href={href}
-                  className="nav__menu-item"
-                  style={{ color: active ? "#111827" : "#6B7280" }}
-                >
+                <Link key={item.href} href={href} className="nav__menu-item" style={{ color: '#6B7280' }}>
                   {item.label}
                 </Link>
               );
@@ -189,7 +144,8 @@ export default function Nav() {
         </div>
       )}
 
-      {/* keep your existing <style jsx> exactly the same */}
+      {/* ✅ Keep your existing <style jsx> block exactly as-is below this line */}
+      {/* ... */}
     </header>
   );
 }
