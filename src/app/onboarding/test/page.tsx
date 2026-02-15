@@ -32,6 +32,9 @@ export default function OnboardingTestPage() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // ✅ Simulator transcript scroll ref (fixes "thread pushes input down")
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
+
   // Real widget embed test
   const [publicKey, setPublicKey] = useState('');
   const [widgetError, setWidgetError] = useState('');
@@ -77,6 +80,16 @@ export default function OnboardingTestPage() {
     setSecureContext(!!isSecure);
   }, []);
   // ---- end Milestone 5 helpers ----
+
+  // ✅ Auto-scroll simulator transcript to bottom whenever messages change
+  useEffect(() => {
+    const el = transcriptRef.current;
+    if (!el) return;
+    // Use RAF so DOM has the new messages before we scroll.
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [messages.length]);
 
   // 1) Pull tenant context from demo storage (set by /demo-login quick start)
   useEffect(() => {
@@ -157,6 +170,7 @@ ${langLine}  data-tikozap-api-base="${API_BASE}">
     const s = document.createElement('script');
     s.async = true;
     s.src = 'https://js.tikozap.com/widget.js';
+    s.setAttribute('data-tikozap-embed', 'onboarding-test');
     s.setAttribute('data-tikozap-key', publicKey);
     s.setAttribute('data-tikozap-api-base', API_BASE);
 
@@ -202,6 +216,23 @@ ${langLine}  data-tikozap-api-base="${API_BASE}">
       setTimeout(() => scanWidgetDom(), 100);
     }, 0);
   }
+
+  useEffect(() => {
+    return () => {
+      try {
+        // remove widget DOM
+        document.querySelectorAll('.tz-bubble, .tz-panel').forEach((el) => el.remove());
+
+        // remove our injected widget script
+        document.querySelectorAll('script[data-tikozap-embed="onboarding-test"]').forEach((el) => el.remove());
+
+        // allow widget to load again next time
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (window as any).__TIKOZAP_WIDGET_LOADED__;
+      } catch {}
+      injectedRef.current = false;
+    };
+  }, []);
 
   // Auto-inject once when we have a key (so you SEE the real widget on this page)
   useEffect(() => {
@@ -355,7 +386,11 @@ ${langLine}  data-tikozap-api-base="${API_BASE}">
 
       {/* Simulator */}
       <div className="rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="h-[360px] space-y-3 overflow-auto rounded-xl bg-zinc-50 p-3">
+        <div
+          ref={transcriptRef}
+          className="space-y-3 overflow-auto rounded-xl bg-zinc-50 p-3"
+          style={{ height: 360, overflowY: 'auto' }} // ✅ hard-fix: transcript scrolls, input never pushed down
+        >
           {messages.map((m, idx) => (
             <div key={m.id ?? idx} className={`flex ${m.role === 'customer' ? 'justify-end' : 'justify-start'}`}>
               <div

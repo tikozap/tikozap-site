@@ -107,22 +107,25 @@ export async function GET(req: Request) {
     }
 
     // ✅ Allowed-domain enforcement
-    const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
-    if (allowed.length > 0) {
-      const originHost = getOriginHost(req);
-      if (!originHost) {
-        return NextResponse.json(
-          { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
-          { status: 403, headers: { ...corsHeaders, "cache-control": "no-store" } }
-        );
-      }
-      if (!isHostAllowed(originHost, allowed)) {
-        return NextResponse.json(
-          { ok: false, error: `Origin not allowed: ${originHost}` },
-          { status: 403, headers: { ...corsHeaders, "cache-control": "no-store" } }
-        );
-      }
-    }
+const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
+const originHost = getOriginHost(req);
+
+if (!originHost) {
+  return NextResponse.json(
+    { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
+
+// ✅ Enforce always:
+// - if allowedDomains is empty → only ALWAYS_ALLOWED_HOSTS pass
+// - if allowedDomains has entries → allowlist + ALWAYS_ALLOWED_HOSTS pass
+if (!isHostAllowed(originHost, allowed)) {
+  return NextResponse.json(
+    { ok: false, error: `Origin not allowed: ${originHost}` },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
 
     const conv = await prisma.conversation.findFirst({
       where: { id: conversationId, tenantId: widget.tenantId },

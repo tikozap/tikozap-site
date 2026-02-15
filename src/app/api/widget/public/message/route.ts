@@ -244,54 +244,59 @@ const storeName = widget?.tenant?.storeName || "our store";
     const tenantTz = widget.tenant?.timeZone || "America/New_York";
 
     // ✅ Milestone 7: Allowed-domain enforcement FIRST (prevents DB spam)
-    const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
-    if (allowed.length > 0) {
-      const originHost = getOriginHost(req);
+const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
+const originHost = getOriginHost(req);
 
-      if (!originHost) {
-        return NextResponse.json(
-          { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
-          { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
-        );
-      }
+if (!originHost) {
+  return NextResponse.json(
+    { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
 
-      if (!isHostAllowed(originHost, allowed)) {
-        return NextResponse.json(
-          { ok: false, error: `Origin not allowed: ${originHost}` },
-          { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
-        );
-      }
-    }
+// ✅ Enforce always:
+// - if allowedDomains is empty → only ALWAYS_ALLOWED_HOSTS pass
+// - if allowedDomains has entries → allowlist + ALWAYS_ALLOWED_HOSTS pass
+if (!isHostAllowed(originHost, allowed)) {
+  return NextResponse.json(
+    { ok: false, error: `Origin not allowed: ${originHost}` },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
 
     // ✅ Milestone 7: Rate limiting (DB-backed) AFTER allowlist
-    const { rateLimitOrThrow } = await import("@/lib/security/rateLimit");
+// ✅ Milestone 7: Rate limiting (DB-backed) AFTER allowlist
+let rl: any = { ok: true };
 
-    const rl = await rateLimitOrThrow({
-      prisma,
-      req,
-      namespace: "public_message",
-      widgetKey: body.key,
-      limit: 30,
-      windowSeconds: 60,
-    });
+try {
+  const { rateLimitOrThrow } = await import("@/lib/security/rateLimit");
+  rl = await rateLimitOrThrow({
+    prisma,
+    req,
+    namespace: "public_message",
+    widgetKey: body.key,
+    limit: 30,
+    windowSeconds: 60,
+  });
+} catch (e) {
+  // Fail-open so a temporary DB/ratelimit issue doesn't break the widget entirely
+  console.warn("[rateLimit] failed open", e);
+  rl = { ok: true };
+}
 
-    if (!rl.ok) {
-      return NextResponse.json(
-        { ok: false, error: "Rate limited" },
-        {
-          status: 429,
-          headers: {
-            ...corsHeaders,
-            "Cache-Control": "no-store",
-            "Retry-After": String(rl.resetSeconds),
-            // Optional (nice-to-have):
-            // "X-RateLimit-Limit": "30",
-            // "X-RateLimit-Remaining": "0",
-            // "X-RateLimit-Reset": String(rl.resetSeconds),
-          },
-        }
-      );
+if (!rl.ok) {
+  return NextResponse.json(
+    { ok: false, error: "Rate limited" },
+    {
+      status: 429,
+      headers: {
+        ...corsHeaders,
+        "Cache-Control": "no-store",
+        "Retry-After": String(rl.resetSeconds ?? 60),
+      },
     }
+  );
+}
 
 // ✅ Milestone 8: Billing + plan gating
 const tenantPlan = widget.tenant?.plan ?? "PRO";

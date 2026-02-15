@@ -108,24 +108,25 @@ export async function GET(req: Request) {
     }
 
     // ✅ Milestone 7: Allowed-domain enforcement (settings)
-    const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
-    if (allowed.length > 0) {
-      const originHost = getOriginHost(req);
+const allowed = Array.isArray(widget.allowedDomains) ? widget.allowedDomains : [];
+const originHost = getOriginHost(req);
 
-      if (!originHost) {
-        return NextResponse.json(
-          { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
-          { status: 403, headers: corsHeaders }
-        );
-      }
+if (!originHost) {
+  return NextResponse.json(
+    { ok: false, error: "Origin not allowed (missing Origin/Referer)" },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
 
-      if (!isHostAllowed(originHost, allowed)) {
-        return NextResponse.json(
-          { ok: false, error: `Origin not allowed: ${originHost}` },
-          { status: 403, headers: corsHeaders }
-        );
-      }
-    }
+// ✅ Enforce always:
+// - if allowedDomains is empty → only ALWAYS_ALLOWED_HOSTS pass
+// - if allowedDomains has entries → allowlist + ALWAYS_ALLOWED_HOSTS pass
+if (!isHostAllowed(originHost, allowed)) {
+  return NextResponse.json(
+    { ok: false, error: `Origin not allowed: ${originHost}` },
+    { status: 403, headers: { ...corsHeaders, "Cache-Control": "no-store" } }
+  );
+}
 
     // Do NOT leak allowedDomains publicly
     const { allowedDomains: _omit, ...publicWidget } = widget;

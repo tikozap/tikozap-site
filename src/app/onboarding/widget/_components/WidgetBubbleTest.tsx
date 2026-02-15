@@ -1,3 +1,4 @@
+// src/app/onboarding/widget/_components/WidgetBubbleTest.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,11 +10,13 @@ const KEY_CID = 'tz_onboarding_widget_test_cid';
 
 export default function WidgetBubbleTest({
   enabled,
+  publicKey,
   assistantName,
   greeting,
   brandColor,
 }: {
   enabled: boolean;
+  publicKey: string; // ✅ REQUIRED
   assistantName: string;
   greeting: string;
   brandColor: string;
@@ -51,22 +54,35 @@ export default function WidgetBubbleTest({
     const msg = text.trim();
     if (!msg || busy) return;
 
+    // ✅ guard: require a key
+    if (!publicKey || !publicKey.startsWith('tz_')) {
+      setMessages((m) => [
+        ...m,
+        { role: 'assistant', content: 'Missing widget publicKey (tz_...). Please reload widget settings.' },
+      ]);
+      return;
+    }
+
     setBusy(true);
     setText('');
     setMessages((m) => [...m, { role: 'customer', content: msg }]);
 
     try {
-      const res = await fetch('/api/widget/message', {
+      const res = await fetch('/api/widget/public/message', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          customerName: 'Widget Test (Onboarding)',
-          subject: 'Widget onboarding test',
+          key: publicKey,
+          text: msg, // ✅ send msg, not cleared `text`
+
+          customerName: 'Preview Customer',
+          customerEmail: null,
+          subject: 'Widget Preview',
           channel: 'web',
-          tags: 'widget-test',
+          tags: 'preview',
+
+          conversationId: conversationId || null,
           aiEnabled: true,
-          text: msg,
-          conversationId: conversationId || undefined,
         }),
       });
 
@@ -201,7 +217,6 @@ export default function WidgetBubbleTest({
           </div>
 
           <div style={{ padding: 10, borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
-            {/* Tap-to-speak placeholder (wire later) */}
             <button
               type="button"
               disabled

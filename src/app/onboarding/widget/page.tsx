@@ -1,9 +1,9 @@
+// src/app/onboarding/widget/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import OnboardingNav from '../_components/OnboardingNav';
-import WidgetBubbleTest from './_components/WidgetBubbleTest';
 
 type WidgetSettings = {
   tenantId: string;
@@ -237,12 +237,6 @@ return true;
 
           {/* ✅ Test bubble belongs here */}
           <div className="mt-4">
-            <WidgetBubbleTest
-              enabled={enabled}
-              assistantName={previewTitle}
-              greeting={previewGreeting}
-              brandColor={previewColor}
-            />
           </div>
         </div>
       </div>

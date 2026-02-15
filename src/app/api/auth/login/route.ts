@@ -48,14 +48,16 @@ export async function POST(req: Request) {
     tenant: { id: membership.tenant.id, slug: membership.tenant.slug, storeName: membership.tenant.storeName },
   });
 
-  const isProd = process.env.NODE_ENV === 'production';
-  const baseCookie = {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: isProd,
-    path: '/',
-    expires: expiresAt,
-  };
+const isProd = process.env.NODE_ENV === 'production';
+
+const baseCookie = {
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  secure: isProd,
+  path: '/',
+  expires: expiresAt,
+  ...(isProd ? { domain: '.tikozap.com' } : {}), // ✅ share across tikozap.com + app.tikozap.com
+};
 
   // ✅ Set both cookies on the RESPONSE
   if (sessionToken) res.cookies.set('tz_session', sessionToken, baseCookie);

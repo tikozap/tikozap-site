@@ -121,30 +121,16 @@ vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns"
   return xml(vr.toString());
 }
 
-  // --------------------
-  // DTMF routes
-  // --------------------
-  if (digits === "0") {
-    await createAnswerMachineItem({
-      tenantId,
-      conversationId: session.conversationId,
-      callSessionId,
-      type: "VOICEMAIL",
-      fromNumber: from,
-      reason: "dtmf_0",
-    });
-
-    await addMessage({
-      conversationId: session.conversationId,
-      role: "system",
-      content: "Caller pressed 0 → voicemail handoff.",
-    });
-
-    vr.say("Please leave a message after the tone. When you're done, press pound.");
-vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
-
-    return xml(vr.toString());
-  }
+// --------------------
+// DTMF routes (FAST PATH)
+// --------------------
+if (digits === "0") {
+  // Return TwiML immediately to reduce silence after keypress.
+  // /api/voice/voicemail will create/attach AnswerMachineItem if missing.
+  vr.say("Please leave a message after the tone. When you're done, press pound.");
+  vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
+  return xml(vr.toString());
+}
 
   if (digits === "1") {
     await createAnswerMachineItem({
@@ -295,13 +281,14 @@ try {
 
   // Speak + gather next input
   vr.say(assistantText);
-  vr.gather({
-    input: ["speech", "dtmf"],
-    action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
-    method: "POST",
-    timeout: 6,
-    speechTimeout: "auto",
-  });
+vr.gather({
+  input: ["speech", "dtmf"],
+  action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
+  method: "POST",
+  timeout: 6,
+  speechTimeout: "auto",
+  actionOnEmptyResult: true,
+});
 
   return xml(vr.toString());
 }

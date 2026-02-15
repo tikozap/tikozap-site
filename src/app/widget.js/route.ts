@@ -392,7 +392,8 @@ const lockWidget = (data) => {
   });
 
   async function loadSettings() {
-const res = await fetch(SETTINGS_URL, { method: 'GET', mode: 'cors' });
+const settingsUrl = SETTINGS_URL + '&t=' + Date.now(); // ✅ cache bust
+const res = await fetch(settingsUrl, { method: 'GET', mode: 'cors', cache: 'no-store' });
 const data = await res.json().catch(() => ({}));
 
 if (isPaywall(res, data)) {
@@ -475,12 +476,14 @@ if (!res.ok || !data || !data.ok)
       const msg = (e && e.message) ? e.message : 'error';
       render([{ role: 'assistant', content: 'Sorry—failed to send. (' + msg + ')' }]);
     } finally {
-busy = false;
-if (!locked) {
-  sendBtn.removeAttribute('disabled');
-  micBtn.removeAttribute('disabled');
-  input.removeAttribute('disabled');
-}
+      busy = false;
+      if (!locked) {
+        sendBtn.removeAttribute('disabled');
+        micBtn.removeAttribute('disabled');
+        input.removeAttribute('disabled');
+      }
+    }
+  } // ✅ closes send()
 
   sendBtn.addEventListener('click', () => {
     const t = input.value;
@@ -504,7 +507,7 @@ if (!locked) {
     greet('Sorry—widget failed to load settings. Please try again.');
     console.error('[TikoZap] settings load failed', e);
   });
-})();
+})(); // ✅ must start with "}" not ")"
 `;
 }
 

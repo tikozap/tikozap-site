@@ -62,31 +62,46 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const includeArchived = url.searchParams.get('includeArchived') === '1';
 
-  const rows = await prisma.conversation.findMany({
-    where: {
-      tenantId: auth.tenant.id,
-      ...(includeArchived ? {} : { archivedAt: null }),
+const rows = await prisma.conversation.findMany({
+  where: {
+    tenantId: auth.tenant.id,
+    ...(includeArchived ? {} : { archivedAt: null }),
+  },
+  orderBy: { lastMessageAt: 'desc' },
+  select: {
+    id: true,
+    customerName: true,
+    subject: true,
+    status: true,
+    channel: true,
+    aiEnabled: true,
+    tags: true,
+    lastMessageAt: true,
+    archivedAt: true,
+    messages: {
+      where: { role: { in: ['customer', 'assistant', 'staff'] } }, // exclude notes
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      select: { role: true, content: true, createdAt: true },
     },
-    orderBy: { lastMessageAt: 'desc' },
-    include: { messages: { orderBy: { createdAt: 'desc' }, take: 6 } },
-  });
+  },
+});
 
-  const conversations = rows.map((c: any) => {
-    const preview = c.messages.find((m: any) => m.role !== 'note') ?? c.messages[0] ?? null;
-
-    return {
-      id: c.id,
-      customerName: c.customerName,
-      subject: c.subject,
-      status: c.status,
-      channel: c.channel,
-      aiEnabled: c.aiEnabled,
-      tags: splitTags(c.tags),
-      lastMessageAt: c.lastMessageAt,
-      archivedAt: c.archivedAt,
-      preview: preview ? { role: preview.role, content: preview.content, createdAt: preview.createdAt } : null,
-    };
-  });
+const conversations = rows.map((c) => {
+  const m = c.messages[0] ?? null;
+  return {
+    id: c.id,
+    customerName: c.customerName,
+    subject: c.subject,
+    status: c.status,
+    channel: c.channel,
+    aiEnabled: c.aiEnabled,
+    tags: splitTags(c.tags),
+    lastMessageAt: c.lastMessageAt,
+    archivedAt: c.archivedAt,
+    preview: m ? { role: m.role, content: m.content, createdAt: m.createdAt } : null,
+  };
+});
 
   return NextResponse.json({ ok: true, conversations });
 }
@@ -115,5 +130,8 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true, id: convo.id });
+return NextResponse.json(
+  { ok: true, conversation: convo },
+  { headers: { "Cache-Control": "no-store" } }
+);
 }

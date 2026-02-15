@@ -155,23 +155,30 @@ export default function DashboardShell({
       <div className="db-body">
         <aside className="db-card db-sidebar">
           <div className="db-brand">
-            <div>
-              <div className="db-ws">{tenantName}</div>
-              <div className="db-meta">Plan: {tenantPlan}</div>
-            </div>
-          </div>
+  <a
+    href="https://tikozap.com/"
+    style={{ textDecoration: "none", color: "inherit", display: "block" }}
+    aria-label="Back to TikoZap marketing site"
+  >
+    <div>
+      <div className="db-ws">{tenantName}</div>
+      <div className="db-meta">Plan: {tenantPlan}</div>
+    </div>
+  </a>
+</div>
 
           <ul className="db-nav">
-<NavItem href="/dashboard" label="Overview" />
-<NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
-<NavItem href="/dashboard/settings/phone-agent" label="Phone Agent" />
-{/* Milestone 4 */}
-<NavItem href="/dashboard/link" label="TikoZap Link" pill="No Website Needed" />
+           <NavItem href="/dashboard" label="Overview" />
+           <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
+           <NavItem href="/dashboard/settings/phone-agent" label="Phone Agent" />
 
-<NavItem href="/dashboard/knowledge" label="Knowledge" />
-<NavItem href="/dashboard/widget" label="Widget" />
-<NavItem href="/dashboard/billing" label="Billing" />
-<NavItem href="/dashboard/settings" label="Settings" />
+           {/* Milestone 4 */}
+           <NavItem href="/dashboard/link" label="TikoZap Link" pill="No Website Needed" />
+
+           <NavItem href="/dashboard/knowledge" label="Knowledge" />
+           <NavItem href="/dashboard/widget" label="Widget" />
+           <NavItem href="/dashboard/billing" label="Billing" />
+           <NavItem href="/dashboard/settings" label="Settings" />
           </ul>
 
           <div className="db-sidebar-footer">

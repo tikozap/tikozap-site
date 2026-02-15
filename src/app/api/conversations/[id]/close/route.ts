@@ -1,4 +1,4 @@
-// src/app/api/conversations/[id]/archive/route.ts
+// src/app/api/conversations/[id]/close/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 const Body = z
   .object({
-    archived: z.boolean().optional(), // true = archive, false = unarchive
+    closed: z.boolean().optional(), // true=close, false=reopen
   })
   .optional();
 
@@ -16,16 +16,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const auth = await getAuthedUserAndTenant();
   if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
 
-  // Backward-compatible: if no body, treat as "archive"
   const raw = await req.json().catch(() => null);
   const parsed = Body.safeParse(raw);
-  const archived = parsed.success ? (parsed.data?.archived ?? true) : true;
+  const closed = parsed.success ? (parsed.data?.closed ?? true) : true;
+
+  const nextStatus = closed ? 'closed' : 'open';
 
   const updated = await prisma.conversation.updateMany({
     where: { id: params.id, tenantId: auth.tenant.id },
-    data: { archivedAt: archived ? new Date() : null },
+    data: { status: nextStatus },
   });
 
   if (!updated.count) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ ok: true, archived });
+  return NextResponse.json({ ok: true, status: nextStatus });
 }

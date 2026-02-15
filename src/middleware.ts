@@ -16,6 +16,11 @@ function isAsset(pathname: string) {
   );
 }
 
+function isPublicFile(pathname: string) {
+  // ✅ allow anything like /tikozaplogo.svg, /images/foo.png, /fonts/a.woff2, etc.
+  return /\.[a-z0-9]+$/i.test(pathname);
+}
+
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
@@ -26,7 +31,12 @@ export default function middleware(req: NextRequest) {
   const p = url.pathname;
 
   // Always allow framework/static assets
-  if (isAsset(p)) return NextResponse.next();
+  if (isAsset(p) || isPublicFile(p)) return NextResponse.next();
+
+  // ✅ Local dev: never rewrite/redirect hosts
+  if (host === "localhost" || host === "127.0.0.1") {
+    return NextResponse.next();
+  }
 
   // Always allow API everywhere (critical)
   if (p.startsWith("/api")) return NextResponse.next();
@@ -37,37 +47,24 @@ export default function middleware(req: NextRequest) {
   const DASH_HOME = "/dashboard";
   const LINK_HOME = "/l";
 
-  // -------------------------
-  // js.tikozap.com → widget loader only
-  // -------------------------
   if (host === "js.tikozap.com") {
-    // /widget.js already allowed above. Everything else goes to marketing.
     url.hostname = "tikozap.com";
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
-  // -------------------------
-  // api.tikozap.com → API only
-  // -------------------------
   if (host === "api.tikozap.com") {
-    // /api/* already allowed above. Everything else goes to marketing.
     url.hostname = "tikozap.com";
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
-  // -------------------------
-  // app.tikozap.com → dashboard (but MUST allow auth pages!)
-  // -------------------------
   if (host === "app.tikozap.com") {
-    // Root → dashboard
     if (p === "/") {
       url.pathname = DASH_HOME;
       return NextResponse.redirect(url);
     }
 
-    // ✅ Allow these paths on the app subdomain
     const allowed =
       p === "/demo-login" ||
       p.startsWith("/demo-login/") ||
@@ -91,9 +88,6 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // -------------------------
-  // link.tikozap.com → hosted pages
-  // -------------------------
   if (host === "link.tikozap.com") {
     if (p === "/") {
       url.pathname = LINK_HOME;
@@ -109,8 +103,5 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // -------------------------
-  // tikozap.com (and anything else) → allow normally
-  // -------------------------
   return NextResponse.next();
 }

@@ -256,11 +256,12 @@ const snippet = useMemo(() => {
 
           <div className="mt-4">
             <WidgetBubbleTest
-              enabled={enabled}
-              assistantName={previewTitle}
-              greeting={previewGreeting}
-              brandColor={previewColor}
-            />
+  enabled={enabled}
+  publicKey={widget?.publicKey || "YOUR_PUBLIC_KEY"}
+  assistantName={previewTitle}
+  greeting={previewGreeting}
+  brandColor={previewColor}
+/>
           </div>
         </div>
       </div>

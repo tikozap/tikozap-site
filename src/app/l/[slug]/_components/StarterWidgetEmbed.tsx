@@ -33,30 +33,24 @@ export default function StarterWidgetEmbed({ publicKey }: { publicKey: string })
     if (existing) existing.remove();
 
     const s = document.createElement('script');
+    s.src = "https://js.tikozap.com/widget.js";
     s.async = true;
-    s.src = 'https://js.tikozap.com/widget.js';
     s.setAttribute('data-tikozap-embed', 'starter-link');
-
-    // Key
     s.setAttribute('data-tikozap-key', publicKey);
-
-    // Starter Link behavior / attribution
     s.setAttribute('data-tikozap-open', '1');
-    s.setAttribute('data-tikozap-tags', 'link');
     s.setAttribute('data-tikozap-channel', 'link');
-    s.setAttribute('data-tikozap-subject', 'TikoZap Link');
-    s.setAttribute('data-tikozap-customer-name', getVisitorName(publicKey));
+    s.setAttribute('data-tikozap-tags', 'link');
+    s.setAttribute("data-tikozap-customer-name", getVisitorName(publicKey));
+    s.setAttribute("data-tikozap-subject", "TikoZap Link");
 
-    // LOCAL DEV: force API base to your dev server so it hits localhost APIs
-    // PROD: do nothing (widget.js will use https://api.tikozap.com)
-    const apiBaseFromEnv = process.env.NEXT_PUBLIC_API_BASE || '';
-    const apiBase =
-      apiBaseFromEnv ||
-      (isLocalhost(window.location.hostname) ? window.location.origin : '');
-
-    if (apiBase) s.setAttribute('data-tikozap-api-base', apiBase);
+    // ✅ critical: make it call the SAME host the link page is served from
+    s.setAttribute("data-tikozap-api-base", window.location.origin);
 
     document.body.appendChild(s);
+
+    s.onload = () => console.log("[starter-link] widget.js loaded");
+    s.onerror = () => console.error("[starter-link] widget.js failed to load");
+   console.log("[starter-link] apiBase =", s.getAttribute("data-tikozap-api-base"));
 
     return () => {
       s.remove();
