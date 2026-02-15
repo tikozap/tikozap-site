@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import twilio from "twilio";
 const VoiceResponse = twilio.twiml.VoiceResponse;
+
 import {
   buildAbsoluteUrl,
   readTwilioParams,
   validateTwilioWebhookOrThrow,
 } from "@/lib/twilio/validate";
+
 import { createAnswerMachineItem } from "@/lib/answerMachine";
 import {
   looksLikeOrderStatusRequest,
@@ -24,9 +26,14 @@ function xml(res: string) {
   });
 }
 
+function requireAppBaseUrl() {
+  const base = (process.env.APP_BASE_URL || "").trim();
+  return base || "https://app.tikozap.com";
+}
+
 async function addMessage(args: {
   conversationId: string;
-  role: string; // your DB uses free-form strings; widget uses 'customer'/'assistant'
+  role: string; // your DB uses free-form strings
   content: string;
 }) {
   await prisma.message.create({
@@ -47,7 +54,8 @@ export async function POST(req: Request) {
   const tenantId = url.searchParams.get("tenantId") || "";
   const callSessionId = url.searchParams.get("callSessionId") || "";
   const turnStr = url.searchParams.get("turn") || "0";
-  const turnIdx = Number(turnStr);
+  const turnIdx = Number.isFinite(Number(turnStr)) ? Number(turnStr) : 0;
+  const MAX_TURNS = 6;
 
   if (!tenantId || !callSessionId) {
     return new NextResponse("Missing tenantId/callSessionId", { status: 400 });
@@ -75,7 +83,40 @@ export async function POST(req: Request) {
   const speech = (params.SpeechResult || "").trim();
   const from = params.From || session.fromNumber || null;
 
+if (turnIdx >= MAX_TURNS) {
+  await prisma.callSession.update({
+    where: { id: callSessionId },
+    data: { fallbackTriggeredAt: new Date() },
+  });
+
+  await createAnswerMachineItem({
+    tenantId,
+    conversationId: session.conversationId,
+    callSessionId,
+    type: "VOICEMAIL",
+    fromNumber: from,
+    reason: "max_turns",
+  });
+
+  vr.say("To help you faster, please leave a message after the tone.");
+  vr.record({
+    action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=max_turns`,
+    method: "POST",
+    maxLength: 180,
+    playBeep: true,
+    finishOnKey: "#",
+
+// ✅ Twilio transcription
+  transcribe: true,
+  transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${tenantId}&callSessionId=${callSessionId}`,
+});
+
+  return xml(vr.toString());
+}
+
+  // --------------------
   // DTMF routes
+  // --------------------
   if (digits === "0") {
     await createAnswerMachineItem({
       tenantId,
@@ -94,7 +135,7 @@ export async function POST(req: Request) {
 
     vr.say("Please leave a message after the tone. When you're done, press pound.");
     vr.record({
-      action: `${process.env.APP_BASE_URL}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=dtmf_0`,
+      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=dtmf_0`,
       method: "POST",
       maxLength: 180,
       playBeep: true,
@@ -123,16 +164,22 @@ export async function POST(req: Request) {
     await addMessage({
       conversationId: session.conversationId,
       role: "assistant",
-      content:
-        "Thanks — we received your callback request. Our team will reach out as soon as possible.",
+      content: "Thanks — we received your callback request. Our team will reach out as soon as possible.",
     });
 
+
     vr.say("Thanks. We received your callback request. We'll reach out as soon as possible. Goodbye.");
+    await prisma.callSession.update({
+    where: { id: callSessionId },
+    data: { status: "COMPLETED", endedAt: new Date() },
+});
     vr.hangup();
     return xml(vr.toString());
   }
 
+  // --------------------
   // No input: reprompt once, then fallback to voicemail
+  // --------------------
   if (!speech) {
     if (turnIdx >= 1) {
       await prisma.callSession.update({
@@ -151,7 +198,7 @@ export async function POST(req: Request) {
 
       vr.say(settings?.fallbackLine || "Sorry — I didn't catch that. Please leave a message after the tone.");
       vr.record({
-        action: `${process.env.APP_BASE_URL}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=timeout`,
+        action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=timeout`,
         method: "POST",
         maxLength: 180,
         playBeep: true,
@@ -163,7 +210,7 @@ export async function POST(req: Request) {
     vr.say("Sorry — I didn't catch that. Please tell me how I can help. You can also press 0 to leave a message, or press 1 to request a callback.");
     vr.gather({
       input: ["speech", "dtmf"],
-      action: `${process.env.APP_BASE_URL}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
+      action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
       method: "POST",
       timeout: 6,
       speechTimeout: "auto",
@@ -171,14 +218,18 @@ export async function POST(req: Request) {
     return xml(vr.toString());
   }
 
+  // --------------------
   // Save caller speech to Inbox
+  // --------------------
   await addMessage({
     conversationId: session.conversationId,
     role: "customer",
     content: speech,
   });
 
-  // Enforce “no order access mode”
+  // --------------------
+  // Generate assistant reply (policy gate)
+  // --------------------
   let assistantText = "";
   const started = Date.now();
 
@@ -212,7 +263,7 @@ export async function POST(req: Request) {
 
     vr.say(settings?.fallbackLine || "Sorry — please leave a message after the tone.");
     vr.record({
-      action: `${process.env.APP_BASE_URL}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=model_error`,
+      action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${tenantId}&callSessionId=${callSessionId}&reason=model_error`,
       method: "POST",
       maxLength: 180,
       playBeep: true,
@@ -223,17 +274,26 @@ export async function POST(req: Request) {
 
   const llmMs = Date.now() - started;
 
-  // Save CallTurn (traceability)
-  const existingTurns = await prisma.callTurn.count({ where: { callSessionId } });
-  await prisma.callTurn.create({
-    data: {
+// Traceability: save CallTurn with idx = turnIdx (idempotent)
+try {
+  await prisma.callTurn.upsert({
+    where: { callSessionId_idx: { callSessionId, idx: turnIdx } },
+    create: {
       callSessionId,
-      idx: existingTurns,
+      idx: turnIdx,
+      sttText: speech,
+      assistantText,
+      llmMs,
+    },
+    update: {
       sttText: speech,
       assistantText,
       llmMs,
     },
   });
+} catch (e) {
+  console.warn("[voice/turn] failed to upsert callTurn", e);
+}
 
   await addMessage({
     conversationId: session.conversationId,
@@ -245,7 +305,7 @@ export async function POST(req: Request) {
   vr.say(assistantText);
   vr.gather({
     input: ["speech", "dtmf"],
-    action: `${process.env.APP_BASE_URL}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
+    action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
     method: "POST",
     timeout: 6,
     speechTimeout: "auto",
