@@ -22,20 +22,28 @@ export default function Nav() {
     setOpen(false);
   }, [pathname]);
 
-  // ✅ True only in the browser, when running on app.tikozap.com
-  const onAppHost = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.hostname === 'app.tikozap.com';
+  const host = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return window.location.hostname.toLowerCase();
   }, []);
 
-  // ✅ On app host, marketing links must be absolute to tikozap.com
-  const marketingHref = (path: string) => (onAppHost ? `${MARKETING_ORIGIN}${path}` : path);
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  const isAppHost = host === 'app.tikozap.com';
 
-  // ✅ On marketing host, login should go to app host. On app host, keep /login.
-  const loginHref = onAppHost ? '/login' : `${APP_ORIGIN}/login`;
+  // On app host: marketing links must be absolute to tikozap.com.
+  // On localhost + marketing: keep relative.
+  const marketingHref = (path: string) => (isAppHost ? `${MARKETING_ORIGIN}${path}` : path);
 
-  // ✅ Logo/Home: on app host, clicking should go to marketing home
-  const homeHref = onAppHost ? `${MARKETING_ORIGIN}/` : '/';
+  // Login:
+  // - On marketing: go to app host
+  // - On app host: stay /login
+  // - On localhost: stay /login (IMPORTANT so dev doesn't jump to prod)
+  const loginHref = isAppHost || isLocal ? '/login' : `${APP_ORIGIN}/login`;
+
+  // Logo/Home:
+  // - On app host: go to marketing home
+  // - On localhost + marketing: go to local /
+  const homeHref = isAppHost ? `${MARKETING_ORIGIN}/` : '/';
 
   const isActive = (href: string) =>
     pathname === href ? 'nav__link nav__link--active' : 'nav__link';
@@ -44,7 +52,7 @@ export default function Nav() {
     <header className="nav-shell">
       <nav className="nav">
         <div className="container nav__inner">
-          {/* ✅ Brand: use <a> so cross-origin navigation is guaranteed */}
+          {/* Brand: use <a> so cross-origin navigation always works */}
           <a href={homeHref} className="nav__brand" aria-label="TikoZap home">
             <img
               src="/tikozaplogo.svg"
@@ -63,8 +71,8 @@ export default function Nav() {
               const active = pathname === item.href;
               const href = marketingHref(item.href);
 
-              // ✅ If on app host, use <a> (absolute, cross-origin)
-              return onAppHost ? (
+              // On app host: use <a> for absolute cross-origin navigation.
+              return isAppHost ? (
                 <a
                   key={item.href}
                   href={href}
@@ -86,7 +94,7 @@ export default function Nav() {
             })}
 
             {/* Log in */}
-            {onAppHost ? (
+            {isAppHost ? (
               <Link href={loginHref} className="nav__login nav__login--desktop" style={{ color: '#6B7280' }}>
                 Log in
               </Link>
@@ -99,7 +107,7 @@ export default function Nav() {
 
           {/* Mobile right */}
           <div className="nav__right">
-            {onAppHost ? (
+            {isAppHost ? (
               <Link href={loginHref} className="nav__login nav__login--mobile" style={{ color: '#6B7280' }}>
                 Log in
               </Link>
@@ -130,7 +138,7 @@ export default function Nav() {
           <div className="nav__menu">
             {LINKS.map((item) => {
               const href = marketingHref(item.href);
-              return onAppHost ? (
+              return isAppHost ? (
                 <a key={item.href} href={href} className="nav__menu-item" style={{ color: '#6B7280' }}>
                   {item.label}
                 </a>
@@ -144,7 +152,7 @@ export default function Nav() {
         </div>
       )}
 
-      {/* ✅ Keep your existing <style jsx> block exactly as-is below this line */}
+      {/* Keep your existing <style jsx> block below exactly as it is */}
       {/* ... */}
     </header>
   );
