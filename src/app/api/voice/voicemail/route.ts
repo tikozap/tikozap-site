@@ -10,14 +10,19 @@ import {
   validateTwilioWebhookOrThrow,
 } from "@/lib/twilio/validate";
 
-import { addMessage, createAnswerMachineItem, attachVoicemailRecording } from "@/lib/answerMachine";
-import { fetchTwilioRecording } from "@/lib/twilio/fetchRecording";
-import { transcribeAudio } from "@/lib/openai/transcribe";
+import {
+  addMessage,
+  createAnswerMachineItem,
+  attachVoicemailRecording,
+} from "@/lib/answerMachine";
 
 export const runtime = "nodejs";
 
 function xml(res: string) {
-  return new NextResponse(res, { status: 200, headers: { "Content-Type": "text/xml" } });
+  return new NextResponse(res, {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
 }
 
 export async function POST(req: Request) {
@@ -43,7 +48,7 @@ export async function POST(req: Request) {
     return new NextResponse("Unknown call session", { status: 404 });
   }
 
-  // Ensure we have an AnswerMachineItem to attach to (sometimes callers hit voicemail without DTMF)
+  // Ensure we have an AnswerMachineItem to attach to
   let item = await prisma.answerMachineItem.findFirst({
     where: { callSessionId, tenantId, type: "VOICEMAIL" },
     orderBy: { createdAt: "desc" },
@@ -60,7 +65,7 @@ export async function POST(req: Request) {
     });
   }
 
-  // Always save RecordingUrl first
+  // Save RecordingUrl now; transcript comes later via /api/voice/transcribe
   await attachVoicemailRecording({
     answerMachineItemId: item.id,
     recordingUrl,
@@ -72,35 +77,6 @@ export async function POST(req: Request) {
     role: "user",
     content: `Voicemail received${recordingSid ? ` (recordingSid=${recordingSid})` : ""}. RecordingUrl: ${recordingUrl || "n/a"}`,
   });
-
-  // Try transcription (best-effort). If it fails, we still succeed overall.
-  let transcript = "";
-  try {
-    if (recordingUrl) {
-      const rec = await fetchTwilioRecording(recordingUrl);
-      transcript = await transcribeAudio({
-        bytes: rec.bytes,
-        filename: rec.filename,
-        contentType: rec.contentType,
-      });
-    }
-  } catch (e) {
-    console.warn("[voice/voicemail] transcription failed", e);
-  }
-
-  if (transcript) {
-    await attachVoicemailRecording({
-      answerMachineItemId: item.id,
-      recordingUrl,
-      transcriptText: transcript,
-    });
-
-    await addMessage({
-      conversationId: session.conversationId,
-      role: "assistant",
-      content: `Voicemail transcript: ${transcript}`,
-    });
-  }
 
   await prisma.callSession.update({
     where: { id: callSessionId },
