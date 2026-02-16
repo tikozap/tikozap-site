@@ -101,3 +101,4 @@ try {
   });
   return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
 }
+}
