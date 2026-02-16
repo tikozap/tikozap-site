@@ -61,7 +61,10 @@ export async function POST(req: Request) {
   }
 
 try {
-  console.log("[recording-status] Fetching audio from:", audioFetchUrl); // debug
+  const audioFetchUrl = `${recordingUrl}.mp3`;
+
+  // Now log it (safe)
+  console.log("[recording-status] Fetching audio from:", audioFetchUrl);
 
   const audioResponse = await fetch(audioFetchUrl, {
     headers: {
@@ -91,8 +94,8 @@ try {
 
   // Update DB, add message, etc. (your existing code)
   console.log("[recording-status] Transcribed successfully:", transcript.substring(0, 100));
-} catch (error) {
-  console.error("[recording-status] Whisper error:", error.message || error);
+} catch (error: any) {  // ← add :any to bypass strict unknown check
+  console.error("[recording-status] Whisper error:", error?.message || error);
   await prisma.answerMachineItem.update({
     where: { id: item.id },
     data: { status: "FAILED" },
