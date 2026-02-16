@@ -60,69 +60,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  try {
-    // Fetch audio (Twilio allows .mp3 extension for MP3 format)
-    const audioFetchUrl = `${recordingUrl}.mp3`;
-    const audioResponse = await fetch(audioFetchUrl);
-    if (!audioResponse.ok) {
-      throw new Error(`Audio fetch failed: ${audioResponse.status} ${audioResponse.statusText}`);
-    }
-    const audioBuffer = await audioResponse.arrayBuffer();
-
-   // Whisper transcription
-const transcription = await openai.audio.transcriptions.create({
-  file: new File([audioBuffer], `voicemail-${recordingSid || Date.now()}.mp3`, { type: "audio/mp3" }),
-  model: "gpt-4o-mini-transcribe", // or "whisper-1"
-  response_format: "text",
-  // language: "en",               // uncomment if calls are mostly English
-  // prompt: "Customer voicemail about e-commerce: orders, shipping, returns, sizing.", // helps accuracy
-});
-
-const transcript = transcription.trim() || "";
-
-if (!transcript) {
-  throw new Error("Empty transcription result");
-}
-
-    // Update DB
-    await prisma.answerMachineItem.update({
-      where: { id: item.id },
-      data: {
-        transcriptText: transcript,
-        status: "DONE",
-        updatedAt: new Date(),
-      },
-    });
-
-// Add to inbox as customer message (visible in dashboard)
-const convId = item.conversationId || item.callSession?.conversationId;
-
-if (!convId) {
-  console.warn("[recording-status] Skipping message creation: no conversationId found");
-  // Still return success since transcription worked
-} else {
-  await prisma.message.create({
-    data: {
-      conversationId: convId,  // now TS knows it's string
-      role: "customer",
-      content: `[Voicemail transcribed]: ${transcript}`,
+try {
+  // Fetch audio with Twilio Basic Auth
+  const audioFetchUrl = `${recordingUrl}.mp3`;
+  const audioResponse = await fetch(audioFetchUrl, {
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(
+        `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+      ).toString('base64'),
     },
   });
 
-  await prisma.conversation.update({
-    where: { id: convId },
-    data: { lastMessageAt: new Date() },
-  });
-}
-
-    console.log("[recording-status] Success - transcript:", transcript.substring(0, 100));
-    return NextResponse.json({ success: true, transcript });
-  } catch (error) {
-    console.error("[recording-status] Whisper error:", error);
-    await prisma.answerMachineItem.update({
-      where: { id: item.id },
-      data: { status: "FAILED" },
-    });
-    return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
+  if (!audioResponse.ok) {
+    throw new Error(`Audio fetch failed: ${audioResponse.status} ${audioResponse.statusText}`);
   }
+
+  const audioBuffer = await audioResponse.arrayBuffer();
+
+  // Whisper transcription
+  const transcription = await openai.audio.transcriptions.create({
+    file: new File([audioBuffer], `voicemail-${recordingSid || Date.now()}.mp3`, { type: "audio/mp3" }),
+    model: "gpt-4o-mini-transcribe", // or "whisper-1"
+    response_format: "text",
+    // Optional: language: "en",
+    // prompt: "Short customer voicemail about e-commerce orders, shipping, returns.",
+  });
+
+  const transcript = transcription.trim() || "";
+
+  if (!transcript) {
+    throw new Error("Empty transcription result");
+  }
+
+  // ... rest of your code (update DB, add message, etc.)
+} catch (error) {
+  console.error("[recording-status] Whisper error:", error);
+  await prisma.answerMachineItem.update({
+    where: { id: item.id },
+    data: { status: "FAILED" },
+  });
+  return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
 }
