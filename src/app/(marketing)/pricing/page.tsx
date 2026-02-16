@@ -1,3 +1,4 @@
+// src/app/(marketing)/pricing/page.tsx
 import Pricing from '@/components/Pricing';
 import PricingFAQ from '@/components/PricingFAQ';
 import PricingCompare from '@/components/PricingCompare';

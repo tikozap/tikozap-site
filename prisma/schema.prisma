@@ -46,6 +46,7 @@ enum AnswerMachineStatus {
   NEW
   IN_PROGRESS
   DONE
+  FAILED
 }
 
 model User {
