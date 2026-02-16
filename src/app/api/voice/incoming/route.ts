@@ -135,8 +135,9 @@ vr.record({
   maxLength: 120,
   playBeep: true,
   finishOnKey: "#",
-  transcribe: true,
-  transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${tenantId}&callSessionId=${session.id}`,
+  transcribe: false,  // ← disable Twilio transcription
+  recordingStatusCallback: `${requireAppBaseUrl()}/api/voice/recording-status?tenantId=${tenantId}&callSessionId=${session.id}&reason=disabled`,
+  recordingStatusCallbackMethod: "POST",
 });
     return xml(vr.toString());
   }

@@ -43,8 +43,10 @@ function recordWithTranscription(args: {
     maxLength: args.maxLength ?? 180,
     playBeep: true,
     finishOnKey: "#",
-    transcribe: true,
-    transcribeCallback: `${requireAppBaseUrl()}/api/voice/transcribe?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}`,
+    transcribe: false,  // ← disable Twilio's built-in transcription
+    // Add these two lines to trigger your Whisper route
+    recordingStatusCallback: `${requireAppBaseUrl()}/api/voice/recording-status?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}&reason=${args.reason}`,
+    recordingStatusCallbackMethod: "POST",
   };
 }
 
