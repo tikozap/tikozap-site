@@ -61,18 +61,17 @@ export async function POST(req: Request) {
   }
 
 try {
-  // Fetch audio with Twilio Basic Auth
-  const audioFetchUrl = `${recordingUrl}.mp3`;
+  console.log("[recording-status] Fetching audio from:", audioFetchUrl); // debug
+
   const audioResponse = await fetch(audioFetchUrl, {
     headers: {
-      Authorization: 'Basic ' + Buffer.from(
-        `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-      ).toString('base64'),
+      Authorization: `Basic ${Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64')}`,
     },
   });
 
   if (!audioResponse.ok) {
-    throw new Error(`Audio fetch failed: ${audioResponse.status} ${audioResponse.statusText}`);
+    const errorText = await audioResponse.text().catch(() => 'No error body');
+    throw new Error(`Audio fetch failed: ${audioResponse.status} ${audioResponse.statusText} - ${errorText}`);
   }
 
   const audioBuffer = await audioResponse.arrayBuffer();
@@ -80,10 +79,8 @@ try {
   // Whisper transcription
   const transcription = await openai.audio.transcriptions.create({
     file: new File([audioBuffer], `voicemail-${recordingSid || Date.now()}.mp3`, { type: "audio/mp3" }),
-    model: "gpt-4o-mini-transcribe", // or "whisper-1"
+    model: "gpt-4o-mini-transcribe",
     response_format: "text",
-    // Optional: language: "en",
-    // prompt: "Short customer voicemail about e-commerce orders, shipping, returns.",
   });
 
   const transcript = transcription.trim() || "";
@@ -92,9 +89,10 @@ try {
     throw new Error("Empty transcription result");
   }
 
-  // ... rest of your code (update DB, add message, etc.)
+  // Update DB, add message, etc. (your existing code)
+  console.log("[recording-status] Transcribed successfully:", transcript.substring(0, 100));
 } catch (error) {
-  console.error("[recording-status] Whisper error:", error);
+  console.error("[recording-status] Whisper error:", error.message || error);
   await prisma.answerMachineItem.update({
     where: { id: item.id },
     data: { status: "FAILED" },
