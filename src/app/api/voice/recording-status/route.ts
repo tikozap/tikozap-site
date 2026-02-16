@@ -62,8 +62,6 @@ export async function POST(req: Request) {
 
 try {
   const audioFetchUrl = `${recordingUrl}.mp3`;
-
-  // Now log it (safe)
   console.log("[recording-status] Fetching audio from:", audioFetchUrl);
 
   const audioResponse = await fetch(audioFetchUrl, {
@@ -92,14 +90,29 @@ try {
     throw new Error("Empty transcription result");
   }
 
-  // Update DB, add message, etc. (your existing code)
-  console.log("[recording-status] Transcribed successfully:", transcript.substring(0, 100));
-} catch (error: any) {  // ← add :any to bypass strict unknown check
-  console.error("[recording-status] Whisper error:", error?.message || error);
+  // ---- SAVE TO DB! ----
   await prisma.answerMachineItem.update({
     where: { id: item.id },
-    data: { status: "FAILED" },
+    data: {
+      transcriptText: transcript,
+      status: "DONE",
+    },
   });
-  return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
+
+  // Optionally, add message to related conversation
+  if (item.callSession?.conversationId) {
+    await prisma.message.create({
+      data: {
+        conversationId: item.callSession.conversationId,
+        role: "system",
+        content: `Voicemail transcription: ${transcript}`,
+      },
+    });
+  }
+  console.log("[recording-status] Transcribed and saved successfully:", transcript.substring(0, 100));
+  return NextResponse.json({ ok: true });
+
+} catch (error: any) {
+  // ... (your existing error handling)
 }
 }
