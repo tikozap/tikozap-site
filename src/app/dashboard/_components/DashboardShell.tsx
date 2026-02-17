@@ -2,12 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
-
-const KEY_TENANT_NAME = 'tz_demo_tenant_name';
-const KEY_LOGIN = 'tz_demo_logged_in';
-const KEY_ONBOARDED = 'tz_demo_onboarded';
-const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
+import { ReactNode } from 'react';
 
 function NavItem({ href, label, pill }: { href: string; label: string; pill?: string }) {
   const pathname = usePathname() || '';
@@ -23,22 +18,24 @@ function NavItem({ href, label, pill }: { href: string; label: string; pill?: st
   );
 }
 
-export default function DashboardShell({ children }: { children: ReactNode }) {
-  const [tenantName, setTenantName] = useState('Three Tree Fashion');
-
-  useEffect(() => {
-    const name = localStorage.getItem(KEY_TENANT_NAME);
-    if (name) setTenantName(name);
-  }, []);
+export default function DashboardShell({
+  children,
+  tenantName,
+}: {
+  children: ReactNode;
+  tenantName: string;
+}) {
 
   const signOut = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {}
-    localStorage.removeItem(KEY_LOGIN);
-    localStorage.removeItem(KEY_ONBOARDED);
-    localStorage.removeItem(KEY_TENANT_NAME);
-    localStorage.removeItem(KEY_TENANT_SLUG);
+    try {
+      localStorage.removeItem('tz_demo_logged_in');
+      localStorage.removeItem('tz_demo_onboarded');
+      localStorage.removeItem('tz_demo_tenant_name');
+      localStorage.removeItem('tz_demo_tenant_slug');
+    } catch {}
     window.location.href = '/demo-login';
   };
 
