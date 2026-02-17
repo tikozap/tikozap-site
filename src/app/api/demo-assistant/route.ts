@@ -18,11 +18,72 @@ type HistoryMessage = {
 
 type DemoReplySource = 'rule' | 'model' | 'canned';
 
+type DemoReplyMeta = {
+  scoreDelta: {
+    accuracy: number;
+    safety: number;
+    handoff: number;
+    setupFit: number;
+  };
+  signals: {
+    mentionsStarterLink: boolean;
+    mentionsHandoff: boolean;
+    mentionsSafePreview: boolean;
+    mentionsSetupPath: boolean;
+  };
+};
+
+function buildReplyMeta(reply: string, source: DemoReplySource): DemoReplyMeta {
+  const lower = (reply || '').toLowerCase();
+  const mentionsStarterLink = lower.includes('starter link') || lower.includes('no website');
+  const mentionsHandoff =
+    lower.includes('handoff') ||
+    lower.includes('human') ||
+    lower.includes('team') ||
+    lower.includes('take over') ||
+    lower.includes('escalat');
+  const mentionsSafePreview =
+    lower.includes('safe preview') ||
+    lower.includes('demo') ||
+    lower.includes('sample data') ||
+    lower.includes('real orders');
+  const mentionsSetupPath =
+    lower.includes('setup') ||
+    lower.includes('install') ||
+    lower.includes('connect') ||
+    lower.includes('inbox') ||
+    lower.includes('knowledge');
+
+  const base =
+    source === 'model'
+      ? { accuracy: 8, safety: 6, handoff: 4, setupFit: 5 }
+      : source === 'rule'
+      ? { accuracy: 7, safety: 7, handoff: 5, setupFit: 6 }
+      : { accuracy: 5, safety: 5, handoff: 3, setupFit: 4 };
+
+  return {
+    scoreDelta: {
+      accuracy: base.accuracy + (reply.length > 100 ? 1 : 0),
+      safety: base.safety + (mentionsSafePreview ? 2 : 0),
+      handoff: base.handoff + (mentionsHandoff ? 4 : 0),
+      setupFit: base.setupFit + (mentionsStarterLink || mentionsSetupPath ? 3 : 0),
+    },
+    signals: {
+      mentionsStarterLink,
+      mentionsHandoff,
+      mentionsSafePreview,
+      mentionsSetupPath,
+    },
+  };
+}
+
 function jsonReply(reply: string, source: DemoReplySource) {
+  const meta = buildReplyMeta(reply, source);
   return NextResponse.json({
     reply,
     source,
     safePreview: true,
+    meta,
   });
 }
 

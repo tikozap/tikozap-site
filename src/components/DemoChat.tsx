@@ -9,12 +9,30 @@ import {
 
 type Role = 'assistant' | 'user';
 type ReplySource = 'rule' | 'model' | 'canned';
+type ScoreDelta = {
+  accuracy: number;
+  safety: number;
+  handoff: number;
+  setupFit: number;
+};
+
+type DemoReplyMeta = {
+  scoreDelta: ScoreDelta;
+  signals: {
+    mentionsStarterLink: boolean;
+    mentionsHandoff: boolean;
+    mentionsSafePreview: boolean;
+    mentionsSetupPath: boolean;
+  };
+};
 
 type DemoMessage = {
   id: string;
   role: Role;
   text: string;
   source?: ReplySource;
+  safePreview?: boolean;
+  meta?: DemoReplyMeta;
 };
 
 function fallbackDefault(): string {
@@ -32,13 +50,60 @@ const STARTER_PROMPTS = [
   'What can I set up in the first 15 minutes?',
 ];
 
+type DemoScorecard = {
+  accuracy: number;
+  safety: number;
+  handoff: number;
+  setupFit: number;
+};
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function applyDelta(prev: DemoScorecard, delta?: ScoreDelta): DemoScorecard {
+  if (!delta) return prev;
+  return {
+    accuracy: clampScore(prev.accuracy + delta.accuracy),
+    safety: clampScore(prev.safety + delta.safety),
+    handoff: clampScore(prev.handoff + delta.handoff),
+    setupFit: clampScore(prev.setupFit + delta.setupFit),
+  };
+}
+
+function fallbackMeta(source: ReplySource): DemoReplyMeta {
+  const base =
+    source === 'model'
+      ? { accuracy: 8, safety: 6, handoff: 4, setupFit: 5 }
+      : source === 'rule'
+      ? { accuracy: 7, safety: 7, handoff: 5, setupFit: 6 }
+      : { accuracy: 5, safety: 5, handoff: 3, setupFit: 4 };
+  return {
+    scoreDelta: base,
+    signals: {
+      mentionsStarterLink: false,
+      mentionsHandoff: false,
+      mentionsSafePreview: true,
+      mentionsSetupPath: false,
+    },
+  };
+}
+
 export default function DemoChat() {
   const [messages, setMessages] = useState<DemoMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreamingReply, setIsStreamingReply] = useState(false);
   const [showLeadCta, setShowLeadCta] = useState(false);
+  const [scorecard, setScorecard] = useState<DemoScorecard>({
+    accuracy: 58,
+    safety: 64,
+    handoff: 52,
+    setupFit: 54,
+  });
 
   const bucketIndexRef = useRef<Partial<Record<DemoBucketName, number>>>({});
+  const lastTopicRef = useRef<DemoBucketName | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputRowRef = useRef<HTMLFormElement | null>(null);
@@ -72,8 +137,79 @@ export default function DemoChat() {
     return nextText;
   };
 
-  const callDemoApi = async (userText: string, bucket: DemoBucketName, history: DemoMessage[]) => {
-    const historyForApi = history.map((m) => ({
+  const resolveBucket = (text: string): DemoBucketName => {
+    const detected = demoDetectBucket(text);
+    if (detected !== 'off_topic') {
+      lastTopicRef.current = detected;
+      return detected;
+    }
+
+    const lower = text.toLowerCase().trim();
+    const followup =
+      lower.startsWith('and ') ||
+      lower.startsWith('also ') ||
+      lower.startsWith('what about') ||
+      lower.startsWith('how about') ||
+      lower.startsWith('then ') ||
+      lower.includes('can you explain more') ||
+      lower.includes('tell me more') ||
+      lower.split(/\s+/).length <= 6;
+
+    if (followup && lastTopicRef.current && lastTopicRef.current !== 'off_topic') {
+      return lastTopicRef.current;
+    }
+
+    return detected;
+  };
+
+  const streamAssistantText = async (
+    messageId: string,
+    fullText: string,
+    source: ReplySource,
+    safePreview: boolean,
+    meta: DemoReplyMeta,
+  ) => {
+    const chunks = fullText.split(/(\s+)/).filter(Boolean);
+    let built = '';
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageId,
+        role: 'assistant',
+        text: '',
+        source,
+        safePreview,
+        meta,
+      },
+    ]);
+
+    setIsStreamingReply(true);
+    for (let i = 0; i < chunks.length; i++) {
+      built += chunks[i];
+      const nextText = built;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, text: nextText } : m)),
+      );
+      if (i < chunks.length - 1) {
+        // Simulated token streaming for perceived responsiveness.
+        await new Promise((resolve) => setTimeout(resolve, i < 10 ? 20 : 12));
+      }
+    }
+    setIsStreamingReply(false);
+  };
+
+  const callDemoApi = async (
+    userText: string,
+    bucket: DemoBucketName,
+    history: DemoMessage[],
+  ): Promise<{
+    reply: string;
+    source: ReplySource;
+    safePreview: boolean;
+    meta: DemoReplyMeta;
+  }> => {
+    const historyForApi = history.slice(-12).map((m) => ({
       role: m.role,
       content: m.text,
     }));
@@ -89,32 +225,46 @@ export default function DemoChat() {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      const data: { reply?: string; source?: ReplySource } = await res.json();
+      const data: {
+        reply?: string;
+        source?: ReplySource;
+        safePreview?: boolean;
+        meta?: DemoReplyMeta;
+      } = await res.json();
       if (data.reply && data.reply.trim()) {
+        const source = data.source ?? 'canned';
         return {
           reply: data.reply.trim(),
-          source: data.source ?? 'canned',
-        } as const;
+          source,
+          safePreview: data.safePreview !== false,
+          meta: data.meta ?? fallbackMeta(source),
+        };
       }
 
+      const source: ReplySource = 'canned';
       return {
         reply: pickFromBucket(bucket) || fallbackDefault(),
-        source: 'canned' as const,
+        source,
+        safePreview: true,
+        meta: fallbackMeta(source),
       };
     } catch (err) {
       console.error('Demo assistant API error', err);
+      const source: ReplySource = 'canned';
       return {
         reply: pickFromBucket(bucket) || fallbackDefault(),
-        source: 'canned' as const,
+        source,
+        safePreview: true,
+        meta: fallbackMeta(source),
       };
     }
   };
 
   const sendMessage = async (rawText: string) => {
     const trimmed = rawText.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || isStreamingReply) return;
 
-    const bucket = demoDetectBucket(trimmed);
+    const bucket = resolveBucket(trimmed);
 
     const userMessage: DemoMessage = {
       id: `u-${Date.now()}`,
@@ -141,14 +291,14 @@ export default function DemoChat() {
     const apiResult = await callDemoApi(trimmed, bucket, newHistory);
     setIsLoading(false);
 
-    const assistantMessage: DemoMessage = {
-      id: `a-${Date.now()}`,
-      role: 'assistant',
-      text: apiResult.reply,
-      source: apiResult.source,
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
+    setScorecard((prev) => applyDelta(prev, apiResult.meta?.scoreDelta));
+    await streamAssistantText(
+      `a-${Date.now()}`,
+      apiResult.reply,
+      apiResult.source,
+      apiResult.safePreview,
+      apiResult.meta,
+    );
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -160,7 +310,15 @@ export default function DemoChat() {
     setMessages([]);
     setInput('');
     setShowLeadCta(false);
+    setIsStreamingReply(false);
+    setScorecard({
+      accuracy: 58,
+      safety: 64,
+      handoff: 52,
+      setupFit: 54,
+    });
     bucketIndexRef.current = {};
+    lastTopicRef.current = null;
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
@@ -170,8 +328,15 @@ export default function DemoChat() {
     return 'Safe preview';
   };
 
-  const isSendingDisabled = !input.trim() || isLoading;
+  const isBusy = isLoading || isStreamingReply;
+  const isSendingDisabled = !input.trim() || isBusy;
   const userTurns = messages.filter((m) => m.role === 'user').length;
+  const scoreRows: Array<{ label: string; value: number }> = [
+    { label: 'Accuracy', value: scorecard.accuracy },
+    { label: 'Safety', value: scorecard.safety },
+    { label: 'Handoff', value: scorecard.handoff },
+    { label: 'Setup fit', value: scorecard.setupFit },
+  ];
 
   return (
     <section
@@ -208,13 +373,33 @@ export default function DemoChat() {
                   type="button"
                   className="demo-chat-prompt"
                   onClick={() => sendMessage(p)}
-                  disabled={isLoading}
+                  disabled={isBusy}
                 >
                   {p}
                 </button>
               ))}
             </div>
           )}
+
+          <div className="demo-scorecard" aria-label="Merchant scorecard">
+            <div className="demo-scorecard-head">
+              <strong>Merchant scorecard</strong>
+              <span>Live demo heuristic</span>
+            </div>
+            <div className="demo-score-grid">
+              {scoreRows.map(({ label, value }) => (
+                <div key={label} className="demo-score-item">
+                  <div className="demo-score-meta">
+                    <span>{label}</span>
+                    <span>{value}/100</span>
+                  </div>
+                  <div className="demo-score-track">
+                    <span className="demo-score-fill" style={{ width: `${value}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="demo-chat-messages">
             {/* Static intro bubble */}
@@ -475,6 +660,68 @@ export default function DemoChat() {
           cursor: default;
         }
 
+        .demo-scorecard {
+          border-bottom: 1px solid #eef2f7;
+          background: #ffffff;
+          padding: 0.55rem 0.8rem 0.65rem;
+        }
+
+        .demo-scorecard-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.45rem;
+        }
+
+        .demo-scorecard-head strong {
+          font-size: 0.78rem;
+          color: #111827;
+        }
+
+        .demo-scorecard-head span {
+          font-size: 0.68rem;
+          color: #6b7280;
+        }
+
+        .demo-score-grid {
+          display: grid;
+          gap: 0.36rem;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .demo-score-item {
+          border: 1px solid #eef2f7;
+          border-radius: 10px;
+          padding: 0.35rem 0.45rem;
+          background: #f9fafb;
+        }
+
+        .demo-score-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.68rem;
+          color: #374151;
+          margin-bottom: 0.2rem;
+        }
+
+        .demo-score-track {
+          width: 100%;
+          height: 0.32rem;
+          border-radius: 999px;
+          background: #e5e7eb;
+          overflow: hidden;
+        }
+
+        .demo-score-fill {
+          display: block;
+          height: 100%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #93c5fd 0%, #2563eb 100%);
+          transition: width 240ms ease;
+        }
+
         .demo-chat-row {
           display: flex;
           margin-bottom: 0.6rem;
@@ -661,6 +908,10 @@ export default function DemoChat() {
 
           .demo-chat-body {
             max-height: 600px;
+          }
+
+          .demo-score-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
       `}</style>
