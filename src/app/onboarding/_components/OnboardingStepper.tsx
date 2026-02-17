@@ -8,8 +8,8 @@ const STEPS = [
   { key: 'plan', label: 'Plan', href: '/onboarding/plan' },
   { key: 'billing', label: 'Billing', href: '/onboarding/billing' },
   { key: 'knowledge', label: 'Knowledge', href: '/onboarding/knowledge' },
-  { key: 'widget', label: 'Widget', href: '/onboarding/widget' },
-  { key: 'install', label: 'Install', href: '/onboarding/install' },
+  { key: 'widget', label: 'Widget / Link', href: '/onboarding/widget' },
+  { key: 'install', label: 'Install / Share', href: '/onboarding/install' },
   { key: 'test', label: 'Test', href: '/onboarding/test' },
 ];
 

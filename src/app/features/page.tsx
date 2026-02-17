@@ -28,7 +28,7 @@ const coreFeatures = [
     id: 'easy-install',
     title: 'One-click install',
     icon: '🔌',
-    body: 'Drop-in script or app install. Connect your store and help center in minutes—no engineering team needed.',
+    body: 'Drop-in script, app install, or Starter Link for no-website SBOs. Launch in minutes without an engineering team.',
     href: '/docs#easy-install',
   },
   {
