@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { buildSupportReply } from '@/lib/supportAssistant';
 
@@ -124,18 +124,18 @@ export default function ConversationsClient() {
     };
   }, []);
 
-  async function refreshList() {
+  const refreshList = useCallback(async () => {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
     const data = await api<{ ok: true; conversations: ListItem[] }>(url);
     setList(data.conversations);
     return data.conversations;
-  }
+  }, [showArchived]);
 
-  async function refreshThread(id: string) {
+  const refreshThread = useCallback(async (id: string) => {
     const data = await api<{ ok: true; conversation: Thread }>(`/api/conversations/${id}`);
     setThread(data.conversation);
     return data.conversation;
-  }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -158,7 +158,7 @@ export default function ConversationsClient() {
       setSelectedId(initial);
       if (initial) await refreshThread(initial);
     })().catch(() => {});
-  }, [showArchived, searchParams]);
+  }, [refreshList, refreshThread, searchParams]);
 
   useEffect(() => {
     if (selectedId) localStorage.setItem(KEY_SELECTED, selectedId);

@@ -2,6 +2,7 @@
 
 import HowItWorksGraphic from '../components/HowItWorksGraphic';
 import SafetyShields from '@/components/SafetyShields';
+import Image from 'next/image';
 
 export default function Page() {
   return (
@@ -65,10 +66,12 @@ export default function Page() {
           </header>
 
           <div className="testimonials-art-wrap">
-            <img
+            <Image
               src="/art/threebubbles.svg"
               alt="Conversations showing teams using TikoZap"
               className="testimonials-art"
+              width={543}
+              height={453}
               loading="lazy"
             />
           </div>

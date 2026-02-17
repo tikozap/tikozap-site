@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 export default function Footer() {
   const pathname = usePathname();
@@ -19,10 +20,12 @@ export default function Footer() {
           {/* Brand column */}
           <div className="footer__brand">
             <div className="footer__brand-row">
-              <img
+              <Image
                 src="/tikozaplogo.svg"
                 alt="TikoZap"
                 className="footer__brand-logo"
+                width={128}
+                height={32}
               />
               <span className="footer__brand-name">TikoZap</span>
             </div>

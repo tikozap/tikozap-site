@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -29,11 +30,14 @@ export default function Nav() {
         <div className="container nav__inner">
           {/* Brand: logo + wordmark */}
           <Link href="/" className="nav__brand" aria-label="TikoZap home">
-            <img
+            <Image
               src="/tikozaplogo.svg"
               alt="TikoZap"
               className="nav__logo-img"
+              width={128}
+              height={32}
               style={{ height: '2rem', width: 'auto' }} // bigger logo
+              priority
             />
             <span
               className="nav__logo-text"
