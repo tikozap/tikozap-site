@@ -31,7 +31,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     if (name) setTenantName(name);
   }, []);
 
-  const signOut = () => {
+  const signOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
     localStorage.removeItem(KEY_LOGIN);
     localStorage.removeItem(KEY_ONBOARDED);
     localStorage.removeItem(KEY_TENANT_NAME);
