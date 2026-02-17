@@ -17,6 +17,39 @@ type SupportMetricsPayload = {
   };
 };
 
+type TwilioSummaryPayload = {
+  ok: true;
+  window: '24h' | '7d' | '30d';
+  summary: {
+    startedAt: string;
+    totalEvents: number;
+    withQualityMetrics: number;
+    latest: {
+      createdAt: string;
+      eventType: string;
+      callSid: string | null;
+      verification: string;
+    } | null;
+    averages: {
+      mos: number | null;
+      jitterMs: number | null;
+      packetLossPct: number | null;
+      roundTripMs: number | null;
+    };
+    degraded: {
+      lowMos: number;
+      highJitter: number;
+      highPacketLoss: number;
+      highRoundTrip: number;
+    };
+    health: {
+      score: number | null;
+      grade: 'A' | 'B' | 'C' | 'D' | null;
+      reasons: string[];
+    };
+  };
+};
+
 const WINDOW_OPTIONS = [
   { value: '24h', label: 'Last 24h' },
   { value: '7d', label: 'Last 7 days' },
@@ -34,17 +67,35 @@ export default function SupportMetricsCards() {
   const [windowKey, setWindowKey] = useState<SupportMetricsPayload['window']>('24h');
   const [metrics, setMetrics] = useState<SupportMetricsPayload['metrics'] | null>(null);
   const [error, setError] = useState('');
+  const [voiceSummary, setVoiceSummary] = useState<TwilioSummaryPayload['summary'] | null>(null);
+  const [voiceError, setVoiceError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setError('');
+        setVoiceError('');
         setMetrics(null);
-        const res = await fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-        if (!cancelled) setMetrics(data.metrics);
+        setVoiceSummary(null);
+
+        const [supportRes, voiceRes] = await Promise.all([
+          fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
+          fetch(`/api/quality/twilio/summary?window=${windowKey}`, { cache: 'no-store' }),
+        ]);
+
+        const supportData = await supportRes.json().catch(() => null);
+        if (!supportRes.ok || !supportData?.ok) {
+          throw new Error(supportData?.error || `Request failed (${supportRes.status})`);
+        }
+        if (!cancelled) setMetrics(supportData.metrics);
+
+        const voiceData = await voiceRes.json().catch(() => null);
+        if (!voiceRes.ok || !voiceData?.ok) {
+          if (!cancelled) setVoiceError('Twilio voice quality unavailable.');
+          return;
+        }
+        if (!cancelled) setVoiceSummary(voiceData.summary);
       } catch {
         if (!cancelled) setError('Metrics unavailable right now.');
       }
@@ -60,6 +111,14 @@ export default function SupportMetricsCards() {
     const rows = Object.entries(metrics.counters.intents).sort((a, b) => b[1] - a[1]);
     return rows.slice(0, 5);
   }, [metrics]);
+
+  const voiceHealth = useMemo(() => {
+    if (!voiceSummary) return 'Loading…';
+    if (!voiceSummary.withQualityMetrics) return 'No voice telemetry yet';
+    const grade = voiceSummary.health.grade || 'N/A';
+    const score = voiceSummary.health.score != null ? `${voiceSummary.health.score}/100` : 'n/a';
+    return `${grade} (${score})`;
+  }, [voiceSummary]);
 
   return (
     <>
@@ -99,6 +158,20 @@ export default function SupportMetricsCards() {
         <p>{metrics ? `${metrics.counters.rateLimited} events` : 'Loading…'}</p>
       </div>
 
+      <div className="db-card db-tile">
+        <h3>Twilio voice quality</h3>
+        <p>{voiceError ? voiceError : voiceHealth}</p>
+      </div>
+
+      <div className="db-card db-tile">
+        <h3>Degraded voice signals</h3>
+        <p>
+          {!voiceSummary
+            ? 'Loading…'
+            : `${voiceSummary.degraded.lowMos + voiceSummary.degraded.highJitter + voiceSummary.degraded.highPacketLoss + voiceSummary.degraded.highRoundTrip} events`}
+        </p>
+      </div>
+
       <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
         <h3>Reply intent mix</h3>
         {error ? (
@@ -114,6 +187,24 @@ export default function SupportMetricsCards() {
                 {prettyIntent(intent)}: {count}
               </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
+        <h3>Voice transport snapshot</h3>
+        {voiceError ? (
+          <p>{voiceError}</p>
+        ) : !voiceSummary ? (
+          <p>Loading…</p>
+        ) : !voiceSummary.withQualityMetrics ? (
+          <p>No Twilio voice quality metrics yet. Send webhook events to populate this.</p>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <span className="db-pill">MOS: {voiceSummary.averages.mos?.toFixed(2) ?? '—'}</span>
+            <span className="db-pill">Jitter: {voiceSummary.averages.jitterMs?.toFixed(1) ?? '—'}ms</span>
+            <span className="db-pill">Packet loss: {voiceSummary.averages.packetLossPct?.toFixed(2) ?? '—'}%</span>
+            <span className="db-pill">Round trip: {voiceSummary.averages.roundTripMs?.toFixed(0) ?? '—'}ms</span>
           </div>
         )}
       </div>

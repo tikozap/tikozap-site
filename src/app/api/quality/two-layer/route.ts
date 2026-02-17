@@ -7,6 +7,7 @@ import {
   type DemoReplySignals,
   type QualityTransportInput,
 } from '@/lib/twoLayerQuality';
+import { getLatestTwilioMetricsForCallSid } from '@/lib/twilioVoiceEvents';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,12 @@ function normalizeSignals(input: unknown): DemoReplySignals | undefined {
 function n(value: unknown): number | undefined {
   if (typeof value !== 'number' || Number.isNaN(value)) return undefined;
   return value;
+}
+
+function s(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
 function normalizeTransport(input: unknown): QualityTransportInput {
@@ -65,11 +72,29 @@ export async function POST(req: Request) {
   }
 
   const body: any = await req.json().catch(() => ({}));
-  const transport = normalizeTransport(body.transport);
+  const transportRaw =
+    body.transport && typeof body.transport === 'object'
+      ? (body.transport as Record<string, unknown>)
+      : {};
   const conversationRaw =
     body.conversation && typeof body.conversation === 'object'
       ? (body.conversation as Record<string, unknown>)
       : {};
+  const callSid =
+    s(body.callSid) || s(transportRaw.callSid) || s(conversationRaw.callSid);
+
+  let transport = normalizeTransport(transportRaw);
+  let twilioLinked = false;
+  if (!transport.twilio && callSid) {
+    const linked = await getLatestTwilioMetricsForCallSid({ callSid });
+    if (linked) {
+      transport = {
+        ...transport,
+        twilio: linked,
+      };
+      twilioLinked = true;
+    }
+  }
 
   const report = evaluateTwoLayerQuality({
     transport,
@@ -81,6 +106,9 @@ export async function POST(req: Request) {
   });
 
   await trackMetric({ source: 'quality-two-layer', event: 'evaluated' });
+  if (twilioLinked) {
+    await trackMetric({ source: 'quality-two-layer', event: 'linked_twilio_metrics' });
+  }
   if (report.scores.transport < 70) {
     await trackMetric({ source: 'quality-two-layer', event: 'transport_low' });
   }
@@ -91,5 +119,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     report,
+    twilioLinked,
   });
 }

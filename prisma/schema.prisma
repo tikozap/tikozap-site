@@ -47,6 +47,7 @@ model Tenant {
   knowledgeDocs KnowledgeDoc[]
   conversations Conversation[]
   metricEvents  MetricEvent[]
+  twilioVoiceEvents TwilioVoiceEvent[]
 }
 
 model Membership {
@@ -133,4 +134,27 @@ model MetricEvent {
 
   @@index([tenantId, createdAt])
   @@index([event, createdAt])
+}
+
+model TwilioVoiceEvent {
+  id             String   @id @default(cuid())
+  tenantId       String?
+  provider       String   @default("twilio")
+  eventType      String
+  verification   String
+  callSid        String?
+  accountSid     String?
+  streamSid      String?
+  mos            Float?
+  jitterMs       Float?
+  packetLossPct  Float?
+  roundTripMs    Float?
+  rawPayload     String
+  createdAt      DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([callSid, createdAt])
+  @@index([eventType, createdAt])
 }

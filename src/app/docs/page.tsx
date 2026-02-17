@@ -625,7 +625,9 @@ export default function DocsPage() {
                     <strong>conversation quality</strong> (accuracy, safe behavior,
                     handoff readiness). Use Twilio Voice Insights metrics for transport and
                     combine them with conversation scoring so voice can escalate early when
-                    quality drops.
+                    quality drops. Send Twilio payloads to{' '}
+                    <code>/api/webhooks/twilio/voice</code> and review the summary in your
+                    dashboard metrics.
                   </p>
                 </details>
               </section>
