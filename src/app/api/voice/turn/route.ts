@@ -103,35 +103,67 @@ export async function POST(req: Request) {
   const from = params.From || session.fromNumber || null;
 
 if (turnIdx >= MAX_TURNS) {
-  await prisma.callSession.update({
-    where: { id: callSessionId },
-    data: { fallbackTriggeredAt: new Date() },
-  });
-
-  await createAnswerMachineItem({
-    tenantId,
-    conversationId: session.conversationId,
-    callSessionId,
-    type: "VOICEMAIL",
-    fromNumber: from,
-    reason: "max_turns",
-  });
-
+  // Immediate TwiML
   vr.say("To help you faster, please leave a message after the tone.");
-vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns" }));
+  vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns" }));
+  const xmlResponse = xml(vr.toString());
 
-  return xml(vr.toString());
+  // Background DB work
+  (async () => {
+    try {
+      await prisma.callSession.update({
+        where: { id: callSessionId },
+        data: { fallbackTriggeredAt: new Date() },
+      });
+      await createAnswerMachineItem({
+        tenantId,
+        conversationId: session.conversationId,
+        callSessionId,
+        type: "VOICEMAIL",
+        fromNumber: from,
+        reason: "max_turns",
+      });
+    } catch (err) {
+      console.error("[voice/turn] Background max_turns task failed:", err);
+    }
+  })();
+
+  return xmlResponse;
 }
 
 // --------------------
 // DTMF routes (FAST PATH)
 // --------------------
 if (digits === "0") {
-  // Return TwiML immediately to reduce silence after keypress.
-  // /api/voice/voicemail will create/attach AnswerMachineItem if missing.
+  // 1. Build and return TwiML INSTANTLY — no awaits, no DB writes here
   vr.say("Please leave a message after the tone. When you're done, press pound.");
   vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
-  return xml(vr.toString());
+  const xmlResponse = xml(vr.toString());
+
+  // 2. Fire background task for slow work (Prisma ops) — caller doesn't wait
+  (async () => {
+    try {
+      // All the database writes that were blocking before
+      await createAnswerMachineItem({
+        tenantId,
+        conversationId: session.conversationId,
+        callSessionId,
+        type: "VOICEMAIL",
+        fromNumber: from,
+        reason: "dtmf_0",
+      });
+
+      // Optional: any other logging or updates
+      console.log(`[voice/turn] Background: AnswerMachineItem created for call ${callSessionId}`);
+
+    } catch (err) {
+      console.error("[voice/turn] Background DTMF 0 task failed:", err);
+      // You could add retry logic or alert here if critical
+    }
+  })();
+
+  // 3. Return the fast TwiML response NOW
+  return xmlResponse;
 }
 
   if (digits === "1") {
@@ -287,7 +319,7 @@ vr.gather({
   input: ["speech", "dtmf"],
   action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
   method: "POST",
-  timeout: 6,
+  timeout: 3,
   speechTimeout: "auto",
   actionOnEmptyResult: true,
 });
