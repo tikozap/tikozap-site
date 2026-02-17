@@ -12,6 +12,7 @@ tsconfig.tsbuildinfo
 
 # generated artifacts
 /generated/prisma
+/evals/reports/
 
 # local backup snapshots
 *.bak.*

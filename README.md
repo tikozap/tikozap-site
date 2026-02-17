@@ -9,6 +9,9 @@ npm run dev
 ## Verify
 npm run check
 
+## Evaluate assistant quality
+npm run eval:support
+
 ## Execution roadmap
 See `EXECUTION_PLAN.md` for the practical delivery plan and weekly priorities.
 

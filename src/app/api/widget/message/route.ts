@@ -2,17 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
+import { buildSupportReply } from '@/lib/supportAssistant';
+import { trackMetric } from '@/lib/metrics';
 
 export const runtime = 'nodejs';
-
-function assistantAutoReply(customerText: string) {
-  const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
-  return 'Got it. Can you share a little more detail so I can help faster?';
-}
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +15,10 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
     if (!rate.ok) {
+      trackMetric({
+        source: 'widget-message',
+        event: 'rate_limited',
+      });
       return NextResponse.json(
         { ok: false, error: 'Too many messages. Please try again shortly.' },
         { status: 429, headers: rateLimitHeaders(rate) },
@@ -112,12 +109,26 @@ export async function POST(req: Request) {
     } catch (e) {}
 
     if (allowAi) {
+      const support = buildSupportReply(text);
       await prisma.message.create({
         data: {
           conversationId,
           role: 'assistant',
-          content: assistantAutoReply(text),
+          content: support.reply,
         },
+      });
+
+      if (support.needsHuman) {
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: { status: 'waiting' },
+        });
+      }
+
+      trackMetric({
+        source: 'widget-message',
+        event: support.needsHuman ? 'needs_human_fallback' : 'answered',
+        intent: support.intent,
       });
     }
 

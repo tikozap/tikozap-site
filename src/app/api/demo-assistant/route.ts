@@ -6,6 +6,7 @@ import {
   type DemoBucketName,
 } from '@/config/demoAssistant';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
+import { trackMetric } from '@/lib/metrics';
 
 // Use Node runtime (not edge) so the SDK works normally.
 export const runtime = 'nodejs';
@@ -23,7 +24,7 @@ const FALLBACK_DEFAULT =
 function platformIntro(): string {
   return (
     `TikoZap is an AI customer support platform for online stores.\n\n` +
-    `Merchants add a chat bubble widget to their site and manage conversations in a dashboard inbox. The AI answers common store questions and staff can take over any chat.\n\n` +
+    `Merchants can use a website chat widget, or use Starter Link if they do not have a website yet, and manage conversations in a dashboard inbox. The AI answers common store questions and staff can take over any chat.\n\n` +
     `What do you want to explore—features, pricing, or setup?`
   );
 }
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
     if (!rate.ok) {
+      trackMetric({ source: 'demo-assistant', event: 'rate_limited' });
       return NextResponse.json(
         { ok: false, error: 'Too many demo requests. Please try again shortly.' },
         { status: 429, headers: rateLimitHeaders(rate) },
@@ -130,14 +132,30 @@ export async function POST(req: Request) {
       lower.includes('widget') ||
       lower.includes('dashboard');
 
+    const asksStarterLink =
+      lower.includes('starter link') ||
+      ((lower.includes('no website') || lower.includes("don't have a website") || lower.includes('without website')) &&
+        (lower.includes('setup') || lower.includes('start') || lower.includes('sell')));
+
+    if (asksStarterLink) {
+      trackMetric({ source: 'demo-assistant', event: 'starter_link_question' });
+      const reply =
+        `Yes—Starter Link is designed exactly for SBOs without a website.\n\n` +
+        `You can share a single support link with customers, and TikoZap handles incoming questions in the same inbox workflow.\n\n` +
+        `When you're ready, you can add the website widget later without changing your core setup.`;
+      return NextResponse.json({ reply }, { status: 200 });
+    }
+
     if (mentionsTikoZap && asksPlatformIntent) {
+      trackMetric({ source: 'demo-assistant', event: 'platform_intent_shortcut' });
       const reply =
         `TikoZap is an AI customer support platform for online stores.\n\n` +
         `It includes:\n` +
         `• A website chat widget (chat bubble)\n` +
+        `• A Starter Link for SBOs without websites\n` +
         `• A Conversations inbox for staff (human takeover)\n` +
         `• A knowledge/policies area to train accurate store answers\n` +
-        `• Onboarding steps like Store → Plan → Billing → Knowledge → Widget → Install → Test\n\n` +
+        `• Onboarding steps like Store → Plan → Billing → Knowledge → Widget/Starter Link → Install → Test\n\n` +
         `This demo doesn’t connect to real orders—it's a safe preview of how the assistant and workflow behave.\n\n` +
         `What are you evaluating: features, pricing, or setup?`;
 
@@ -147,6 +165,7 @@ export async function POST(req: Request) {
     // If somehow no user text, just return a platform-focused canned answer.
     if (!userText) {
       const reply = pickBucketReply(bucket);
+      trackMetric({ source: 'demo-assistant', event: 'empty_user_text' });
       return NextResponse.json({ reply });
     }
 
@@ -261,6 +280,12 @@ export async function POST(req: Request) {
       (replyFromModel && replyFromModel.trim()) ||
       pickBucketReply(bucket) ||
       FALLBACK_DEFAULT;
+
+    trackMetric({
+      source: 'demo-assistant',
+      event: replyFromModel ? 'model_reply' : 'canned_reply',
+      bucket: bucket ?? 'off_topic',
+    });
 
     return NextResponse.json({ reply });
   } catch (error) {

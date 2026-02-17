@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { buildSupportReply } from '@/lib/supportAssistant';
 
 export const runtime = 'nodejs';
-
-function assistantAutoReply(customerText: string) {
-  const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
-  return 'Got it. Can you share a little more detail so I can help faster?';
-}
 
 export async function POST(req: Request) {
   const auth = await getAuthedUserAndTenant();
@@ -31,7 +23,7 @@ export async function POST(req: Request) {
 
   for (const s of seeds) {
     const customerMsg = s.first;
-    const assistantMsg = assistantAutoReply(customerMsg);
+    const assistantMsg = buildSupportReply(customerMsg).reply;
 
     await prisma.conversation.create({
       data: {

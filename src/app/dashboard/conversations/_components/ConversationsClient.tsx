@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { buildSupportReply } from '@/lib/supportAssistant';
 
 
 const KEY_SELECTED = 'tz_db_conversations_selected';
@@ -73,15 +74,6 @@ function extractDraftSuggestion(noteText: string) {
     out.push(line);
   }
   return out.join('\n').trim();
-}
-
-function assistantAutoReply(customerText: string) {
-  const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
-  return 'Got it. Can you share a little more detail so I can help faster?';
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -309,7 +301,7 @@ export default function ConversationsClient() {
     if (!thread) return;
     const lastCustomer = [...thread.messages].reverse().find((m) => m.role === 'customer');
     const customerText = lastCustomer?.content?.trim() || '';
-    const suggestion = assistantAutoReply(customerText || 'Customer needs help.');
+    const suggestion = buildSupportReply(customerText || 'Customer needs help.').reply;
 
     const note =
       `${DRAFT_PREFIX}\n` +

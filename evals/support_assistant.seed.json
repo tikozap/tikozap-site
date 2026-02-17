@@ -1,0 +1,86 @@
+[
+  {
+    "id": "returns-basic",
+    "input": "What is your return policy?",
+    "expectedIntent": "returns",
+    "expectedNeedsHuman": false,
+    "mustContain": ["30 days", "return"]
+  },
+  {
+    "id": "returns-condition",
+    "input": "Can I return an unworn item with tags?",
+    "expectedIntent": "returns",
+    "expectedNeedsHuman": false,
+    "mustContain": ["unworn", "tags"]
+  },
+  {
+    "id": "shipping-time",
+    "input": "How long does delivery take?",
+    "expectedIntent": "shipping",
+    "expectedNeedsHuman": false,
+    "mustContain": ["1–2 business days", "3–7 business days"]
+  },
+  {
+    "id": "shipping-zip-followup",
+    "input": "When will this ship to my area?",
+    "expectedIntent": "shipping",
+    "expectedNeedsHuman": false,
+    "mustContain": ["zip"]
+  },
+  {
+    "id": "order-status-basic",
+    "input": "Where is my order? I need tracking.",
+    "expectedIntent": "order_status",
+    "expectedNeedsHuman": false,
+    "mustContain": ["order number", "email"]
+  },
+  {
+    "id": "order-tracking-variant",
+    "input": "I cannot find my tracking update.",
+    "expectedIntent": "order_status",
+    "expectedNeedsHuman": false,
+    "mustContain": ["order number", "status"]
+  },
+  {
+    "id": "sizing-xl",
+    "input": "Do you have this in XL?",
+    "expectedIntent": "sizing",
+    "expectedNeedsHuman": false,
+    "mustContain": ["sizing", "what size"]
+  },
+  {
+    "id": "sizing-fit",
+    "input": "Can you help me choose the right fit?",
+    "expectedIntent": "sizing",
+    "expectedNeedsHuman": false,
+    "mustContain": ["item", "size"]
+  },
+  {
+    "id": "unknown-billing-request",
+    "input": "Please change my billing card on file.",
+    "expectedIntent": "unknown",
+    "expectedNeedsHuman": true,
+    "mustContain": ["support teammate", "follow up"]
+  },
+  {
+    "id": "unknown-starter-link",
+    "input": "I do not have a website yet. Can I use Starter Link?",
+    "expectedIntent": "unknown",
+    "expectedNeedsHuman": true,
+    "mustContain": ["support teammate", "email"]
+  },
+  {
+    "id": "unknown-integration",
+    "input": "Connect this to my ERP and export invoices.",
+    "expectedIntent": "unknown",
+    "expectedNeedsHuman": true,
+    "mustContain": ["support teammate", "order number"]
+  },
+  {
+    "id": "unknown-empty-context",
+    "input": "help",
+    "expectedIntent": "unknown",
+    "expectedNeedsHuman": true,
+    "mustContain": ["support teammate"]
+  }
+]
