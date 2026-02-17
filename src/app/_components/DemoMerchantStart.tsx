@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const KEY_LOGIN = 'tz_demo_logged_in';
 const KEY_ONBOARDED = 'tz_demo_onboarded';
@@ -27,12 +27,16 @@ async function ensureSeedConversations() {
 
 export default function DemoMerchantStart() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<{ loggedIn: boolean; onboarded: boolean }>({
     loggedIn: false,
     onboarded: false,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [autoStartTried, setAutoStartTried] = useState(false);
+  const nextPath = searchParams?.get('next') || '/dashboard/conversations';
+  const shouldAutoStart = searchParams?.get('autostart') === '1';
 
   useEffect(() => {
     const loggedIn = localStorage.getItem(KEY_LOGIN) === '1';
@@ -40,10 +44,10 @@ export default function DemoMerchantStart() {
     setStatus({ loggedIn, onboarded });
   }, []);
 
-  const start = async () => {
+  const start = useCallback(async ({ auto = false }: { auto?: boolean } = {}) => {
     if (busy) return;
     setBusy(true);
-    setError('');
+    if (!auto) setError('');
     try {
       const res = await fetch('/api/auth/demo-login', {
         method: 'POST',
@@ -66,13 +70,23 @@ export default function DemoMerchantStart() {
       localStorage.setItem(KEY_TENANT_SLUG, data.tenant.slug);
       setStatus({ loggedIn: true, onboarded: true });
       await ensureSeedConversations();
-      router.push('/dashboard/conversations?bust=1');
+      router.push(nextPath);
     } catch (err: any) {
-      setError(err?.message || 'Could not start demo right now. Please try again.');
+      setError(
+        auto
+          ? 'Could not auto-start demo. Please click "Continue as Demo Boutique".'
+          : err?.message || 'Could not start demo right now. Please try again.',
+      );
     } finally {
       setBusy(false);
     }
-  };
+  }, [busy, nextPath, router]);
+
+  useEffect(() => {
+    if (!shouldAutoStart || autoStartTried || busy) return;
+    setAutoStartTried(true);
+    void start({ auto: true });
+  }, [shouldAutoStart, autoStartTried, busy, start]);
 
   const reset = async () => {
     try {
@@ -94,7 +108,9 @@ export default function DemoMerchantStart() {
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
-          onClick={start}
+          onClick={() => {
+            void start();
+          }}
           disabled={busy}
           style={{ borderRadius: 12, padding: '10px 12px', border: '1px solid #111827', background: '#111827', color: '#fff', cursor: 'pointer' }}
         >
@@ -104,7 +120,14 @@ export default function DemoMerchantStart() {
         <button
           onClick={reset}
           disabled={busy}
-          style={{ borderRadius: 12, padding: '10px 12px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}
+          style={{
+            borderRadius: 12,
+            padding: '10px 12px',
+            border: '1px solid #d1d5db',
+            background: '#fff',
+            color: '#111827',
+            cursor: 'pointer',
+          }}
         >
           Reset demo
         </button>
