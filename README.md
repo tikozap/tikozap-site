@@ -12,6 +12,10 @@ npm run check
 ## Evaluate assistant quality
 npm run eval:support
 
+## Demo quality APIs
+- `POST /api/demo-assistant/stream` (SSE streaming mode)
+- `POST /api/quality/two-layer` (transport + conversation score)
+
 ## Execution roadmap
 See `EXECUTION_PLAN.md` for the practical delivery plan and weekly priorities.
 

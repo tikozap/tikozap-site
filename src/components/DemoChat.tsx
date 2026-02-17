@@ -24,6 +24,12 @@ type DemoReplyMeta = {
     mentionsSafePreview: boolean;
     mentionsSetupPath: boolean;
   };
+  rationale: {
+    accuracy: string;
+    safety: string;
+    handoff: string;
+    setupFit: string;
+  };
 };
 
 type DemoMessage = {
@@ -57,6 +63,24 @@ type DemoScorecard = {
   setupFit: number;
 };
 
+type TransportSnapshot = {
+  firstTokenMs?: number;
+  totalResponseMs?: number;
+  usedSse: boolean;
+  fallbackUsed: boolean;
+};
+
+type TwoLayerQualityReport = {
+  scores: {
+    transport: number;
+    conversation: number;
+    overall: number;
+  };
+  grade: 'A' | 'B' | 'C' | 'D';
+  reasons: string[];
+  recommendations: string[];
+};
+
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
@@ -86,6 +110,17 @@ function fallbackMeta(source: ReplySource): DemoReplyMeta {
       mentionsSafePreview: true,
       mentionsSetupPath: false,
     },
+    rationale: {
+      accuracy:
+        source === 'model'
+          ? 'Model response path used for richer answer coverage.'
+          : source === 'rule'
+          ? 'Rule-guided reply keeps product positioning consistent.'
+          : 'Canned fallback path used to keep responses safe.',
+      safety: 'Safety baseline applied by demo guardrails.',
+      handoff: 'Ask about escalation to see explicit handoff guidance.',
+      setupFit: 'Ask about setup or Starter Link to increase setup-fit score.',
+    },
   };
 }
 
@@ -101,6 +136,9 @@ export default function DemoChat() {
     handoff: 52,
     setupFit: 54,
   });
+  const [lastAssistantMeta, setLastAssistantMeta] = useState<DemoReplyMeta | null>(null);
+  const [qualityReport, setQualityReport] = useState<TwoLayerQualityReport | null>(null);
+  const [qualityError, setQualityError] = useState('');
 
   const bucketIndexRef = useRef<Partial<Record<DemoBucketName, number>>>({});
   const lastTopicRef = useRef<DemoBucketName | null>(null);
@@ -162,15 +200,23 @@ export default function DemoChat() {
     return detected;
   };
 
+  const updateAssistantMessage = (messageId: string, patch: Partial<DemoMessage>) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
+    );
+  };
+
   const streamAssistantText = async (
     messageId: string,
     fullText: string,
     source: ReplySource,
     safePreview: boolean,
     meta: DemoReplyMeta,
-  ) => {
+  ): Promise<TransportSnapshot> => {
+    const start = performance.now();
     const chunks = fullText.split(/(\s+)/).filter(Boolean);
     let built = '';
+    let firstTokenMs: number | undefined;
 
     setMessages((prev) => [
       ...prev,
@@ -187,16 +233,24 @@ export default function DemoChat() {
     setIsStreamingReply(true);
     for (let i = 0; i < chunks.length; i++) {
       built += chunks[i];
+      if (firstTokenMs === undefined) {
+        firstTokenMs = Math.round(performance.now() - start);
+      }
       const nextText = built;
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, text: nextText } : m)),
-      );
+      updateAssistantMessage(messageId, { text: nextText });
       if (i < chunks.length - 1) {
-        // Simulated token streaming for perceived responsiveness.
+        // Simulated token streaming fallback for browsers without SSE support.
         await new Promise((resolve) => setTimeout(resolve, i < 10 ? 20 : 12));
       }
     }
     setIsStreamingReply(false);
+
+    return {
+      firstTokenMs,
+      totalResponseMs: Math.round(performance.now() - start),
+      usedSse: false,
+      fallbackUsed: true,
+    };
   };
 
   const callDemoApi = async (
@@ -260,6 +314,196 @@ export default function DemoChat() {
     }
   };
 
+  const callDemoSseApi = async (
+    userText: string,
+    bucket: DemoBucketName,
+    history: DemoMessage[],
+    assistantId: string,
+  ): Promise<{
+    reply: string;
+    source: ReplySource;
+    safePreview: boolean;
+    meta: DemoReplyMeta;
+    transport: TransportSnapshot;
+  }> => {
+    const historyForApi = history.slice(-12).map((m) => ({
+      role: m.role,
+      content: m.text,
+    }));
+
+    const start = performance.now();
+    const res = await fetch('/api/demo-assistant/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userText, bucket, history: historyForApi }),
+    });
+
+    if (!res.ok || !res.body) {
+      throw new Error(`SSE unavailable (HTTP ${res.status})`);
+    }
+
+    let source: ReplySource = 'canned';
+    let safePreview = true;
+    let meta = fallbackMeta(source);
+    let replyText = '';
+    let firstTokenMs: number | undefined;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantId,
+        role: 'assistant',
+        text: '',
+        source,
+        safePreview,
+        meta,
+      },
+    ]);
+
+    const applyMeta = (data: any) => {
+      const nextSource =
+        data?.source === 'model' || data?.source === 'rule' || data?.source === 'canned'
+          ? (data.source as ReplySource)
+          : source;
+      source = nextSource;
+      safePreview = data?.safePreview !== false;
+      meta = data?.meta ?? fallbackMeta(nextSource);
+      updateAssistantMessage(assistantId, {
+        source,
+        safePreview,
+        meta,
+      });
+    };
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    setIsStreamingReply(true);
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+
+        let sep = buffer.indexOf('\n\n');
+        while (sep !== -1) {
+          const rawEvent = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          sep = buffer.indexOf('\n\n');
+          if (!rawEvent.trim()) continue;
+
+          const lines = rawEvent.split('\n');
+          let eventName = 'message';
+          const dataParts: string[] = [];
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventName = line.slice(6).trim();
+              continue;
+            }
+            if (line.startsWith('data:')) {
+              dataParts.push(line.slice(5).trim());
+            }
+          }
+
+          if (!dataParts.length) continue;
+          let payload: any = null;
+          try {
+            payload = JSON.parse(dataParts.join('\n'));
+          } catch {
+            continue;
+          }
+
+          if (eventName === 'meta') {
+            applyMeta(payload);
+            continue;
+          }
+
+          if (eventName === 'delta') {
+            const chunk = typeof payload?.chunk === 'string' ? payload.chunk : '';
+            if (!chunk) continue;
+            if (firstTokenMs === undefined) {
+              firstTokenMs = Math.round(performance.now() - start);
+              setIsLoading(false);
+            }
+            replyText += chunk;
+            updateAssistantMessage(assistantId, { text: replyText });
+            continue;
+          }
+
+          if (eventName === 'done') {
+            applyMeta(payload);
+            if (typeof payload?.reply === 'string') {
+              replyText = payload.reply;
+              updateAssistantMessage(assistantId, { text: replyText });
+            }
+            continue;
+          }
+
+          if (eventName === 'error') {
+            throw new Error(
+              typeof payload?.error === 'string'
+                ? payload.error
+                : 'Stream failed',
+            );
+          }
+        }
+      }
+    } finally {
+      setIsStreamingReply(false);
+      setIsLoading(false);
+    }
+
+    if (!replyText.trim()) {
+      throw new Error('Empty stream response');
+    }
+
+    return {
+      reply: replyText.trim(),
+      source,
+      safePreview,
+      meta,
+      transport: {
+        firstTokenMs: firstTokenMs ?? Math.round(performance.now() - start),
+        totalResponseMs: Math.round(performance.now() - start),
+        usedSse: true,
+        fallbackUsed: false,
+      },
+    };
+  };
+
+  const runTwoLayerQuality = async (args: {
+    source: ReplySource;
+    signals: DemoReplyMeta['signals'];
+    transport: TransportSnapshot;
+    userTurns: number;
+  }) => {
+    try {
+      setQualityError('');
+      const res = await fetch('/api/quality/two-layer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transport: args.transport,
+          conversation: {
+            source: args.source,
+            signals: args.signals,
+            userTurns: args.userTurns,
+          },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok || !data?.report) {
+        throw new Error('Quality API error');
+      }
+      setQualityReport(data.report as TwoLayerQualityReport);
+    } catch (err) {
+      console.error('Two-layer quality evaluation error', err);
+      setQualityError('Quality score unavailable for this turn.');
+    }
+  };
+
   const sendMessage = async (rawText: string) => {
     const trimmed = rawText.trim();
     if (!trimmed || isLoading || isStreamingReply) return;
@@ -287,18 +531,46 @@ export default function DemoChat() {
       });
     }, 50);
 
-    setIsLoading(true);
-    const apiResult = await callDemoApi(trimmed, bucket, newHistory);
-    setIsLoading(false);
+    const assistantId = `a-${Date.now()}`;
+    let apiResult: {
+      reply: string;
+      source: ReplySource;
+      safePreview: boolean;
+      meta: DemoReplyMeta;
+    };
+    let transport: TransportSnapshot;
 
-    setScorecard((prev) => applyDelta(prev, apiResult.meta?.scoreDelta));
-    await streamAssistantText(
-      `a-${Date.now()}`,
-      apiResult.reply,
-      apiResult.source,
-      apiResult.safePreview,
-      apiResult.meta,
-    );
+    setIsLoading(true);
+    try {
+      const sseResult = await callDemoSseApi(trimmed, bucket, newHistory, assistantId);
+      apiResult = sseResult;
+      transport = sseResult.transport;
+    } catch (sseErr) {
+      console.warn('SSE stream unavailable, using simulated fallback', sseErr);
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+
+      const apiFallback = await callDemoApi(trimmed, bucket, newHistory);
+      setIsLoading(false);
+      transport = await streamAssistantText(
+        assistantId,
+        apiFallback.reply,
+        apiFallback.source,
+        apiFallback.safePreview,
+        apiFallback.meta,
+      );
+      apiResult = apiFallback;
+    } finally {
+      setIsLoading(false);
+    }
+
+    setLastAssistantMeta(apiResult.meta);
+    setScorecard((prev) => applyDelta(prev, apiResult.meta.scoreDelta));
+    await runTwoLayerQuality({
+      source: apiResult.source,
+      signals: apiResult.meta.signals,
+      transport,
+      userTurns: userTurnCount,
+    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -311,6 +583,9 @@ export default function DemoChat() {
     setInput('');
     setShowLeadCta(false);
     setIsStreamingReply(false);
+    setLastAssistantMeta(null);
+    setQualityReport(null);
+    setQualityError('');
     setScorecard({
       accuracy: 58,
       safety: 64,
@@ -331,11 +606,44 @@ export default function DemoChat() {
   const isBusy = isLoading || isStreamingReply;
   const isSendingDisabled = !input.trim() || isBusy;
   const userTurns = messages.filter((m) => m.role === 'user').length;
-  const scoreRows: Array<{ label: string; value: number }> = [
-    { label: 'Accuracy', value: scorecard.accuracy },
-    { label: 'Safety', value: scorecard.safety },
-    { label: 'Handoff', value: scorecard.handoff },
-    { label: 'Setup fit', value: scorecard.setupFit },
+  const scoreRows: Array<{
+    key: 'accuracy' | 'safety' | 'handoff' | 'setup-fit';
+    label: string;
+    value: number;
+    rationale: string;
+  }> = [
+    {
+      key: 'accuracy',
+      label: 'Accuracy',
+      value: scorecard.accuracy,
+      rationale:
+        lastAssistantMeta?.rationale.accuracy ||
+        'Accuracy grows with specific and relevant product answers.',
+    },
+    {
+      key: 'safety',
+      label: 'Safety',
+      value: scorecard.safety,
+      rationale:
+        lastAssistantMeta?.rationale.safety ||
+        'Safety reflects clear expectations and non-deceptive demo behavior.',
+    },
+    {
+      key: 'handoff',
+      label: 'Handoff',
+      value: scorecard.handoff,
+      rationale:
+        lastAssistantMeta?.rationale.handoff ||
+        'Handoff improves when escalation to a human is explicit.',
+    },
+    {
+      key: 'setup-fit',
+      label: 'Setup fit',
+      value: scorecard.setupFit,
+      rationale:
+        lastAssistantMeta?.rationale.setupFit ||
+        'Setup fit increases when the assistant maps to concrete onboarding steps.',
+    },
   ];
 
   return (
@@ -387,18 +695,59 @@ export default function DemoChat() {
               <span>Live demo heuristic</span>
             </div>
             <div className="demo-score-grid">
-              {scoreRows.map(({ label, value }) => (
+              {scoreRows.map(({ key, label, value, rationale }) => (
                 <div key={label} className="demo-score-item">
                   <div className="demo-score-meta">
-                    <span>{label}</span>
+                    <span className="demo-score-label-wrap">
+                      <span>{label}</span>
+                      <button
+                        type="button"
+                        className="demo-score-help"
+                        title={rationale}
+                        aria-label={`${label} rationale`}
+                      >
+                        ?
+                      </button>
+                    </span>
                     <span>{value}/100</span>
                   </div>
                   <div className="demo-score-track">
-                    <span className="demo-score-fill" style={{ width: `${value}%` }} />
+                    <span
+                      className={`demo-score-fill demo-score-fill--${key}`}
+                      style={{ width: `${value}%` }}
+                    />
                   </div>
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="demo-two-layer" aria-label="Two-layer quality health">
+            <div className="demo-two-layer-head">
+              <strong>Two-layer quality</strong>
+              <span>Transport + conversation</span>
+            </div>
+            {qualityReport ? (
+              <>
+                <div className="demo-two-layer-scores">
+                  <span>Transport: {qualityReport.scores.transport}</span>
+                  <span>Conversation: {qualityReport.scores.conversation}</span>
+                  <span>Overall: {qualityReport.scores.overall}</span>
+                  <span className={`demo-two-layer-grade grade-${qualityReport.grade}`}>
+                    Grade {qualityReport.grade}
+                  </span>
+                </div>
+                <p className="demo-two-layer-note">
+                  {qualityReport.reasons[0] ||
+                    'Quality report updates after each assistant turn.'}
+                </p>
+              </>
+            ) : (
+              <p className="demo-two-layer-note">
+                Send a message to generate transport + conversation quality scoring.
+              </p>
+            )}
+            {qualityError ? <p className="demo-two-layer-error">{qualityError}</p> : null}
           </div>
 
           <div className="demo-chat-messages">
@@ -706,6 +1055,28 @@ export default function DemoChat() {
           margin-bottom: 0.2rem;
         }
 
+        .demo-score-label-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.2rem;
+        }
+
+        .demo-score-help {
+          border: 1px solid #d1d5db;
+          background: #ffffff;
+          border-radius: 999px;
+          width: 0.95rem;
+          height: 0.95rem;
+          font-size: 0.62rem;
+          line-height: 1;
+          color: #64748b;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: help;
+          padding: 0;
+        }
+
         .demo-score-track {
           width: 100%;
           height: 0.32rem;
@@ -720,6 +1091,101 @@ export default function DemoChat() {
           border-radius: 999px;
           background: linear-gradient(90deg, #93c5fd 0%, #2563eb 100%);
           transition: width 240ms ease;
+        }
+
+        .demo-score-fill--accuracy {
+          background: linear-gradient(90deg, #93c5fd 0%, #2563eb 100%);
+        }
+
+        .demo-score-fill--safety {
+          background: linear-gradient(90deg, #86efac 0%, #16a34a 100%);
+        }
+
+        .demo-score-fill--handoff {
+          background: linear-gradient(90deg, #fdba74 0%, #ea580c 100%);
+        }
+
+        .demo-score-fill--setup-fit {
+          background: linear-gradient(90deg, #c4b5fd 0%, #7c3aed 100%);
+        }
+
+        .demo-two-layer {
+          border-bottom: 1px solid #eef2f7;
+          background: #ffffff;
+          padding: 0.45rem 0.8rem 0.6rem;
+        }
+
+        .demo-two-layer-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.3rem;
+        }
+
+        .demo-two-layer-head strong {
+          font-size: 0.76rem;
+          color: #111827;
+        }
+
+        .demo-two-layer-head span {
+          font-size: 0.67rem;
+          color: #6b7280;
+        }
+
+        .demo-two-layer-scores {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+        }
+
+        .demo-two-layer-scores span {
+          font-size: 0.68rem;
+          border: 1px solid #e5e7eb;
+          border-radius: 999px;
+          padding: 0.12rem 0.42rem;
+          color: #334155;
+          background: #f9fafb;
+        }
+
+        .demo-two-layer-grade {
+          font-weight: 600;
+        }
+
+        .demo-two-layer-grade.grade-A {
+          color: #166534;
+          border-color: #86efac;
+          background: #f0fdf4;
+        }
+
+        .demo-two-layer-grade.grade-B {
+          color: #1d4ed8;
+          border-color: #93c5fd;
+          background: #eff6ff;
+        }
+
+        .demo-two-layer-grade.grade-C {
+          color: #92400e;
+          border-color: #fcd34d;
+          background: #fffbeb;
+        }
+
+        .demo-two-layer-grade.grade-D {
+          color: #991b1b;
+          border-color: #fca5a5;
+          background: #fef2f2;
+        }
+
+        .demo-two-layer-note {
+          margin-top: 0.3rem;
+          font-size: 0.72rem;
+          color: #475569;
+        }
+
+        .demo-two-layer-error {
+          margin-top: 0.2rem;
+          font-size: 0.7rem;
+          color: #b91c1c;
         }
 
         .demo-chat-row {

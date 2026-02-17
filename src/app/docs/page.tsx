@@ -617,6 +617,17 @@ export default function DocsPage() {
                     reasons) per role.
                   </p>
                 </details>
+                <details>
+                  <summary>How do you monitor talking quality with Twilio?</summary>
+                  <p>
+                    TikoZap uses a two-layer approach: <strong>transport quality</strong>{' '}
+                    (first response speed, jitter, packet loss, MOS) and{' '}
+                    <strong>conversation quality</strong> (accuracy, safe behavior,
+                    handoff readiness). Use Twilio Voice Insights metrics for transport and
+                    combine them with conversation scoring so voice can escalate early when
+                    quality drops.
+                  </p>
+                </details>
               </section>
             </section>
           </div>

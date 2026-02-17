@@ -19,6 +19,7 @@ export default function DemoPage() {
               <span>Safe preview mode</span>
               <span>Starter Link capable</span>
               <span>Human takeover ready</span>
+              <span>Two-layer quality scoring</span>
             </div>
           </header>
 

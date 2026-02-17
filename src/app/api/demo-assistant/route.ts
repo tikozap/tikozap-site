@@ -31,6 +31,12 @@ type DemoReplyMeta = {
     mentionsSafePreview: boolean;
     mentionsSetupPath: boolean;
   };
+  rationale: {
+    accuracy: string;
+    safety: string;
+    handoff: string;
+    setupFit: string;
+  };
 };
 
 function buildReplyMeta(reply: string, source: DemoReplySource): DemoReplyMeta {
@@ -73,6 +79,24 @@ function buildReplyMeta(reply: string, source: DemoReplySource): DemoReplyMeta {
       mentionsHandoff,
       mentionsSafePreview,
       mentionsSetupPath,
+    },
+    rationale: {
+      accuracy:
+        source === 'model'
+          ? 'Model response path used for richer answer coverage.'
+          : source === 'rule'
+          ? 'Rule-guided reply keeps product positioning consistent.'
+          : 'Canned fallback path used to keep responses safe.',
+      safety: mentionsSafePreview
+        ? 'Reply clearly reinforces safe preview boundaries.'
+        : 'Safety baseline applied by demo guardrails.',
+      handoff: mentionsHandoff
+        ? 'Reply includes human takeover/escalation direction.'
+        : 'Handoff path not explicit in this turn.',
+      setupFit:
+        mentionsStarterLink || mentionsSetupPath
+          ? 'Reply maps to practical setup path for SBO onboarding.'
+          : 'Setup detail is limited; ask for setup flow to increase fit.',
     },
   };
 }
