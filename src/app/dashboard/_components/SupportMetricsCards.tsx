@@ -47,6 +47,21 @@ type TwilioSummaryPayload = {
       grade: 'A' | 'B' | 'C' | 'D' | null;
       reasons: string[];
     };
+    thresholds: {
+      mosWarning: number;
+      mosCritical: number;
+      jitterMsMax: number;
+      packetLossPctMax: number;
+      roundTripMsMax: number;
+    };
+    alerts: Array<{
+      id: string;
+      severity: 'info' | 'warning' | 'critical';
+      message: string;
+      metric?: string;
+      value?: number;
+      threshold?: number;
+    }>;
   };
 };
 
@@ -72,6 +87,26 @@ type ActivationStatusPayload = {
   };
 };
 
+type TwilioAlertsPayload = {
+  ok: true;
+  window: '24h' | '7d' | '30d';
+  thresholds: {
+    mosWarning: number;
+    mosCritical: number;
+    jitterMsMax: number;
+    packetLossPctMax: number;
+    roundTripMsMax: number;
+  };
+  alerts: Array<{
+    id: string;
+    severity: 'info' | 'warning' | 'critical';
+    message: string;
+    metric?: string;
+    value?: number;
+    threshold?: number;
+  }>;
+};
+
 const WINDOW_OPTIONS = [
   { value: '24h', label: 'Last 24h' },
   { value: '7d', label: 'Last 7 days' },
@@ -92,6 +127,7 @@ export default function SupportMetricsCards() {
   const [voiceSummary, setVoiceSummary] = useState<TwilioSummaryPayload['summary'] | null>(null);
   const [voiceError, setVoiceError] = useState('');
   const [activationData, setActivationData] = useState<ActivationStatusPayload | null>(null);
+  const [voiceAlerts, setVoiceAlerts] = useState<TwilioAlertsPayload['alerts']>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,11 +138,13 @@ export default function SupportMetricsCards() {
         setMetrics(null);
         setVoiceSummary(null);
         setActivationData(null);
+        setVoiceAlerts([]);
 
-        const [supportRes, voiceRes, activationRes] = await Promise.all([
+        const [supportRes, voiceRes, activationRes, alertsRes] = await Promise.all([
           fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
           fetch(`/api/quality/twilio/summary?window=${windowKey}`, { cache: 'no-store' }),
           fetch(`/api/onboarding/activation?window=${windowKey}`, { cache: 'no-store' }),
+          fetch(`/api/quality/twilio/alerts?window=${windowKey}`, { cache: 'no-store' }),
         ]);
 
         const supportData = await supportRes.json().catch(() => null);
@@ -131,6 +169,11 @@ export default function SupportMetricsCards() {
           !cancelled
         ) {
           setActivationData(activationData as ActivationStatusPayload);
+        }
+
+        const alertsData = await alertsRes.json().catch(() => null);
+        if (alertsRes.ok && alertsData?.ok && Array.isArray(alertsData?.alerts) && !cancelled) {
+          setVoiceAlerts((alertsData as TwilioAlertsPayload).alerts);
         }
       } catch {
         if (!cancelled) setError('Metrics unavailable right now.');
@@ -160,6 +203,11 @@ export default function SupportMetricsCards() {
     if (!activationData?.funnel?.steps) return [];
     return activationData.funnel.steps;
   }, [activationData]);
+
+  const activeVoiceAlerts = useMemo(
+    () => voiceAlerts.filter((alert) => alert.severity !== 'info'),
+    [voiceAlerts],
+  );
 
   return (
     <>
@@ -211,6 +259,19 @@ export default function SupportMetricsCards() {
             ? 'Loading…'
             : `${voiceSummary.degraded.lowMos + voiceSummary.degraded.highJitter + voiceSummary.degraded.highPacketLoss + voiceSummary.degraded.highRoundTrip} events`}
         </p>
+      </div>
+
+      <div className="db-card db-tile">
+        <h3>Voice alerts</h3>
+        {!voiceSummary ? (
+          <p>Loading…</p>
+        ) : activeVoiceAlerts.length === 0 ? (
+          <p>No active threshold alerts.</p>
+        ) : (
+          <p>
+            {activeVoiceAlerts[0].severity.toUpperCase()}: {activeVoiceAlerts[0].message}
+          </p>
+        )}
       </div>
 
       <div className="db-card db-tile">
@@ -307,6 +368,8 @@ export default function SupportMetricsCards() {
             <span className="db-pill">Jitter: {voiceSummary.averages.jitterMs?.toFixed(1) ?? '—'}ms</span>
             <span className="db-pill">Packet loss: {voiceSummary.averages.packetLossPct?.toFixed(2) ?? '—'}%</span>
             <span className="db-pill">Round trip: {voiceSummary.averages.roundTripMs?.toFixed(0) ?? '—'}ms</span>
+            <span className="db-pill">MOS threshold: &lt; {voiceSummary.thresholds.mosWarning}</span>
+            <span className="db-pill">Jitter threshold: &gt; {voiceSummary.thresholds.jitterMsMax}ms</span>
           </div>
         )}
       </div>

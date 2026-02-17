@@ -36,6 +36,21 @@ export type TwilioVoiceSummary = {
     grade: 'A' | 'B' | 'C' | 'D' | null;
     reasons: string[];
   };
+  thresholds: {
+    mosWarning: number;
+    mosCritical: number;
+    jitterMsMax: number;
+    packetLossPctMax: number;
+    roundTripMsMax: number;
+  };
+  alerts: Array<{
+    id: string;
+    severity: 'info' | 'warning' | 'critical';
+    message: string;
+    metric?: string;
+    value?: number;
+    threshold?: number;
+  }>;
 };
 
 type ExtractedTwilioVoiceEvent = {
@@ -221,6 +236,23 @@ function clamp(num: number): number {
   return Math.max(0, Math.min(100, Math.round(num)));
 }
 
+function envNum(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function alertThresholds() {
+  return {
+    mosWarning: envNum('TWILIO_ALERT_MOS_WARNING', 3.8),
+    mosCritical: envNum('TWILIO_ALERT_MOS_CRITICAL', 3.5),
+    jitterMsMax: envNum('TWILIO_ALERT_JITTER_MS_MAX', 30),
+    packetLossPctMax: envNum('TWILIO_ALERT_PACKET_LOSS_PCT_MAX', 1.5),
+    roundTripMsMax: envNum('TWILIO_ALERT_ROUND_TRIP_MS_MAX', 260),
+  };
+}
+
 export async function ingestTwilioVoiceEvent(args: {
   payload: unknown;
   rawPayload: string;
@@ -309,6 +341,7 @@ export async function getTwilioVoiceSummary(opts: {
   since?: Date;
   callSid?: string;
 }): Promise<TwilioVoiceSummary> {
+  const thresholds = alertThresholds();
   const where = {
     tenantId: opts.tenantId,
     ...(opts.since ? { createdAt: { gte: opts.since } } : {}),
@@ -407,6 +440,67 @@ export async function getTwilioVoiceSummary(opts: {
       }
     : null;
 
+  const alerts: TwilioVoiceSummary['alerts'] = [];
+  if (!withMetrics.length) {
+    alerts.push({
+      id: 'no_voice_metrics',
+      severity: 'info',
+      message: 'No Twilio voice quality metrics detected in this window.',
+    });
+  } else {
+    if (avgMos != null && avgMos < thresholds.mosWarning) {
+      alerts.push({
+        id: 'low_mos',
+        severity: avgMos < thresholds.mosCritical ? 'critical' : 'warning',
+        message: `Average MOS (${avgMos.toFixed(2)}) is below threshold.`,
+        metric: 'mos',
+        value: Number(avgMos.toFixed(2)),
+        threshold:
+          avgMos < thresholds.mosCritical
+            ? thresholds.mosCritical
+            : thresholds.mosWarning,
+      });
+    }
+
+    if (avgJitter != null && avgJitter > thresholds.jitterMsMax) {
+      alerts.push({
+        id: 'high_jitter',
+        severity:
+          avgJitter > thresholds.jitterMsMax * 1.5 ? 'critical' : 'warning',
+        message: `Average jitter (${Math.round(avgJitter)}ms) is above threshold.`,
+        metric: 'jitterMs',
+        value: Math.round(avgJitter),
+        threshold: thresholds.jitterMsMax,
+      });
+    }
+
+    if (avgPacketLoss != null && avgPacketLoss > thresholds.packetLossPctMax) {
+      alerts.push({
+        id: 'high_packet_loss',
+        severity:
+          avgPacketLoss > thresholds.packetLossPctMax * 1.5
+            ? 'critical'
+            : 'warning',
+        message: `Average packet loss (${avgPacketLoss.toFixed(2)}%) is above threshold.`,
+        metric: 'packetLossPct',
+        value: Number(avgPacketLoss.toFixed(2)),
+        threshold: thresholds.packetLossPctMax,
+      });
+    }
+
+    if (avgRoundTrip != null && avgRoundTrip > thresholds.roundTripMsMax) {
+      alerts.push({
+        id: 'high_round_trip',
+        severity:
+          avgRoundTrip > thresholds.roundTripMsMax * 1.5 ? 'critical' : 'warning',
+        message: `Average round trip (${Math.round(avgRoundTrip)}ms) is above threshold.`,
+        metric: 'roundTripMs',
+        value: Math.round(avgRoundTrip),
+        threshold: thresholds.roundTripMsMax,
+      });
+    }
+  }
+
   return {
     startedAt: startedAt.toISOString(),
     totalEvents: rows.length,
@@ -424,5 +518,7 @@ export async function getTwilioVoiceSummary(opts: {
       grade: healthScore == null ? null : grade(healthScore),
       reasons: healthReasons,
     },
+    thresholds,
+    alerts,
   };
 }
