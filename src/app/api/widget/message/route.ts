@@ -48,6 +48,9 @@ export async function POST(req: Request) {
       }
       tenantId = tenant.id;
     }
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: 'Unable to resolve tenant' }, { status: 500 });
+    }
 
     const customerName = (body?.customerName || 'Sophia').toString().trim() || 'Sophia';
     const channel = (body?.channel || 'web').toString().trim() || 'web';
