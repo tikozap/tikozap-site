@@ -15,142 +15,169 @@ function slugify(s: string) {
     .replace(/(^-|-$)/g, '');
 }
 
+function isLikelySchemaDrift(error: unknown): boolean {
+  const err = error as { code?: string; message?: string };
+  const code = err?.code || '';
+  const message = (err?.message || '').toLowerCase();
+  if (code === 'P2021' || code === 'P2022') return true;
+  if (message.includes('no such table')) return true;
+  if (message.includes('no such column')) return true;
+  if (message.includes('does not exist')) return true;
+  return false;
+}
+
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const emailRaw =
-    typeof body.email === 'string' && body.email.trim()
-      ? body.email
-      : DEFAULT_DEMO_EMAIL;
-  const nameRaw = typeof body.name === 'string' ? body.name : '';
-  const storeRaw =
-    typeof body.storeName === 'string' ? body.storeName : DEFAULT_DEMO_STORE_NAME;
+  try {
+    const body = await req.json().catch(() => ({}));
+    const emailRaw =
+      typeof body.email === 'string' && body.email.trim()
+        ? body.email
+        : DEFAULT_DEMO_EMAIL;
+    const nameRaw = typeof body.name === 'string' ? body.name : '';
+    const storeRaw =
+      typeof body.storeName === 'string' ? body.storeName : DEFAULT_DEMO_STORE_NAME;
 
-  const email = emailRaw.trim().toLowerCase();
-  const name = nameRaw.trim() || null;
-  const storeName = storeRaw.trim() || DEFAULT_DEMO_STORE_NAME;
+    const email = emailRaw.trim().toLowerCase();
+    const name = nameRaw.trim() || null;
+    const storeName = storeRaw.trim() || DEFAULT_DEMO_STORE_NAME;
 
-  if (!email || !email.includes('@')) {
-    return NextResponse.json({ ok: false, error: 'Valid email required.' }, { status: 400 });
-  }
-
-  let user = await prisma.user.findUnique({ where: { email } });
-  if (!user && email === DEFAULT_DEMO_EMAIL) {
-    const legacy = await prisma.user.findUnique({
-      where: { email: LEGACY_DEMO_EMAIL },
-    });
-    if (legacy) {
-      user = await prisma.user
-        .update({
-          where: { id: legacy.id },
-          data: { email: DEFAULT_DEMO_EMAIL },
-        })
-        .catch(() => legacy);
+    if (!email || !email.includes('@')) {
+      return NextResponse.json({ ok: false, error: 'Valid email required.' }, { status: 400 });
     }
-  }
-  if (!user) {
-    user = await prisma.user.create({ data: { email, name } });
-  }
 
-  let membership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { tenant: true },
-  });
-
-  if (!membership && email === DEFAULT_DEMO_EMAIL) {
-    const legacy = await prisma.user.findUnique({
-      where: { email: LEGACY_DEMO_EMAIL },
-      select: { id: true },
-    });
-    if (legacy && legacy.id !== user.id) {
-      const legacyMembership = await prisma.membership.findFirst({
-        where: { userId: legacy.id },
-        include: { tenant: true },
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user && email === DEFAULT_DEMO_EMAIL) {
+      const legacy = await prisma.user.findUnique({
+        where: { email: LEGACY_DEMO_EMAIL },
       });
-      if (legacyMembership?.tenant) {
-        await prisma.membership.upsert({
-          where: {
-            userId_tenantId: {
-              userId: user.id,
-              tenantId: legacyMembership.tenant.id,
-            },
-          },
-          update: {},
-          create: {
-            userId: user.id,
-            tenantId: legacyMembership.tenant.id,
-            role: 'owner',
-          },
-        });
-        membership = await prisma.membership.findFirst({
-          where: { userId: user.id, tenantId: legacyMembership.tenant.id },
-          include: { tenant: true },
-        });
+      if (legacy) {
+        user = await prisma.user
+          .update({
+            where: { id: legacy.id },
+            data: { email: DEFAULT_DEMO_EMAIL },
+          })
+          .catch(() => legacy);
       }
     }
-  }
+    if (!user) {
+      user = await prisma.user.create({ data: { email, name } });
+    }
 
-  let tenant = membership?.tenant ?? null;
-
-  if (!tenant) {
-    const base = slugify(storeName) || 'store';
-    const slug = `${base}-${user.id.slice(0, 6)}`;
-
-    tenant = await prisma.tenant.create({
-      data: {
-        slug,
-        storeName,
-        starterLinkSlug: slug,
-        starterLinkEnabled: true,
-        ownerId: user.id,
-        memberships: { create: { userId: user.id, role: 'owner' } },
-        widget: { create: {} },
-      },
-    });
-
-    membership = await prisma.membership.findFirst({
-      where: { userId: user.id, tenantId: tenant.id },
+    let membership = await prisma.membership.findFirst({
+      where: { userId: user.id },
       include: { tenant: true },
     });
-  } else {
-    tenant = await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: {
-        storeName,
-        starterLinkEnabled: true,
-        ...(tenant.starterLinkSlug ? {} : { starterLinkSlug: tenant.slug }),
-      },
+
+    if (!membership && email === DEFAULT_DEMO_EMAIL) {
+      const legacy = await prisma.user.findUnique({
+        where: { email: LEGACY_DEMO_EMAIL },
+        select: { id: true },
+      });
+      if (legacy && legacy.id !== user.id) {
+        const legacyMembership = await prisma.membership.findFirst({
+          where: { userId: legacy.id },
+          include: { tenant: true },
+        });
+        if (legacyMembership?.tenant) {
+          await prisma.membership.upsert({
+            where: {
+              userId_tenantId: {
+                userId: user.id,
+                tenantId: legacyMembership.tenant.id,
+              },
+            },
+            update: {},
+            create: {
+              userId: user.id,
+              tenantId: legacyMembership.tenant.id,
+              role: 'owner',
+            },
+          });
+          membership = await prisma.membership.findFirst({
+            where: { userId: user.id, tenantId: legacyMembership.tenant.id },
+            include: { tenant: true },
+          });
+        }
+      }
+    }
+
+    let tenant = membership?.tenant ?? null;
+
+    if (!tenant) {
+      const base = slugify(storeName) || 'store';
+      const slug = `${base}-${user.id.slice(0, 6)}`;
+
+      tenant = await prisma.tenant.create({
+        data: {
+          slug,
+          storeName,
+          starterLinkSlug: slug,
+          starterLinkEnabled: true,
+          ownerId: user.id,
+          memberships: { create: { userId: user.id, role: 'owner' } },
+          widget: { create: {} },
+        },
+      });
+    } else {
+      tenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          storeName,
+          starterLinkEnabled: true,
+          ...(tenant.starterLinkSlug ? {} : { starterLinkSlug: tenant.slug }),
+        },
+      });
+      const widget = await prisma.widget.findUnique({ where: { tenantId: tenant.id } });
+      if (!widget) await prisma.widget.create({ data: { tenantId: tenant.id } });
+    }
+
+    const token = randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+
+    await prisma.session.create({
+      data: { token, userId: user.id, expiresAt },
     });
-    const widget = await prisma.widget.findUnique({ where: { tenantId: tenant.id } });
-    if (!widget) await prisma.widget.create({ data: { tenantId: tenant.id } });
+
+    const res = NextResponse.json({
+      ok: true,
+      tenant: { id: tenant.id, slug: tenant.slug, storeName: tenant.storeName },
+    });
+
+    res.cookies.set('tz_session', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    res.cookies.set('tz_tenant', tenant.id, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return res;
+  } catch (error) {
+    console.error('[api/auth/demo-login] Failed to create demo session', error);
+    if (isLikelySchemaDrift(error)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Database schema looks outdated. Run: DATABASE_URL="file:./prisma/dev.db" npx prisma migrate deploy',
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Could not start demo session.',
+      },
+      { status: 500 },
+    );
   }
-
-  const token = randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-
-  await prisma.session.create({
-    data: { token, userId: user.id, expiresAt },
-  });
-
-  const res = NextResponse.json({
-    ok: true,
-    tenant: { id: tenant!.id, slug: tenant!.slug, storeName: tenant!.storeName },
-  });
-
-  res.cookies.set('tz_session', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  res.cookies.set('tz_tenant', tenant!.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  return res;
 }
