@@ -4,6 +4,7 @@ import { getAuthedUserAndTenant } from '@/lib/auth';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
 import { buildSupportReply } from '@/lib/supportAssistant';
 import { trackMetric } from '@/lib/metrics';
+import { canCreateConversationForTenant } from '@/lib/billingUsage';
 
 export const runtime = 'nodejs';
 
@@ -72,6 +73,24 @@ export async function POST(req: Request) {
 
     // Create new conversation if needed
     if (!conversationId) {
+      const allowance = await canCreateConversationForTenant(tenantId);
+      if (!allowance.ok) {
+        await trackMetric({
+          source: 'widget-message',
+          event: 'billing_limit_blocked',
+          tenantId,
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Monthly conversation limit reached for your current plan. Upgrade in Billing to continue.',
+            usage: allowance.usage,
+          },
+          { status: 402 },
+        );
+      }
+
       const convo = await prisma.conversation.create({
         data: {
           tenantId,

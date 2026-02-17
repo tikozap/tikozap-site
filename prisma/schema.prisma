@@ -35,6 +35,7 @@ model Tenant {
   id                 String   @id @default(cuid())
   slug               String   @unique
   storeName          String
+  billingPlan        String   @default("starter")
   starterLinkSlug    String?  @unique
   starterLinkEnabled Boolean  @default(true)
   createdAt          DateTime @default(now())

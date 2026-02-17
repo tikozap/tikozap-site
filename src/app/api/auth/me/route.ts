@@ -13,6 +13,7 @@ export async function GET() {
       id: auth.tenant.id,
       slug: auth.tenant.slug,
       storeName: auth.tenant.storeName,
+      billingPlan: auth.tenant.billingPlan,
       starterLinkSlug: auth.tenant.starterLinkSlug,
       starterLinkEnabled: auth.tenant.starterLinkEnabled,
     },

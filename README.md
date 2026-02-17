@@ -17,6 +17,8 @@ npm run eval:support
 - `POST /api/quality/two-layer` (transport + conversation score)
 - `POST /api/webhooks/twilio/voice` (Twilio voice webhook ingestor)
 - `GET /api/quality/twilio/summary?window=24h|7d|30d` (authed dashboard summary)
+- `GET /api/billing/usage` (authed monthly plan usage)
+- `POST /api/billing/plan` with `{ "plan": "starter" | "pro" | "business" }`
 
 ## Twilio webhook setup (voice quality)
 Set one of these verification options:

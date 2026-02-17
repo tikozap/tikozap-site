@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { buildSupportReply } from '@/lib/supportAssistant';
+import { canCreateConversationForTenant } from '@/lib/billingUsage';
+import { trackMetric } from '@/lib/metrics';
 
 export const runtime = 'nodejs';
 
@@ -88,6 +90,24 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const aiEnabled = body?.aiEnabled === false ? false : true;
+
+  const allowance = await canCreateConversationForTenant(auth.tenant.id);
+  if (!allowance.ok) {
+    await trackMetric({
+      source: 'conversations',
+      event: 'billing_limit_blocked',
+      tenantId: auth.tenant.id,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Monthly conversation limit reached for your current plan. Upgrade in Billing to continue.',
+        usage: allowance.usage,
+      },
+      { status: 402 },
+    );
+  }
 
   const draft = buildNewTestChat(aiEnabled);
 
