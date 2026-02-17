@@ -1,21 +1,18 @@
+# dependencies and build outputs
 node_modules
 .next
-.env*
-.DS_Store
 .vercel
+tsconfig.tsbuildinfo
 
+# environment files
+.env*
+
+# OS/editor noise
+.DS_Store
+
+# generated artifacts
 /generated/prisma
 
-.next
-
-# ignore dependencies + builds
-node_modules
-.next
-.vercel
-.DS_Store
-
-# ignore deps + builds
-node_modules
-.next
-.vercel
-.DS_Store
+# local backup snapshots
+*.bak.*
+*.backup.*
