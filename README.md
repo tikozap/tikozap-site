@@ -19,6 +19,7 @@ npm run eval:support
 - `GET /api/quality/twilio/summary?window=24h|7d|30d` (authed dashboard summary)
 - `GET /api/billing/usage` (authed monthly plan usage)
 - `POST /api/billing/plan` with `{ "plan": "starter" | "pro" | "business" }`
+- `GET/POST /api/design-partner/rollout` (tenant rollout checklist workflow)
 
 ## Twilio webhook setup (voice quality)
 Set one of these verification options:

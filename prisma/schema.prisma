@@ -49,6 +49,7 @@ model Tenant {
   conversations Conversation[]
   metricEvents  MetricEvent[]
   twilioVoiceEvents TwilioVoiceEvent[]
+  designPartnerRolloutItems DesignPartnerRolloutItem[]
 }
 
 model Membership {
@@ -158,4 +159,22 @@ model TwilioVoiceEvent {
   @@index([tenantId, createdAt])
   @@index([callSid, createdAt])
   @@index([eventType, createdAt])
+}
+
+model DesignPartnerRolloutItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  title       String
+  description String?
+  done        Boolean  @default(false)
+  owner       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, done])
 }
