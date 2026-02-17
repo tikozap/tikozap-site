@@ -124,14 +124,10 @@ export default function ConversationsClient() {
     const mq = window.matchMedia('(max-width: 1000px)');
     const onChange = () => setIsMobile(mq.matches);
     onChange();
-    // @ts-expect-error older Safari
     if (mq.addEventListener) mq.addEventListener('change', onChange);
-    // @ts-expect-error older Safari
     else mq.addListener(onChange);
     return () => {
-      // @ts-expect-error older Safari
       if (mq.removeEventListener) mq.removeEventListener('change', onChange);
-      // @ts-expect-error older Safari
       else mq.removeListener(onChange);
     };
   }, []);
