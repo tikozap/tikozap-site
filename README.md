@@ -26,6 +26,25 @@ Set one of these verification options:
 Then point Twilio webhook to:
 - `https://<your-domain>/api/webhooks/twilio/voice?tenantSlug=<your-tenant-slug>`
 
+## Twilio webhook smoke test
+Run a quick end-to-end ingest test (sends JSON + form payloads):
+
+```bash
+TWILIO_SMOKE_BASE_URL=http://localhost:3000 \
+TWILIO_SMOKE_TENANT_SLUG=demo-store \
+TWILIO_WEBHOOK_SECRET=your-secret \
+npm run smoke:twilio:webhook
+```
+
+Dry run (prints what would be sent, no network requests):
+
+```bash
+npm run smoke:twilio:webhook:dry
+```
+
+Optional: verify authed summary endpoint in same script by setting:
+- `TWILIO_SMOKE_AUTH_COOKIE="tz_session=...; tz_tenant=..."`
+
 ## Execution roadmap
 See `EXECUTION_PLAN.md` for the practical delivery plan and weekly priorities.
 

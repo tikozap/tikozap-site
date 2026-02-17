@@ -10,6 +10,8 @@
     "check": "npm run lint && npm run build",
     "eval:support": "tsx scripts/eval-support-assistant.ts",
     "eval:support:strict": "EVAL_STRICT=1 npm run eval:support",
+    "smoke:twilio:webhook": "tsx scripts/twilio-webhook-smoke.ts",
+    "smoke:twilio:webhook:dry": "tsx scripts/twilio-webhook-smoke.ts --dry-run",
     "postinstall": "prisma generate"
   },
   "dependencies": {
