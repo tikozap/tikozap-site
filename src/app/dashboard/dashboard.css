@@ -1,7 +1,7 @@
 .db-wrap{
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: calc(2.25rem + 72px) 1.25rem 2.5rem;
+  padding: 1rem 1.25rem 2.5rem;
 }
 
 .db-shell{
@@ -22,7 +22,10 @@
 .db-sidebar{
   padding: 14px;
   position: sticky;
-  top: 88px;
+  top: 16px;
+  min-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
 }
 
 .db-brand{
@@ -52,6 +55,11 @@
   margin: 0;
   display: grid;
   gap: 6px;
+}
+
+.db-signout{
+  margin-top: auto;
+  width: fit-content;
 }
 
 .db-link{
@@ -153,6 +161,6 @@
 
 @media (max-width: 900px){
   .db-shell{ grid-template-columns: 1fr; }
-  .db-sidebar{ position: static; }
+  .db-sidebar{ position: static; min-height: auto; }
   .db-grid{ grid-template-columns: 1fr; }
 }

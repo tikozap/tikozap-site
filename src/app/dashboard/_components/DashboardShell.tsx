@@ -45,21 +45,24 @@ export default function DashboardShell({
         <div className="db-brand">
           <div>
             <div className="db-ws">{tenantName}</div>
-            <div className="db-meta">Plan: Pro (demo)</div>
+            <div className="db-meta">Plan: PRO</div>
           </div>
-          <button className="db-btn" onClick={signOut} title="Sign out (demo)">
-            Sign out
-          </button>
         </div>
 
         <ul className="db-nav">
           <NavItem href="/dashboard" label="Overview" />
-          <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
+          <NavItem href="/dashboard/conversations" label="Conversations" />
+          <NavItem href="/dashboard/phone-agent" label="Phone Agent" />
+          <NavItem href="/dashboard/tikozap-link" label="TikoZap Link" />
           <NavItem href="/dashboard/knowledge" label="Knowledge" />
           <NavItem href="/dashboard/widget" label="Widget" />
           <NavItem href="/dashboard/billing" label="Billing" />
           <NavItem href="/dashboard/settings" label="Settings" />
         </ul>
+
+        <button className="db-btn db-signout" onClick={signOut} title="Sign out (demo)">
+          Sign out
+        </button>
 
         <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
           Merchant-only area. (Platform admin comes later under <code>/admin</code>.)

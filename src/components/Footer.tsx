@@ -7,9 +7,8 @@ import Image from 'next/image';
 export default function Footer() {
   const pathname = usePathname();
 
-  // Hide footer on the live demo page so the chat has more room,
-  // both on /demo and any nested demo routes.
-  if (pathname && pathname.startsWith('/demo')) {
+  // Hide footer on dashboard/demo routes to maximize workspace area.
+  if (pathname && (pathname.startsWith('/demo') || pathname.startsWith('/dashboard'))) {
     return null;
   }
 

@@ -14,10 +14,13 @@ const LINKS = [
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const hideOnDashboard = pathname?.startsWith('/dashboard');
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  if (hideOnDashboard) return null;
 
   const isActive = (href: string) =>
     pathname === href ? 'nav__link nav__link--active' : 'nav__link';
