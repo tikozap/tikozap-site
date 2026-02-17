@@ -128,6 +128,7 @@ export async function POST(req: Request) {
       trackMetric({
         source: 'widget-message',
         event: support.needsHuman ? 'needs_human_fallback' : 'answered',
+        tenantId,
         intent: support.intent,
       });
     }
