@@ -50,6 +50,16 @@ type TwilioSummaryPayload = {
   };
 };
 
+type ActivationStatusPayload = {
+  ok: true;
+  status: {
+    completedCount: number;
+    totalCount: number;
+    completionPct: number;
+    isComplete: boolean;
+  };
+};
+
 const WINDOW_OPTIONS = [
   { value: '24h', label: 'Last 24h' },
   { value: '7d', label: 'Last 7 days' },
@@ -69,6 +79,7 @@ export default function SupportMetricsCards() {
   const [error, setError] = useState('');
   const [voiceSummary, setVoiceSummary] = useState<TwilioSummaryPayload['summary'] | null>(null);
   const [voiceError, setVoiceError] = useState('');
+  const [activationStatus, setActivationStatus] = useState<ActivationStatusPayload['status'] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,10 +89,12 @@ export default function SupportMetricsCards() {
         setVoiceError('');
         setMetrics(null);
         setVoiceSummary(null);
+        setActivationStatus(null);
 
-        const [supportRes, voiceRes] = await Promise.all([
+        const [supportRes, voiceRes, activationRes] = await Promise.all([
           fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
           fetch(`/api/quality/twilio/summary?window=${windowKey}`, { cache: 'no-store' }),
+          fetch('/api/onboarding/activation', { cache: 'no-store' }),
         ]);
 
         const supportData = await supportRes.json().catch(() => null);
@@ -93,9 +106,14 @@ export default function SupportMetricsCards() {
         const voiceData = await voiceRes.json().catch(() => null);
         if (!voiceRes.ok || !voiceData?.ok) {
           if (!cancelled) setVoiceError('Twilio voice quality unavailable.');
-          return;
+        } else if (!cancelled) {
+          setVoiceSummary(voiceData.summary);
         }
-        if (!cancelled) setVoiceSummary(voiceData.summary);
+
+        const activationData = await activationRes.json().catch(() => null);
+        if (activationRes.ok && activationData?.ok && activationData?.status && !cancelled) {
+          setActivationStatus(activationData.status);
+        }
       } catch {
         if (!cancelled) setError('Metrics unavailable right now.');
       }
@@ -169,6 +187,15 @@ export default function SupportMetricsCards() {
           {!voiceSummary
             ? 'Loading…'
             : `${voiceSummary.degraded.lowMos + voiceSummary.degraded.highJitter + voiceSummary.degraded.highPacketLoss + voiceSummary.degraded.highRoundTrip} events`}
+        </p>
+      </div>
+
+      <div className="db-card db-tile">
+        <h3>Onboarding activation</h3>
+        <p>
+          {!activationStatus
+            ? 'Loading…'
+            : `${activationStatus.completedCount}/${activationStatus.totalCount} (${activationStatus.completionPct}%)`}
         </p>
       </div>
 
