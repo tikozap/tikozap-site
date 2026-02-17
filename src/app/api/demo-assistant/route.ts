@@ -16,6 +16,16 @@ type HistoryMessage = {
   content: string;
 };
 
+type DemoReplySource = 'rule' | 'model' | 'canned';
+
+function jsonReply(reply: string, source: DemoReplySource) {
+  return NextResponse.json({
+    reply,
+    source,
+    safePreview: true,
+  });
+}
+
 const FALLBACK_DEFAULT =
   `TikoZap is an AI customer support platform for online stores.\n\n` +
   `It gives merchants a website chat widget + a Conversations inbox for staff, with human takeover, and a knowledge base to answer store questions (shipping/returns/orders) accurately.\n\n` +
@@ -98,16 +108,6 @@ export async function POST(req: Request) {
     const bucket = body.bucket as DemoBucketName | undefined;
     const historyRaw = Array.isArray(body.history) ? body.history : [];
 
-    // Debug: will appear in Vercel function logs when the route is called
-    console.log(
-      '[demo-assistant] env=',
-      process.env.VERCEL_ENV ?? 'local',
-      'hasKey=',
-      !!process.env.OPENAI_API_KEY,
-      'userText=',
-      userText,
-    );
-
     const history: HistoryMessage[] = historyRaw
       .map((m: any) => {
         if (!m || typeof m.content !== 'string') return null;
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         `Yes—Starter Link is designed exactly for SBOs without a website.\n\n` +
         `You can share a single support link with customers, and TikoZap handles incoming questions in the same inbox workflow.\n\n` +
         `When you're ready, you can add the website widget later without changing your core setup.`;
-      return NextResponse.json({ reply }, { status: 200 });
+      return jsonReply(reply, 'rule');
     }
 
     if (mentionsTikoZap && asksPlatformIntent) {
@@ -159,14 +159,14 @@ export async function POST(req: Request) {
         `This demo doesn’t connect to real orders—it's a safe preview of how the assistant and workflow behave.\n\n` +
         `What are you evaluating: features, pricing, or setup?`;
 
-      return NextResponse.json({ reply }, { status: 200 });
+      return jsonReply(reply, 'rule');
     }
 
     // If somehow no user text, just return a platform-focused canned answer.
     if (!userText) {
       const reply = pickBucketReply(bucket);
       await trackMetric({ source: 'demo-assistant', event: 'empty_user_text' });
-      return NextResponse.json({ reply });
+      return jsonReply(reply, 'canned');
     }
 
     // ---------- Translation detection ----------
@@ -181,13 +181,6 @@ export async function POST(req: Request) {
       lower.includes('转成英文') ||
       ((lower.includes('中文') || lower.includes('chinese')) && !!lastAssistant) ||
       ((lower.includes('英文') || lower.includes('english')) && !!lastAssistant);
-
-    console.log(
-      '[demo-assistant] wantsTranslation=',
-      wantsTranslation,
-      'hasLastAssistant=',
-      !!lastAssistant,
-    );
 
     let replyFromModel: string | null = null;
 
@@ -287,9 +280,9 @@ export async function POST(req: Request) {
       bucket: bucket ?? 'off_topic',
     });
 
-    return NextResponse.json({ reply });
+    return jsonReply(reply, replyFromModel ? 'model' : 'canned');
   } catch (error) {
     console.error('Error in /api/demo-assistant', error);
-    return NextResponse.json({ reply: FALLBACK_DEFAULT });
+    return jsonReply(FALLBACK_DEFAULT, 'canned');
   }
 }
