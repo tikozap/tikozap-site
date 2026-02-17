@@ -52,11 +52,23 @@ type TwilioSummaryPayload = {
 
 type ActivationStatusPayload = {
   ok: true;
+  window: '24h' | '7d' | '30d';
   status: {
     completedCount: number;
     totalCount: number;
     completionPct: number;
     isComplete: boolean;
+  };
+  funnel: {
+    startedAt: string;
+    totalEvents: number;
+    baselineCount: number;
+    steps: Array<{
+      id: string;
+      label: string;
+      count: number;
+      conversionPct: number;
+    }>;
   };
 };
 
@@ -79,7 +91,7 @@ export default function SupportMetricsCards() {
   const [error, setError] = useState('');
   const [voiceSummary, setVoiceSummary] = useState<TwilioSummaryPayload['summary'] | null>(null);
   const [voiceError, setVoiceError] = useState('');
-  const [activationStatus, setActivationStatus] = useState<ActivationStatusPayload['status'] | null>(null);
+  const [activationData, setActivationData] = useState<ActivationStatusPayload | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,12 +101,12 @@ export default function SupportMetricsCards() {
         setVoiceError('');
         setMetrics(null);
         setVoiceSummary(null);
-        setActivationStatus(null);
+        setActivationData(null);
 
         const [supportRes, voiceRes, activationRes] = await Promise.all([
           fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
           fetch(`/api/quality/twilio/summary?window=${windowKey}`, { cache: 'no-store' }),
-          fetch('/api/onboarding/activation', { cache: 'no-store' }),
+          fetch(`/api/onboarding/activation?window=${windowKey}`, { cache: 'no-store' }),
         ]);
 
         const supportData = await supportRes.json().catch(() => null);
@@ -111,8 +123,14 @@ export default function SupportMetricsCards() {
         }
 
         const activationData = await activationRes.json().catch(() => null);
-        if (activationRes.ok && activationData?.ok && activationData?.status && !cancelled) {
-          setActivationStatus(activationData.status);
+        if (
+          activationRes.ok &&
+          activationData?.ok &&
+          activationData?.status &&
+          activationData?.funnel &&
+          !cancelled
+        ) {
+          setActivationData(activationData as ActivationStatusPayload);
         }
       } catch {
         if (!cancelled) setError('Metrics unavailable right now.');
@@ -137,6 +155,11 @@ export default function SupportMetricsCards() {
     const score = voiceSummary.health.score != null ? `${voiceSummary.health.score}/100` : 'n/a';
     return `${grade} (${score})`;
   }, [voiceSummary]);
+
+  const activationFunnelSteps = useMemo(() => {
+    if (!activationData?.funnel?.steps) return [];
+    return activationData.funnel.steps;
+  }, [activationData]);
 
   return (
     <>
@@ -193,10 +216,62 @@ export default function SupportMetricsCards() {
       <div className="db-card db-tile">
         <h3>Onboarding activation</h3>
         <p>
-          {!activationStatus
+          {!activationData?.status
             ? 'Loading…'
-            : `${activationStatus.completedCount}/${activationStatus.totalCount} (${activationStatus.completionPct}%)`}
+            : `${activationData.status.completedCount}/${activationData.status.totalCount} (${activationData.status.completionPct}%)`}
         </p>
+      </div>
+
+      <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
+        <h3>Activation funnel</h3>
+        {!activationData ? (
+          <p>Loading…</p>
+        ) : activationFunnelSteps.length === 0 ? (
+          <p>No activation data yet. Go through onboarding steps to populate this.</p>
+        ) : (
+          <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
+            {activationFunnelSteps.map((step) => (
+              <div key={step.id}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span>{step.label}</span>
+                  <span>
+                    {step.count} events ({step.conversionPct}%)
+                  </span>
+                </div>
+                <div
+                  style={{
+                    width: '100%',
+                    height: 8,
+                    borderRadius: 999,
+                    background: '#e5e7eb',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      height: '100%',
+                      width: `${step.conversionPct}%`,
+                      background: '#111827',
+                      borderRadius: 999,
+                      transition: 'width 180ms ease',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            <p style={{ marginTop: 4, fontSize: 12, opacity: 0.75 }}>
+              Window: {windowKey}. Baseline events: {activationData.funnel.baselineCount}.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>

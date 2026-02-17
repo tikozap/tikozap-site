@@ -15,6 +15,14 @@ export const ACTIVATION_EVENTS = {
 
 export const ALLOWED_ACTIVATION_EVENTS = new Set<string>(Object.values(ACTIVATION_EVENTS));
 
+export const ACTIVATION_WINDOW_MS = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+} as const;
+
+export type ActivationWindowKey = keyof typeof ACTIVATION_WINDOW_MS;
+
 type ChecklistRule = {
   id: string;
   label: string;
@@ -69,6 +77,20 @@ export type ActivationStatus = {
   isComplete: boolean;
 };
 
+export type ActivationFunnelStep = {
+  id: string;
+  label: string;
+  count: number;
+  conversionPct: number;
+};
+
+export type ActivationFunnel = {
+  startedAt: string;
+  totalEvents: number;
+  baselineCount: number;
+  steps: ActivationFunnelStep[];
+};
+
 function buildStatus(events: Set<string>): ActivationStatus {
   const checklist = CHECKLIST_RULES.map((rule) => ({
     id: rule.id,
@@ -95,6 +117,18 @@ export function emptyActivationStatus(): ActivationStatus {
   return buildStatus(new Set<string>());
 }
 
+function countEventsForRule(
+  rows: Array<{ event: string }>,
+  rule: ChecklistRule,
+): number {
+  const acceptable = new Set(rule.anyOf);
+  let count = 0;
+  for (const row of rows) {
+    if (acceptable.has(row.event)) count += 1;
+  }
+  return count;
+}
+
 export async function getActivationStatus(tenantId: string): Promise<ActivationStatus> {
   const rows = await prisma.metricEvent.findMany({
     where: {
@@ -109,4 +143,54 @@ export async function getActivationStatus(tenantId: string): Promise<ActivationS
 
   const events = new Set(rows.map((row) => row.event));
   return buildStatus(events);
+}
+
+export async function getActivationFunnel(opts: {
+  tenantId: string;
+  since?: Date;
+}): Promise<ActivationFunnel> {
+  const rows = await prisma.metricEvent.findMany({
+    where: {
+      tenantId: opts.tenantId,
+      source: 'onboarding',
+      event: { in: Array.from(ALLOWED_ACTIVATION_EVENTS) },
+      ...(opts.since ? { createdAt: { gte: opts.since } } : {}),
+    },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      event: true,
+      createdAt: true,
+    },
+  });
+
+  const rawCounts = CHECKLIST_RULES.map((rule) => ({
+    id: rule.id,
+    label: rule.label,
+    count: countEventsForRule(rows, rule),
+  }));
+
+  const maxCount = rawCounts.reduce((max, row) => Math.max(max, row.count), 0);
+  const baselineCount = rawCounts[0]?.count || maxCount || 0;
+  const steps: ActivationFunnelStep[] = rawCounts.map((row, idx) => {
+    const conversionPct =
+      idx === 0
+        ? baselineCount > 0
+          ? 100
+          : 0
+        : baselineCount > 0
+        ? Math.min(100, Math.round((row.count / baselineCount) * 100))
+        : 0;
+    return {
+      ...row,
+      conversionPct,
+    };
+  });
+
+  const startedAt = rows[0]?.createdAt ?? opts.since ?? new Date();
+  return {
+    startedAt: startedAt.toISOString(),
+    totalEvents: rows.length,
+    baselineCount,
+    steps,
+  };
 }
