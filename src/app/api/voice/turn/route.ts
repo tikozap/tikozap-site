@@ -3,13 +3,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import twilio from "twilio";
 const VoiceResponse = twilio.twiml.VoiceResponse;
-
 import {
   buildAbsoluteUrl,
   readTwilioParams,
   validateTwilioWebhookOrThrow,
 } from "@/lib/twilio/validate";
-
 import { createAnswerMachineItem } from "@/lib/answerMachine";
 import {
   looksLikeOrderStatusRequest,
@@ -43,8 +41,7 @@ function recordWithTranscription(args: {
     maxLength: args.maxLength ?? 180,
     playBeep: true,
     finishOnKey: "#",
-    transcribe: false,  // ← disable Twilio's built-in transcription
-    // Add these two lines to trigger your Whisper route
+    transcribe: false,
     recordingStatusCallback: `${requireAppBaseUrl()}/api/voice/recording-status?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}&reason=${args.reason}`,
     recordingStatusCallbackMethod: "POST",
   };
@@ -52,7 +49,7 @@ function recordWithTranscription(args: {
 
 async function addMessage(args: {
   conversationId: string;
-  role: string; // your DB uses free-form strings
+  role: string;
   content: string;
 }) {
   await prisma.message.create({
@@ -88,6 +85,7 @@ export async function POST(req: Request) {
     where: { id: callSessionId },
     include: { tenant: true },
   });
+
   if (!session || session.tenantId !== tenantId) {
     return new NextResponse("Unknown call session", { status: 404 });
   }
@@ -97,159 +95,164 @@ export async function POST(req: Request) {
   });
 
   const vr = new VoiceResponse();
-
   const digits = (params.Digits || "").trim();
   const speech = (params.SpeechResult || "").trim();
   const from = params.From || session.fromNumber || null;
 
-if (turnIdx >= MAX_TURNS) {
-  // Immediate TwiML
-  vr.say("To help you faster, please leave a message after the tone.");
-  vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns" }));
-  const xmlResponse = xml(vr.toString());
+  // Max turns fallback
+  if (turnIdx >= MAX_TURNS) {
+    vr.say("To help you faster, please leave a message after the tone.");
+    vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "max_turns" }));
+    const xmlResponse = xml(vr.toString());
 
-  // Background DB work
-  (async () => {
-    try {
-      await prisma.callSession.update({
-        where: { id: callSessionId },
-        data: { fallbackTriggeredAt: new Date() },
-      });
-      await createAnswerMachineItem({
-        tenantId,
-        conversationId: session.conversationId,
-        callSessionId,
-        type: "VOICEMAIL",
-        fromNumber: from,
-        reason: "max_turns",
-      });
-    } catch (err) {
-      console.error("[voice/turn] Background max_turns task failed:", err);
-    }
-  })();
+    (async () => {
+      try {
+        await prisma.callSession.update({
+          where: { id: callSessionId },
+          data: { fallbackTriggeredAt: new Date() },
+        });
+        await createAnswerMachineItem({
+          tenantId,
+          conversationId: session.conversationId,
+          callSessionId,
+          type: "VOICEMAIL",
+          fromNumber: from,
+          reason: "max_turns",
+        });
+      } catch (err) {
+        console.error("[voice/turn] Background max_turns task failed:", err);
+      }
+    })();
 
-  return xmlResponse;
-}
-
-// --------------------
-// DTMF routes (FAST PATH)
-// --------------------
-if (digits === "0") {
-  // 1. Build and return TwiML INSTANTLY — no awaits, no DB writes here
-  vr.say("Please leave a message after the tone. When you're done, press pound.");
-  vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
-  const xmlResponse = xml(vr.toString());
-
-  // 2. Fire background task for slow work (Prisma ops) — caller doesn't wait
-  (async () => {
-    try {
-      // All the database writes that were blocking before
-      await createAnswerMachineItem({
-        tenantId,
-        conversationId: session.conversationId,
-        callSessionId,
-        type: "VOICEMAIL",
-        fromNumber: from,
-        reason: "dtmf_0",
-      });
-
-      // Optional: any other logging or updates
-      console.log(`[voice/turn] Background: AnswerMachineItem created for call ${callSessionId}`);
-
-    } catch (err) {
-      console.error("[voice/turn] Background DTMF 0 task failed:", err);
-      // You could add retry logic or alert here if critical
-    }
-  })();
-
-  // 3. Return the fast TwiML response NOW
-  return xmlResponse;
-}
-
-  if (digits === "1") {
-    await createAnswerMachineItem({
-      tenantId,
-      conversationId: session.conversationId,
-      callSessionId,
-      type: "CALLBACK",
-      fromNumber: from,
-      reason: "dtmf_1",
-      callbackNumber: from,
-      callbackNotes: "Callback requested via DTMF 1.",
-    });
-
-    await addMessage({
-      conversationId: session.conversationId,
-      role: "customer",
-      content: "Callback requested (DTMF 1).",
-    });
-    await addMessage({
-      conversationId: session.conversationId,
-      role: "assistant",
-      content: "Thanks — we received your callback request. Our team will reach out as soon as possible.",
-    });
-
-
-    vr.say("Thanks. We received your callback request. We'll reach out as soon as possible. Goodbye.");
-    await prisma.callSession.update({
-    where: { id: callSessionId },
-    data: { status: "COMPLETED", endedAt: new Date() },
-});
-    vr.hangup();
-    return xml(vr.toString());
+    return xmlResponse;
   }
 
-  // --------------------
-  // No input: reprompt once, then fallback to voicemail
-  // --------------------
+  // DTMF 0 → voicemail (fast path)
+  if (digits === "0") {
+    vr.say("Please leave a message after the tone. When you're done, press pound.");
+    vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "dtmf_0" }));
+    const xmlResponse = xml(vr.toString());
+
+    (async () => {
+      try {
+        await createAnswerMachineItem({
+          tenantId,
+          conversationId: session.conversationId,
+          callSessionId,
+          type: "VOICEMAIL",
+          fromNumber: from,
+          reason: "dtmf_0",
+        });
+      } catch (err) {
+        console.error("[voice/turn] Background DTMF 0 task failed:", err);
+      }
+    })();
+
+    return xmlResponse;
+  }
+
+  // DTMF 1 → callback request
+  if (digits === "1") {
+    vr.say("Thanks. We received your callback request. We'll reach out as soon as possible. Goodbye.");
+    vr.hangup();
+
+    const xmlResponse = xml(vr.toString());
+
+    (async () => {
+      try {
+        await createAnswerMachineItem({
+          tenantId,
+          conversationId: session.conversationId,
+          callSessionId,
+          type: "CALLBACK",
+          fromNumber: from,
+          reason: "dtmf_1",
+          callbackNumber: from,
+          callbackNotes: "Callback requested via DTMF 1.",
+        });
+        await addMessage({
+          conversationId: session.conversationId,
+          role: "customer",
+          content: "Callback requested (DTMF 1).",
+        });
+        await addMessage({
+          conversationId: session.conversationId,
+          role: "assistant",
+          content: "Thanks — we received your callback request. Our team will reach out as soon as possible.",
+        });
+        await prisma.callSession.update({
+          where: { id: callSessionId },
+          data: { status: "COMPLETED", endedAt: new Date() },
+        });
+      } catch (err) {
+        console.error("[voice/turn] Background DTMF 1 task failed:", err);
+      }
+    })();
+
+    return xmlResponse;
+  }
+
+  // No speech input
   if (!speech) {
     if (turnIdx >= 1) {
-      await prisma.callSession.update({
-        where: { id: callSessionId },
-        data: { fallbackTriggeredAt: new Date() },
+      // Second failure → offer voicemail/callback options
+      vr.say(
+        "Sorry, I didn't catch that. Would you like to leave a message? Press 0 to leave a voicemail, or press 1 to request a callback."
+      );
+      vr.gather({
+        input: ["speech", "dtmf"],
+        numDigits: 1,
+        action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
+        method: "POST",
+        timeout: 6,
       });
 
-      await createAnswerMachineItem({
-        tenantId,
-        conversationId: session.conversationId,
-        callSessionId,
-        type: "VOICEMAIL",
-        fromNumber: from,
-        reason: "timeout",
-      });
+      const xmlResponse = xml(vr.toString());
 
-      vr.say(settings?.fallbackLine || "Sorry — I didn't catch that. Please leave a message after the tone.");
-vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "timeout" }));
+      (async () => {
+        try {
+          await prisma.callSession.update({
+            where: { id: callSessionId },
+            data: { fallbackTriggeredAt: new Date() },
+          });
+          await createAnswerMachineItem({
+            tenantId,
+            conversationId: session.conversationId,
+            callSessionId,
+            type: "VOICEMAIL",
+            fromNumber: from,
+            reason: "timeout",
+          });
+        } catch (err) {
+          console.error("[voice/turn] Background timeout task failed:", err);
+        }
+      })();
 
-      return xml(vr.toString());
+      return xmlResponse;
     }
 
-    vr.say("Sorry — I didn't catch that. Please tell me how I can help. You can also press 0 to leave a message, or press 1 to request a callback.");
+    // First timeout → natural reprompt
+    vr.say("Sorry — I didn't catch that. How can I help you?");
     vr.gather({
-      input: ["speech", "dtmf"],
+      input: ["speech"],
       action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
       method: "POST",
-      timeout: 6,
+      timeout: 8,
       speechTimeout: "auto",
     });
     return xml(vr.toString());
   }
 
-  // --------------------
-  // Save caller speech to Inbox
-  // --------------------
+  // Save caller speech
   await addMessage({
     conversationId: session.conversationId,
     role: "customer",
     content: speech,
   });
 
-  // --------------------
-  // Generate assistant reply (policy gate)
-  // --------------------
+  // Generate assistant reply
   let assistantText = "";
   const started = Date.now();
-
   try {
     if (looksLikeOrderStatusRequest(speech)) {
       assistantText = orderStatusCollectionReply();
@@ -264,48 +267,54 @@ vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "timeout" }
   } catch (e) {
     console.error("[voice/turn] storeAssistantReply failed; fallback", e);
 
-    await prisma.callSession.update({
-      where: { id: callSessionId },
-      data: { fallbackTriggeredAt: new Date() },
-    });
+    vr.say("Sorry — please leave a message after the tone.");
+    vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "model_error" }));
 
-    await createAnswerMachineItem({
-      tenantId,
-      conversationId: session.conversationId,
-      callSessionId,
-      type: "VOICEMAIL",
-      fromNumber: from,
-      reason: "model_error",
-    });
+    const xmlResponse = xml(vr.toString());
 
-    vr.say(settings?.fallbackLine || "Sorry — please leave a message after the tone.");
-vr.record(recordWithTranscription({ tenantId, callSessionId, reason: "model_error" }));
+    (async () => {
+      try {
+        await prisma.callSession.update({
+          where: { id: callSessionId },
+          data: { fallbackTriggeredAt: new Date() },
+        });
+        await createAnswerMachineItem({
+          tenantId,
+          conversationId: session.conversationId,
+          callSessionId,
+          type: "VOICEMAIL",
+          fromNumber: from,
+          reason: "model_error",
+        });
+      } catch (err) {
+        console.error("[voice/turn] Background model_error task failed:", err);
+      }
+    })();
 
-    return xml(vr.toString());
+    return xmlResponse;
   }
 
   const llmMs = Date.now() - started;
 
-// Traceability: save CallTurn with idx = turnIdx (idempotent)
-try {
-  await prisma.callTurn.upsert({
-    where: { callSessionId_idx: { callSessionId, idx: turnIdx } },
-    create: {
-      callSessionId,
-      idx: turnIdx,
-      sttText: speech,
-      assistantText,
-      llmMs,
-    },
-    update: {
-      sttText: speech,
-      assistantText,
-      llmMs,
-    },
-  });
-} catch (e) {
-  console.warn("[voice/turn] failed to upsert callTurn", e);
-}
+  try {
+    await prisma.callTurn.upsert({
+      where: { callSessionId_idx: { callSessionId, idx: turnIdx } },
+      create: {
+        callSessionId,
+        idx: turnIdx,
+        sttText: speech,
+        assistantText,
+        llmMs,
+      },
+      update: {
+        sttText: speech,
+        assistantText,
+        llmMs,
+      },
+    });
+  } catch (e) {
+    console.warn("[voice/turn] failed to upsert callTurn", e);
+  }
 
   await addMessage({
     conversationId: session.conversationId,
@@ -313,16 +322,15 @@ try {
     content: assistantText,
   });
 
-  // Speak + gather next input
   vr.say(assistantText);
-vr.gather({
-  input: ["speech", "dtmf"],
-  action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
-  method: "POST",
-  timeout: 3,
-  speechTimeout: "auto",
-  actionOnEmptyResult: true,
-});
+  vr.gather({
+    input: ["speech", "dtmf"],
+    action: `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${callSessionId}&turn=${turnIdx + 1}`,
+    method: "POST",
+    timeout: 6,
+    speechTimeout: "auto",
+    actionOnEmptyResult: true,
+  });
 
   return xml(vr.toString());
 }
