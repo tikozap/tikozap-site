@@ -7,6 +7,23 @@ const KEY_LOGIN = 'tz_demo_logged_in';
 const KEY_ONBOARDED = 'tz_demo_onboarded';
 const KEY_TENANT_NAME = 'tz_demo_tenant_name';
 const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
+const DEMO_STORE_NAME = 'Demo Boutique';
+const DEMO_OWNER_EMAIL = 'owner@demo-boutique.demo';
+
+async function ensureSeedConversations() {
+  try {
+    const res = await fetch('/api/conversations', { cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    const count = Array.isArray(data?.conversations) ? data.conversations.length : 0;
+    if (res.ok && count > 0) return;
+  } catch {}
+
+  await fetch('/api/conversations/reset', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ aiEnabled: true }),
+  }).catch(() => {});
+}
 
 export default function DemoMerchantStart() {
   const router = useRouter();
@@ -32,9 +49,9 @@ export default function DemoMerchantStart() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          email: 'owner@three-tree-fashion.demo',
+          email: DEMO_OWNER_EMAIL,
           name: 'Demo Owner',
-          storeName: 'Three Tree Fashion',
+          storeName: DEMO_STORE_NAME,
         }),
       });
       const data = await res.json().catch(() => null as any);
@@ -45,12 +62,13 @@ export default function DemoMerchantStart() {
       localStorage.setItem(KEY_LOGIN, '1');
       // Option A: demo should never trap user in onboarding
       localStorage.setItem(KEY_ONBOARDED, '1');
-      localStorage.setItem(KEY_TENANT_NAME, data.tenant.storeName || 'Three Tree Fashion');
+      localStorage.setItem(KEY_TENANT_NAME, data.tenant.storeName || DEMO_STORE_NAME);
       localStorage.setItem(KEY_TENANT_SLUG, data.tenant.slug);
       setStatus({ loggedIn: true, onboarded: true });
-      router.push('/dashboard/conversations');
-    } catch {
-      setError('Could not start demo right now. Please try again.');
+      await ensureSeedConversations();
+      router.push('/dashboard/conversations?bust=1');
+    } catch (err: any) {
+      setError(err?.message || 'Could not start demo right now. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -80,7 +98,7 @@ export default function DemoMerchantStart() {
           disabled={busy}
           style={{ borderRadius: 12, padding: '10px 12px', border: '1px solid #111827', background: '#111827', color: '#fff', cursor: 'pointer' }}
         >
-          {busy ? 'Starting demo...' : 'Continue as Three Tree Fashion'}
+          {busy ? 'Starting demo...' : 'Continue as Demo Boutique'}
         </button>
 
         <button

@@ -25,6 +25,24 @@ function buildNewTestChat(aiEnabled: boolean) {
     { subject: 'Shipping time', first: 'How many days does shipping take?', tags: ['shipping'], channel: 'web' },
     { subject: 'Size availability', first: 'Do you have this dress in XL?', tags: ['sizing'], channel: 'shopify' },
     { subject: 'Order status', first: 'Where is my order? I placed it last week.', tags: ['order-status'], channel: 'email' },
+    {
+      subject: 'Starter Link bubble test',
+      first: 'I came from your Starter Link. Can you help with returns?',
+      tags: ['starter-link-bubble', 'no-website'],
+      channel: 'starter-link',
+    },
+    {
+      subject: 'Website bubble test',
+      first: 'Website chat bubble test: can I change my shipping address?',
+      tags: ['chat-test', 'website-bubble'],
+      channel: 'web',
+    },
+    {
+      subject: 'AnswerMachine follow-up',
+      first: 'Caller left voicemail. Please summarize callback points.',
+      tags: ['caller', 'answerMachine'],
+      channel: 'phone',
+    },
   ];
 
   const topic = pick(topics);

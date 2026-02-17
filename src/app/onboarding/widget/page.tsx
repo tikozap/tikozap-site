@@ -15,7 +15,7 @@ export default function WidgetStep() {
             <span className="text-sm font-medium">Assistant name</span>
             <input
               className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-              defaultValue="Three Tree Fashion Assistant"
+              defaultValue="Demo Boutique Assistant"
             />
           </label>
 
@@ -37,7 +37,7 @@ export default function WidgetStep() {
           <div className="text-sm font-semibold">Live preview (placeholder)</div>
           <p className="mt-1 text-xs opacity-80">We’ll render the actual widget preview here next.</p>
           <div className="mt-4 rounded-2xl border border-zinc-200 p-4">
-            <div className="text-sm font-medium">Three Tree Fashion Assistant</div>
+            <div className="text-sm font-medium">Demo Boutique Assistant</div>
             <div className="mt-2 text-sm opacity-80">
               Hi! I’m here to help with sizing, shipping, returns, and order questions.
             </div>
@@ -55,7 +55,7 @@ export default function WidgetStep() {
           hosted page.
         </p>
         <div className="mt-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm">
-          https://app.tikozap.com/s/three-tree-fashion
+          https://app.tikozap.com/s/demo-boutique
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import OnboardingNav from '../_components/OnboardingNav';
 
-const DEFAULT_SLUG = 'three-tree-fashion';
+const DEFAULT_SLUG = 'demo-boutique';
 
 type ActivationChecklistItem = {
   id: string;

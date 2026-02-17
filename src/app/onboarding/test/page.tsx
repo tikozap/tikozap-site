@@ -11,8 +11,8 @@ const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
 const ACTIVATION_EVENT_SENT_TEST_MESSAGE = 'activation_sent_test_message';
 
 export default function OnboardingTestPage() {
-  const [tenantSlug, setTenantSlug] = useState('three-tree-fashion');
-  const [storeName, setStoreName] = useState('Three Tree Fashion');
+  const [tenantSlug, setTenantSlug] = useState('demo-boutique');
+  const [storeName, setStoreName] = useState('Demo Boutique');
 
   // Per-tenant conversation thread for this test page
   const storageKey = useMemo(() => `tz_widget_convo_${tenantSlug}`, [tenantSlug]);

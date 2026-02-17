@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
+const DEFAULT_DEMO_STORE_NAME = 'Demo Boutique';
+const DEFAULT_DEMO_SLUG = 'demo-boutique';
 
 function slugify(input: string) {
   return (input || '')
@@ -29,9 +31,9 @@ export async function POST(req: Request) {
 
     const body: any = await req.json().catch(() => ({}));
 
-    const tenantName = (body?.tenantName || 'Three Tree Fashion').toString().trim();
+    const tenantName = (body?.tenantName || DEFAULT_DEMO_STORE_NAME).toString().trim();
     const tenantSlug =
-      (body?.tenantSlug || slugify(tenantName) || 'three-tree-fashion')
+      (body?.tenantSlug || slugify(tenantName) || DEFAULT_DEMO_SLUG)
         .toString()
         .trim();
 

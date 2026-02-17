@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { buildSupportReply } from '@/lib/supportAssistant';
 
 
@@ -11,7 +12,7 @@ const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
 
 // ===== Naming =====
 const STAFF_NAME = 'Kevin';
-const STORE_ASSISTANT_NAME = 'Three Tree Assistant';
+const STORE_ASSISTANT_NAME = 'Demo Boutique Assistant';
 const DRAFT_PREFIX = 'Suggested reply (draft — not sent):';
 
 
@@ -337,6 +338,26 @@ export default function ConversationsClient() {
         <div>
           <h1 className="db-title">Conversations</h1>
           <p className="db-sub">Now backed by SQLite (Prisma). Staff replies never trigger bot replies.</p>
+          <div className="cx-quickLinks">
+            <Link className="cx-quickLink db-pill" href="/dashboard/widget/test">
+              Chat test bubble
+            </Link>
+            <Link className="cx-quickLink db-pill" href="/dashboard/widget">
+              Website bubble
+            </Link>
+            <Link className="cx-quickLink db-pill" href="/dashboard/tikozap-link">
+              Starter Link bubble
+            </Link>
+            <Link className="cx-quickLink db-pill" href="/dashboard/phone-agent?surface=caller">
+              Caller link
+            </Link>
+            <Link
+              className="cx-quickLink db-pill"
+              href="/dashboard/phone-agent?surface=answer-machine"
+            >
+              AnswerMachine link
+            </Link>
+          </div>
         </div>
 
         <div className="db-actions">
@@ -404,7 +425,10 @@ export default function ConversationsClient() {
           })}
 
           {!filtered.length && (
-            <div style={{ padding: 12, fontSize: 13, opacity: 0.7 }}>No conversations yet. Click “Reset inbox”.</div>
+            <div style={{ padding: 12, fontSize: 13, opacity: 0.7 }}>
+              No conversations yet. Click &ldquo;Reset inbox&rdquo; to load the Demo Boutique test
+              set.
+            </div>
           )}
         </div>
 
