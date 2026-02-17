@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +15,18 @@ function slugify(input: string) {
 
 export async function POST(req: Request) {
   try {
+    const rate = checkRateLimit(req, {
+      namespace: 'demo-bootstrap',
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!rate.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many bootstrap attempts. Please try again shortly.' },
+        { status: 429, headers: rateLimitHeaders(rate) },
+      );
+    }
+
     const body: any = await req.json().catch(() => ({}));
 
     const tenantName = (body?.tenantName || 'Three Tree Fashion').toString().trim();

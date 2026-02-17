@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,18 @@ function assistantAutoReply(customerText: string) {
 
 export async function POST(req: Request) {
   try {
+    const rate = checkRateLimit(req, {
+      namespace: 'widget-message',
+      limit: 120,
+      windowMs: 60_000,
+    });
+    if (!rate.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many messages. Please try again shortly.' },
+        { status: 429, headers: rateLimitHeaders(rate) },
+      );
+    }
+
     const body: any = await req.json().catch(() => ({}));
 
     const text = (body?.text || '').toString().trim();
@@ -57,9 +70,8 @@ export async function POST(req: Request) {
     const subject = (body?.subject || 'Widget test').toString().trim() || 'Widget test';
     const aiEnabled = body?.aiEnabled === false ? false : true;
 
-    
     let allowAi = aiEnabled;
-let conversationId = (body?.conversationId || '').toString().trim();
+    let conversationId = (body?.conversationId || '').toString().trim();
 
     // Create new conversation if needed
     if (!conversationId) {
@@ -96,7 +108,7 @@ let conversationId = (body?.conversationId || '').toString().trim();
         where: { id: conversationId },
         select: { aiEnabled: true },
       });
-      if (typeof existing?.aiEnabled === "boolean") allowAi = existing.aiEnabled;
+      if (typeof existing?.aiEnabled === 'boolean') allowAi = existing.aiEnabled;
     } catch (e) {}
 
     if (allowAi) {

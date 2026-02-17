@@ -5,6 +5,7 @@ import {
   DEMO_BUCKET_TEXT,
   type DemoBucketName,
 } from '@/config/demoAssistant';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
 
 // Use Node runtime (not edge) so the SDK works normally.
 export const runtime = 'nodejs';
@@ -74,6 +75,18 @@ function pickBucketReply(bucket: DemoBucketName | undefined): string {
 
 export async function POST(req: Request) {
   try {
+    const rate = checkRateLimit(req, {
+      namespace: 'demo-assistant',
+      limit: 60,
+      windowMs: 60_000,
+    });
+    if (!rate.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many demo requests. Please try again shortly.' },
+        { status: 429, headers: rateLimitHeaders(rate) },
+      );
+    }
+
     const body: any = await req.json().catch(() => ({}));
 
     const userTextRaw =
