@@ -53,10 +53,14 @@ export async function POST(req: Request) {
       where: { slug: tenantSlug },
       update: {
         storeName: tenantName,
+        starterLinkSlug: tenantSlug,
+        starterLinkEnabled: true,
       },
       create: {
         slug: tenantSlug,
         storeName: tenantName,
+        starterLinkSlug: tenantSlug,
+        starterLinkEnabled: true,
         owner: {
           connect: { id: owner.id },
         },

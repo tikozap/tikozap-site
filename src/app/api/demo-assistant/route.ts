@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
     if (!rate.ok) {
-      trackMetric({ source: 'demo-assistant', event: 'rate_limited' });
+      await trackMetric({ source: 'demo-assistant', event: 'rate_limited' });
       return NextResponse.json(
         { ok: false, error: 'Too many demo requests. Please try again shortly.' },
         { status: 429, headers: rateLimitHeaders(rate) },
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
         (lower.includes('setup') || lower.includes('start') || lower.includes('sell')));
 
     if (asksStarterLink) {
-      trackMetric({ source: 'demo-assistant', event: 'starter_link_question' });
+      await trackMetric({ source: 'demo-assistant', event: 'starter_link_question' });
       const reply =
         `Yes—Starter Link is designed exactly for SBOs without a website.\n\n` +
         `You can share a single support link with customers, and TikoZap handles incoming questions in the same inbox workflow.\n\n` +
@@ -147,7 +147,7 @@ export async function POST(req: Request) {
     }
 
     if (mentionsTikoZap && asksPlatformIntent) {
-      trackMetric({ source: 'demo-assistant', event: 'platform_intent_shortcut' });
+      await trackMetric({ source: 'demo-assistant', event: 'platform_intent_shortcut' });
       const reply =
         `TikoZap is an AI customer support platform for online stores.\n\n` +
         `It includes:\n` +
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
     // If somehow no user text, just return a platform-focused canned answer.
     if (!userText) {
       const reply = pickBucketReply(bucket);
-      trackMetric({ source: 'demo-assistant', event: 'empty_user_text' });
+      await trackMetric({ source: 'demo-assistant', event: 'empty_user_text' });
       return NextResponse.json({ reply });
     }
 
@@ -281,7 +281,7 @@ export async function POST(req: Request) {
       pickBucketReply(bucket) ||
       FALLBACK_DEFAULT;
 
-    trackMetric({
+    await trackMetric({
       source: 'demo-assistant',
       event: replyFromModel ? 'model_reply' : 'canned_reply',
       bucket: bucket ?? 'off_topic',

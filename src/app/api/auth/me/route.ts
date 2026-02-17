@@ -9,6 +9,12 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     user: { id: auth.user.id, email: auth.user.email, name: auth.user.name },
-    tenant: { id: auth.tenant.id, slug: auth.tenant.slug, storeName: auth.tenant.storeName },
+    tenant: {
+      id: auth.tenant.id,
+      slug: auth.tenant.slug,
+      storeName: auth.tenant.storeName,
+      starterLinkSlug: auth.tenant.starterLinkSlug,
+      starterLinkEnabled: auth.tenant.starterLinkEnabled,
+    },
   });
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { prisma } from '@/lib/prisma';
 
 type MetricEvent = {
   source: string;
@@ -15,17 +16,6 @@ type SupportCounters = {
   intents: Record<string, number>;
 };
 
-type MetricsStore = {
-  startedAt: number;
-  totalEvents: number;
-  global: SupportCounters;
-  perTenant: Map<string, SupportCounters>;
-};
-
-const globalForMetrics = globalThis as unknown as {
-  __tzMetricsStore?: MetricsStore;
-};
-
 function emptyCounters(): SupportCounters {
   return {
     answered: 0,
@@ -35,52 +25,53 @@ function emptyCounters(): SupportCounters {
   };
 }
 
-const store: MetricsStore =
-  globalForMetrics.__tzMetricsStore ?? {
-    startedAt: Date.now(),
-    totalEvents: 0,
-    global: emptyCounters(),
-    perTenant: new Map<string, SupportCounters>(),
+export async function trackMetric(event: MetricEvent) {
+  // Keep structured logs for fast debugging.
+  console.info('[metric]', JSON.stringify(event));
+  try {
+    await prisma.metricEvent.create({
+      data: {
+        tenantId: event.tenantId || null,
+        source: event.source,
+        event: event.event,
+        intent: event.intent || null,
+      },
+    });
+  } catch (err) {
+    console.error('[metric] failed to persist event', err);
+  }
+}
+
+export async function getSupportMetrics(opts: { tenantId?: string; since?: Date }) {
+  const where = {
+    ...(opts.tenantId ? { tenantId: opts.tenantId } : {}),
+    ...(opts.since ? { createdAt: { gte: opts.since } } : {}),
   };
 
-if (!globalForMetrics.__tzMetricsStore) {
-  globalForMetrics.__tzMetricsStore = store;
-}
+  const rows = await prisma.metricEvent.findMany({
+    where,
+    select: { event: true, intent: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
 
-function applyEvent(counters: SupportCounters, event: MetricEvent) {
-  if (event.event === 'answered') counters.answered += 1;
-  if (event.event === 'needs_human_fallback') counters.needsHumanFallback += 1;
-  if (event.event === 'rate_limited') counters.rateLimited += 1;
+  const counters = emptyCounters();
+  for (const row of rows) {
+    if (row.event === 'answered') counters.answered += 1;
+    if (row.event === 'needs_human_fallback') counters.needsHumanFallback += 1;
+    if (row.event === 'rate_limited') counters.rateLimited += 1;
 
-  if ((event.event === 'answered' || event.event === 'needs_human_fallback') && event.intent) {
-    counters.intents[event.intent] = (counters.intents[event.intent] ?? 0) + 1;
+    if ((row.event === 'answered' || row.event === 'needs_human_fallback') && row.intent) {
+      counters.intents[row.intent] = (counters.intents[row.intent] ?? 0) + 1;
+    }
   }
-}
 
-export function trackMetric(event: MetricEvent) {
-  // Structured logs are the first step; this can be wired to a persistent analytics pipeline.
-  console.info('[metric]', JSON.stringify(event));
+  const startedAt = rows[0]?.createdAt ?? opts.since ?? new Date();
 
-  store.totalEvents += 1;
-  applyEvent(store.global, event);
-
-  if (event.tenantId) {
-    const existing = store.perTenant.get(event.tenantId) ?? emptyCounters();
-    applyEvent(existing, event);
-    store.perTenant.set(event.tenantId, existing);
-  }
-}
-
-export function getSupportMetrics(tenantId?: string) {
-  const counters = tenantId ? store.perTenant.get(tenantId) ?? emptyCounters() : store.global;
   return {
-    startedAt: new Date(store.startedAt).toISOString(),
-    totalEvents: store.totalEvents,
+    startedAt: startedAt.toISOString(),
+    totalEvents: rows.length,
     counters: {
-      answered: counters.answered,
-      needsHumanFallback: counters.needsHumanFallback,
-      rateLimited: counters.rateLimited,
-      intents: counters.intents,
+      ...counters,
     },
   };
 }

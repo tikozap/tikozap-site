@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
     if (!rate.ok) {
-      trackMetric({
+      await trackMetric({
         source: 'widget-message',
         event: 'rate_limited',
       });
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
         });
       }
 
-      trackMetric({
+      await trackMetric({
         source: 'widget-message',
         event: support.needsHuman ? 'needs_human_fallback' : 'answered',
         tenantId,

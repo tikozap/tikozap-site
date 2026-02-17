@@ -18,19 +18,25 @@ export default function InstallStep() {
   const [detectedSlug, setDetectedSlug] = useState(DEFAULT_SLUG);
   const [tenantSlug, setTenantSlug] = useState(DEFAULT_SLUG);
   const [allowedDomains, setAllowedDomains] = useState('localhost');
+  const [starterEnabled, setStarterEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [copyMsg, setCopyMsg] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
+  const [saveTone, setSaveTone] = useState<'ok' | 'err'>('ok');
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       let nextSlug = DEFAULT_SLUG;
+      let nextEnabled = true;
 
       try {
-        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        const res = await fetch('/api/starter-link', { cache: 'no-store' });
         const data = await res.json().catch(() => null);
-        if (res.ok && data?.tenant?.slug) {
-          nextSlug = toSlug(String(data.tenant.slug)) || nextSlug;
+        if (res.ok && data?.starterLink?.slug) {
+          nextSlug = toSlug(String(data.starterLink.slug)) || nextSlug;
+          nextEnabled = data?.starterLink?.enabled === false ? false : true;
         }
       } catch {}
 
@@ -47,6 +53,7 @@ export default function InstallStep() {
       if (!cancelled) {
         setDetectedSlug(nextSlug);
         setTenantSlug(nextSlug);
+        setStarterEnabled(nextEnabled);
       }
     })();
 
@@ -60,6 +67,12 @@ export default function InstallStep() {
     const timer = window.setTimeout(() => setCopyMsg(''), 2400);
     return () => window.clearTimeout(timer);
   }, [copyMsg]);
+
+  useEffect(() => {
+    if (!saveMsg) return;
+    const timer = window.setTimeout(() => setSaveMsg(''), 2600);
+    return () => window.clearTimeout(timer);
+  }, [saveMsg]);
 
   const snippet = useMemo(
     () => `<script>
@@ -80,6 +93,34 @@ export default function InstallStep() {
       setCopyMsg(`${label} copied.`);
     } catch {
       setCopyMsg(`Could not copy ${label.toLowerCase()}.`);
+    }
+  };
+
+  const saveStarterLink = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const res = await fetch('/api/starter-link', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ slug: tenantSlug, enabled: starterEnabled }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok || !data?.starterLink?.slug) {
+        throw new Error(data?.error || 'Could not save Starter Link settings.');
+      }
+      const persistedSlug = toSlug(data.starterLink.slug) || tenantSlug;
+      setDetectedSlug(persistedSlug);
+      setTenantSlug(persistedSlug);
+      setStarterEnabled(data.starterLink.enabled === false ? false : true);
+      setSaveTone('ok');
+      setSaveMsg('Starter Link settings saved.');
+    } catch (err: any) {
+      setSaveTone('err');
+      setSaveMsg(err?.message || 'Could not save Starter Link settings.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -118,7 +159,25 @@ export default function InstallStep() {
             >
               Use detected slug
             </button>
+            <button
+              type="button"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50"
+              onClick={saveStarterLink}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Save Starter Link'}
+            </button>
           </div>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={starterEnabled}
+            onChange={(e) => setStarterEnabled(e.target.checked)}
+          />
+          Starter Link enabled
         </label>
 
         <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
@@ -142,6 +201,11 @@ export default function InstallStep() {
           <p className="mt-1 text-xs opacity-80">
             Share this URL in your bio, social profiles, marketplace messages, or QR code.
           </p>
+          {!starterEnabled ? (
+            <p className="mt-2 text-xs" style={{ color: '#9a3412' }}>
+              Starter Link is currently disabled. Enable and save to activate sharing.
+            </p>
+          ) : null}
           <pre className="mt-3 overflow-auto rounded-xl border border-zinc-200 bg-white p-3 text-xs leading-relaxed">
 {starterLink}
           </pre>
@@ -165,6 +229,11 @@ export default function InstallStep() {
         </div>
 
         {copyMsg ? <p className="text-sm" style={{ color: '#065f46' }}>{copyMsg}</p> : null}
+        {saveMsg ? (
+          <p className="text-sm" style={{ color: saveTone === 'ok' ? '#065f46' : '#b91c1c' }}>
+            {saveMsg}
+          </p>
+        ) : null}
 
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="h-4 w-4" /> I installed the widget or shared my Starter Link (for testing, you can pretend)

@@ -45,6 +45,8 @@ export async function POST(req: Request) {
       data: {
         slug,
         storeName,
+        starterLinkSlug: slug,
+        starterLinkEnabled: true,
         ownerId: user.id,
         memberships: { create: { userId: user.id, role: 'owner' } },
         widget: { create: {} },
