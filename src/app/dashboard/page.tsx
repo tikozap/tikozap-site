@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SupportMetricsCards from './_components/SupportMetricsCards';
 import DesignPartnerRolloutCard from './_components/DesignPartnerRolloutCard';
+import CaseStudyExportCard from './_components/CaseStudyExportCard';
 
 export default function MerchantOverview() {
   return (
@@ -20,6 +21,7 @@ export default function MerchantOverview() {
       <div className="db-grid">
         <SupportMetricsCards />
         <DesignPartnerRolloutCard />
+        <CaseStudyExportCard />
 
         <div className="db-card db-tile">
           <h3>Conversations</h3>

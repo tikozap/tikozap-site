@@ -20,6 +20,7 @@ npm run eval:support
 - `GET /api/billing/usage` (authed monthly plan usage)
 - `POST /api/billing/plan` with `{ "plan": "starter" | "pro" | "business" }`
 - `GET/POST /api/design-partner/rollout` (tenant rollout checklist workflow)
+- `GET /api/metrics/case-study/export?window=7d|30d|90d&format=json|csv` (authed KPI export)
 
 ## Twilio webhook setup (voice quality)
 Set one of these verification options:
