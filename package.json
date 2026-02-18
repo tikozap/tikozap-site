@@ -3,9 +3,8 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3010 -H 0.0.0.0",
-    "dev:3000": "next dev -p 3000 -H 0.0.0.0",
-    "build": "next build",
+    "dev": "next dev",
+    "build": "prisma generate --schema=prisma/schema.prisma && NEXT_DISABLE_ESLINT=1 next build",
     "start": "next start",
     "lint": "next lint",
     "check": "npm run lint && npm run build",
@@ -16,15 +15,17 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.1.0",
-    "@prisma/client": "^7.1.0",
+    "@prisma/adapter-pg": "^7.4.0",
+    "@prisma/client": "^7.4.0",
     "better-sqlite3": "^12.5.0",
     "dotenv": "^17.2.3",
     "lucide-react": "0.452.0",
     "next": "^14.2.35",
     "openai": "^6.10.0",
+    "pg": "^8.18.0",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "twilio": "^5.12.2"
   },
   "devDependencies": {
     "@types/node": "20.11.30",
@@ -34,7 +35,7 @@
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.4",
     "postcss": "8.4.33",
-    "prisma": "^7.1.0",
+    "prisma": "^7.4.0",
     "svgo": "^4.0.0",
     "tailwindcss": "3.4.3",
     "tsx": "^4.21.0",

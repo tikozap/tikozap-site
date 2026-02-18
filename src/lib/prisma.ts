@@ -1,42 +1,40 @@
-import 'server-only';
+// src/lib/prisma.ts
+import "server-only";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-
-const url = process.env.DATABASE_URL || 'file:./prisma/dev.db';
-
-function sqliteFilePathFromUrl(input: string): string | null {
-  if (!input.startsWith('file:')) return null;
-
-  const raw = input.slice('file:'.length).split('?')[0].split('#')[0];
-  if (!raw || raw === ':memory:') return null;
-
-  // file:./prisma/dev.db (relative) or file:/abs/path.db (absolute)
-  if (raw.startsWith('/')) return raw;
-  return path.resolve(process.cwd(), raw);
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required in .env or .env.local");
 }
 
-function ensureSqliteDirectory(input: string) {
-  const dbPath = sqliteFilePathFromUrl(input);
-  if (!dbPath) return;
-  const dir = path.dirname(dbPath);
-  fs.mkdirSync(dir, { recursive: true });
-}
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  pgPool?: Pool;
+};
 
-try {
-  ensureSqliteDirectory(url);
-} catch (error) {
-  console.error('[prisma] Failed to ensure SQLite directory', error);
-}
-
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter: new PrismaBetterSqlite3({ url }),
+const pool =
+  globalForPrisma.pgPool ??
+  new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: process.env.NODE_ENV === "production" ? 5 : 10, // small pool for serverless
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;
+
+const adapter = new PrismaPg(pool);
+
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["query", "info", "warn", "error"] : ["error"],
+  });
+};
+
+type PrismaSingleton = ReturnType<typeof prismaClientSingleton>;
+
+const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+export { prisma };

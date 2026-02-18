@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import twilio from 'twilio';
 const VoiceResponse = twilio.twiml.VoiceResponse;
 import { prisma } from '@/lib/prisma';
-import { ensurePhoneConversation, addMessage } from '@/lib/answerMachine';
+import { ensurePhoneConversation, addMessage } from '../../../../../lib/answerMachine';
 import {
   buildAbsoluteUrl,
   readTwilioParams,
