@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"   // ← change from "sqlite" to "postgresql"
 }
 
 model User {
@@ -32,24 +32,25 @@ model Session {
 }
 
 model Tenant {
-  id                 String   @id @default(cuid())
-  slug               String   @unique
-  storeName          String
-  billingPlan        String   @default("starter")
-  starterLinkSlug    String?  @unique
-  starterLinkEnabled Boolean  @default(true)
-  createdAt          DateTime @default(now())
-
-  ownerId String
-  owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  memberships   Membership[]
-  widget        Widget?
-  knowledgeDocs KnowledgeDoc[]
-  conversations Conversation[]
-  metricEvents  MetricEvent[]
-  twilioVoiceEvents TwilioVoiceEvent[]
+  id                        String   @id @default(cuid())
+  slug                      String   @unique
+  storeName                 String
+  billingPlan               String   @default("starter")
+  starterLinkSlug           String?  @unique
+  starterLinkEnabled        Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  ownerId                   String
+  owner                     User     @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships               Membership[]
+  widget                    Widget?
+  knowledgeDocs             KnowledgeDoc[]
+  conversations             Conversation[]
+  metricEvents              MetricEvent[]
+  twilioVoiceEvents         TwilioVoiceEvent[]
   designPartnerRolloutItems DesignPartnerRolloutItem[]
+  phoneAgentSettings        PhoneAgentSettings?
+  callSessions              CallSession[]           // ← NEW
+  answerMachineItems        AnswerMachineItem[]     // ← NEW
 }
 
 model Membership {
@@ -90,24 +91,22 @@ model KnowledgeDoc {
 }
 
 model Conversation {
-  id            String   @id @default(cuid())
-  tenantId      String
-  channel       String   @default("web")     // web | email | shopify
-  status        String   @default("open")    // open | waiting | closed
-  aiEnabled     Boolean  @default(true)
-
-  customerName  String   @default("Customer")
-  customerEmail String?
-  subject       String   @default("Support")
-  tags          String   @default("")        // CSV
-
-  createdAt     DateTime @default(now())
-  lastMessageAt DateTime @default(now())
-  archivedAt    DateTime?
-
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages Message[]
-
+  id                String   @id @default(cuid())
+  tenantId          String
+  channel           String   @default("web")
+  status            String   @default("open")
+  aiEnabled         Boolean  @default(true)
+  customerName      String   @default("Customer")
+  customerEmail     String?
+  subject           String   @default("Support")
+  tags              String   @default("")
+  createdAt         DateTime @default(now())
+  lastMessageAt     DateTime @default(now())
+  archivedAt        DateTime?
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages          Message[]
+  callSessions      CallSession[]             // ← NEW
+  answerMachineItems AnswerMachineItem[]      // ← NEW
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, archivedAt])
 }
@@ -159,6 +158,90 @@ model TwilioVoiceEvent {
   @@index([tenantId, createdAt])
   @@index([callSid, createdAt])
   @@index([eventType, createdAt])
+}
+
+model PhoneAgentSettings {
+  id                      String   @id @default(cuid())
+  tenantId                String   @unique
+  inboundNumberE164       String?  @unique
+  enabled                 Boolean  @default(false)
+  voiceName               String?
+  greeting                String?
+  fallbackLine            String?
+  afterHoursLine          String?
+  afterHoursVoicemailOnly Boolean  @default(true)
+  businessHoursJson       String?
+  timeZone                String   @default("America/New_York")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model CallSession {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  provider            String
+  providerCallSid     String?
+  fromNumber          String?
+  toNumber            String?
+  conversationId      String
+  status              String    @default("IN_PROGRESS")
+  fallbackTriggeredAt DateTime?
+  endedAt             DateTime?
+  createdAt           DateTime  @default(now())
+
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  answerMachineItems  AnswerMachineItem[]
+  callTurns           CallTurn[]
+}
+
+model AnswerMachineItem {
+  id                String           @id @default(cuid())
+  tenantId          String
+  conversationId    String
+  callSessionId     String?
+  type              AnswerMachineType
+  fromNumber        String?
+  reason            String
+  callbackNumber    String?
+  callbackNotes     String?
+  recordingUrl      String?
+  transcriptText    String?
+  status            AnswerMachineStatus @default(NEW)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  callSession       CallSession?     @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
+}
+
+model CallTurn {
+  id            String    @id @default(cuid())
+  callSessionId String
+  idx           Int
+  sttText       String?
+  assistantText String?
+  llmMs         Int?
+  createdAt     DateTime  @default(now())
+
+  callSession   CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([callSessionId, idx])
+}
+
+enum AnswerMachineType {
+  VOICEMAIL
+  CALLBACK
+}
+
+enum AnswerMachineStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  FAILED
 }
 
 model DesignPartnerRolloutItem {

@@ -27,6 +27,24 @@ function requireAppBaseUrl() {
   return base || 'https://app.tikozap.com';
 }
 
+function recordWithTranscription(args: {
+  tenantId: string;
+  callSessionId: string;
+  reason: string;
+  maxLength?: number;
+}) {
+  return {
+    action: `${requireAppBaseUrl()}/api/voice/voicemail?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}&reason=${args.reason}`,
+    method: "POST" as const,
+    maxLength: args.maxLength ?? 180,
+    playBeep: true,
+    finishOnKey: "#",
+    transcribe: false,
+    recordingStatusCallback: `${requireAppBaseUrl()}/api/voice/recording-status?tenantId=${args.tenantId}&callSessionId=${args.callSessionId}&reason=${args.reason}`,
+    recordingStatusCallbackMethod: "POST",
+  };
+}
+
 function normE164(v: string | null | undefined) {
   const s = (v || '').trim();
   if (!s) return null;

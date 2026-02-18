@@ -1,3 +1,4 @@
+// src/app/dashboard/conversations/_components/ConversationsClient.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
