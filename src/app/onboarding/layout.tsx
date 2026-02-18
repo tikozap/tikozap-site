@@ -9,7 +9,11 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
         <h1>Set up your store</h1>
         <p>
           You’re creating your first merchant workspace in TikoZap. (Test tenant:{' '}
-          <strong>Three Tree Fashion</strong>)
+          <strong>Demo Boutique</strong>)
+        </p>
+        <p style={{ marginTop: '.35rem', fontSize: '.9rem', opacity: 0.8 }}>
+          You can launch with a website widget or share a Starter Link if you do not have a
+          website yet.
         </p>
       </header>
 

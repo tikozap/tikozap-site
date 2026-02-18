@@ -8,10 +8,11 @@ type Msg = { id?: string; role: 'customer' | 'assistant' | 'staff' | 'note'; con
 
 const KEY_TENANT_NAME = 'tz_demo_tenant_name';
 const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
+const ACTIVATION_EVENT_SENT_TEST_MESSAGE = 'activation_sent_test_message';
 
 export default function OnboardingTestPage() {
-  const [tenantSlug, setTenantSlug] = useState('three-tree-fashion');
-  const [storeName, setStoreName] = useState('Three Tree Fashion');
+  const [tenantSlug, setTenantSlug] = useState('demo-boutique');
+  const [storeName, setStoreName] = useState('Demo Boutique');
 
   // Per-tenant conversation thread for this test page
   const storageKey = useMemo(() => `tz_widget_convo_${tenantSlug}`, [tenantSlug]);
@@ -22,6 +23,17 @@ export default function OnboardingTestPage() {
   ]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [hasTrackedTestMessage, setHasTrackedTestMessage] = useState(false);
+
+  async function trackActivation(event: string) {
+    try {
+      await fetch('/api/onboarding/activation', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ event }),
+      });
+    } catch {}
+  }
 
   // 1) Pull tenant context from demo storage (set by /demo-login quick start)
   useEffect(() => {
@@ -81,6 +93,11 @@ export default function OnboardingTestPage() {
 
       if (Array.isArray(data.messages) && data.messages.length) {
         setMessages(data.messages);
+      }
+
+      if (!hasTrackedTestMessage) {
+        setHasTrackedTestMessage(true);
+        void trackActivation(ACTIVATION_EVENT_SENT_TEST_MESSAGE);
       }
     } catch (e: any) {
       setMessages((m) => [

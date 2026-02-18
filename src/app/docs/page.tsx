@@ -60,7 +60,8 @@ export default function DocsPage() {
               <ol>
                 <li>Sign up and connect your store data (catalog, orders, policies).</li>
                 <li>
-                  Paste the widget snippet into your site’s <code>&lt;head&gt;</code>.
+                  Choose your entry point: install the website widget, or use Starter Link
+                  if you do not have a website yet.
                 </li>
                 <li>
                   Approve actions (e.g., discount limits, RMA rules) and go live.
@@ -221,19 +222,22 @@ export default function DocsPage() {
                           <strong>One-click install</strong> is designed so you can get
                           TikoZap live without a developer. On supported platforms you add
                           the app, confirm your settings, and the widget appears
-                          automatically.
+                          automatically. If you do not have a website yet, you can launch
+                          with a shareable Starter Link in minutes.
                         </p>
                         <p>
                           For custom sites, you can still install with a small snippet—no
                           heavy SDKs or build steps. Once the widget is in place, all
-                          styling and behavior are controlled from the dashboard.
+                          styling and behavior are controlled from the dashboard. Starter
+                          Link uses the same assistant configuration and inbox workflow.
                         </p>
 
                         <h4>How to set it up</h4>
                         <ol>
                           <li>
                             <strong>Choose your platform.</strong> In the install section,
-                            pick your e-commerce platform (e.g., Shopify, custom, etc.).
+                            pick your e-commerce platform (e.g., Shopify, custom, etc.) or
+                            choose Starter Link if you are not using a website yet.
                           </li>
                           <li>
                             <strong>Use the one-click app (if available).</strong> For
@@ -248,6 +252,11 @@ export default function DocsPage() {
                           <li>
                             <strong>Preview on your site.</strong> Open your storefront in a
                             new tab and confirm the widget appears and loads correctly.
+                          </li>
+                          <li>
+                            <strong>Share Starter Link (optional).</strong> Copy your hosted
+                            support URL and share it in social bios, marketplace chats, or a
+                            QR code for customers without a website flow.
                           </li>
                         </ol>
                       </>
@@ -595,10 +604,30 @@ export default function DocsPage() {
                   </p>
                 </details>
                 <details>
+                  <summary>What if I do not have a website yet?</summary>
+                  <p>
+                    Use Starter Link. It gives you a hosted support page and the same inbox
+                    workflow, so you can start now and add a widget later.
+                  </p>
+                </details>
+                <details>
                   <summary>Can I control actions?</summary>
                   <p>
                     Yes—enable/disable actions and set limits (e.g., max discount, RMA
                     reasons) per role.
+                  </p>
+                </details>
+                <details>
+                  <summary>How do you monitor talking quality with Twilio?</summary>
+                  <p>
+                    TikoZap uses a two-layer approach: <strong>transport quality</strong>{' '}
+                    (first response speed, jitter, packet loss, MOS) and{' '}
+                    <strong>conversation quality</strong> (accuracy, safe behavior,
+                    handoff readiness). Use Twilio Voice Insights metrics for transport and
+                    combine them with conversation scoring so voice can escalate early when
+                    quality drops. Send Twilio payloads to{' '}
+                    <code>/api/webhooks/twilio/voice</code> and review the summary in your
+                    dashboard metrics.
                   </p>
                 </details>
               </section>

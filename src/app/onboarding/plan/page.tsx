@@ -33,7 +33,7 @@ export default function PlanStep() {
   return (
     <div>
       <h2 className="text-lg font-semibold">Choose a plan</h2>
-      <p className="mt-1 text-sm opacity-80">Pick a plan for Three Tree Fashion. (Layout-only: Pro is pre-selected.)</p>
+      <p className="mt-1 text-sm opacity-80">Pick a plan for Demo Boutique. (Layout-only: Pro is pre-selected.)</p>
 
       <div className="mt-6 grid gap-3">
         <PlanCard title="Starter" price="$19/mo" desc="Basic widget + FAQs. Good for small shops." />

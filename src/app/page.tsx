@@ -2,6 +2,7 @@
 
 import HowItWorksGraphic from '../components/HowItWorksGraphic';
 import SafetyShields from '@/components/SafetyShields';
+import Image from 'next/image';
 
 export default function Page() {
   return (
@@ -12,7 +13,7 @@ export default function Page() {
           <h1 className="hero-title">Instant AI customer support for your store</h1>
 
           <p className="sub">
-            Easy setup • Affordable pricing •{' '}
+            Website widget or Starter Link • Affordable pricing •{' '}
             <span className="nowrap">24/7&nbsp;on-call.</span>
           </p>
 
@@ -27,6 +28,8 @@ export default function Page() {
 
           <div className="helpers">
             <span>No credit card required for trial</span>
+            <span className="dot" />
+            <span>No website required</span>
             <span className="dot" />
             <span>Cancel anytime</span>
           </div>
@@ -65,10 +68,12 @@ export default function Page() {
           </header>
 
           <div className="testimonials-art-wrap">
-            <img
+            <Image
               src="/art/threebubbles.svg"
               alt="Conversations showing teams using TikoZap"
               className="testimonials-art"
+              width={543}
+              height={453}
               loading="lazy"
             />
           </div>

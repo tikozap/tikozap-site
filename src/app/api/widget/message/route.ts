@@ -1,20 +1,31 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
+import { buildSupportReply } from '@/lib/supportAssistant';
+import { trackMetric } from '@/lib/metrics';
+import { canCreateConversationForTenant } from '@/lib/billingUsage';
 
 export const runtime = 'nodejs';
 
-function assistantAutoReply(customerText: string) {
-  const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
-  return 'Got it. Can you share a little more detail so I can help faster?';
-}
-
 export async function POST(req: Request) {
   try {
+    const rate = checkRateLimit(req, {
+      namespace: 'widget-message',
+      limit: 120,
+      windowMs: 60_000,
+    });
+    if (!rate.ok) {
+      await trackMetric({
+        source: 'widget-message',
+        event: 'rate_limited',
+      });
+      return NextResponse.json(
+        { ok: false, error: 'Too many messages. Please try again shortly.' },
+        { status: 429, headers: rateLimitHeaders(rate) },
+      );
+    }
+
     const body: any = await req.json().catch(() => ({}));
 
     const text = (body?.text || '').toString().trim();
@@ -48,18 +59,38 @@ export async function POST(req: Request) {
       }
       tenantId = tenant.id;
     }
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: 'Unable to resolve tenant' }, { status: 500 });
+    }
 
     const customerName = (body?.customerName || 'Sophia').toString().trim() || 'Sophia';
     const channel = (body?.channel || 'web').toString().trim() || 'web';
     const subject = (body?.subject || 'Widget test').toString().trim() || 'Widget test';
     const aiEnabled = body?.aiEnabled === false ? false : true;
 
-    
     let allowAi = aiEnabled;
-let conversationId = (body?.conversationId || '').toString().trim();
+    let conversationId = (body?.conversationId || '').toString().trim();
 
     // Create new conversation if needed
     if (!conversationId) {
+      const allowance = await canCreateConversationForTenant(tenantId);
+      if (!allowance.ok) {
+        await trackMetric({
+          source: 'widget-message',
+          event: 'billing_limit_blocked',
+          tenantId,
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Monthly conversation limit reached for your current plan. Upgrade in Billing to continue.',
+            usage: allowance.usage,
+          },
+          { status: 402 },
+        );
+      }
+
       const convo = await prisma.conversation.create({
         data: {
           tenantId,
@@ -93,16 +124,31 @@ let conversationId = (body?.conversationId || '').toString().trim();
         where: { id: conversationId },
         select: { aiEnabled: true },
       });
-      if (typeof existing?.aiEnabled === "boolean") allowAi = existing.aiEnabled;
+      if (typeof existing?.aiEnabled === 'boolean') allowAi = existing.aiEnabled;
     } catch (e) {}
 
     if (allowAi) {
+      const support = buildSupportReply(text);
       await prisma.message.create({
         data: {
           conversationId,
           role: 'assistant',
-          content: assistantAutoReply(text),
+          content: support.reply,
         },
+      });
+
+      if (support.needsHuman) {
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: { status: 'waiting' },
+        });
+      }
+
+      await trackMetric({
+        source: 'widget-message',
+        event: support.needsHuman ? 'needs_human_fallback' : 'answered',
+        tenantId,
+        intent: support.intent,
       });
     }
 

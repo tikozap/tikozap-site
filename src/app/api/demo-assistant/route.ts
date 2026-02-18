@@ -5,6 +5,8 @@ import {
   DEMO_BUCKET_TEXT,
   type DemoBucketName,
 } from '@/config/demoAssistant';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';
+import { trackMetric } from '@/lib/metrics';
 
 // Use Node runtime (not edge) so the SDK works normally.
 export const runtime = 'nodejs';
@@ -14,6 +16,101 @@ type HistoryMessage = {
   content: string;
 };
 
+type DemoReplySource = 'rule' | 'model' | 'canned';
+
+type DemoReplyMeta = {
+  scoreDelta: {
+    accuracy: number;
+    safety: number;
+    handoff: number;
+    setupFit: number;
+  };
+  signals: {
+    mentionsStarterLink: boolean;
+    mentionsHandoff: boolean;
+    mentionsSafePreview: boolean;
+    mentionsSetupPath: boolean;
+  };
+  rationale: {
+    accuracy: string;
+    safety: string;
+    handoff: string;
+    setupFit: string;
+  };
+};
+
+function buildReplyMeta(reply: string, source: DemoReplySource): DemoReplyMeta {
+  const lower = (reply || '').toLowerCase();
+  const mentionsStarterLink = lower.includes('starter link') || lower.includes('no website');
+  const mentionsHandoff =
+    lower.includes('handoff') ||
+    lower.includes('human') ||
+    lower.includes('team') ||
+    lower.includes('take over') ||
+    lower.includes('escalat');
+  const mentionsSafePreview =
+    lower.includes('safe preview') ||
+    lower.includes('demo') ||
+    lower.includes('sample data') ||
+    lower.includes('real orders');
+  const mentionsSetupPath =
+    lower.includes('setup') ||
+    lower.includes('install') ||
+    lower.includes('connect') ||
+    lower.includes('inbox') ||
+    lower.includes('knowledge');
+
+  const base =
+    source === 'model'
+      ? { accuracy: 8, safety: 6, handoff: 4, setupFit: 5 }
+      : source === 'rule'
+      ? { accuracy: 7, safety: 7, handoff: 5, setupFit: 6 }
+      : { accuracy: 5, safety: 5, handoff: 3, setupFit: 4 };
+
+  return {
+    scoreDelta: {
+      accuracy: base.accuracy + (reply.length > 100 ? 1 : 0),
+      safety: base.safety + (mentionsSafePreview ? 2 : 0),
+      handoff: base.handoff + (mentionsHandoff ? 4 : 0),
+      setupFit: base.setupFit + (mentionsStarterLink || mentionsSetupPath ? 3 : 0),
+    },
+    signals: {
+      mentionsStarterLink,
+      mentionsHandoff,
+      mentionsSafePreview,
+      mentionsSetupPath,
+    },
+    rationale: {
+      accuracy:
+        source === 'model'
+          ? 'Model response path used for richer answer coverage.'
+          : source === 'rule'
+          ? 'Rule-guided reply keeps product positioning consistent.'
+          : 'Canned fallback path used to keep responses safe.',
+      safety: mentionsSafePreview
+        ? 'Reply clearly reinforces safe preview boundaries.'
+        : 'Safety baseline applied by demo guardrails.',
+      handoff: mentionsHandoff
+        ? 'Reply includes human takeover/escalation direction.'
+        : 'Handoff path not explicit in this turn.',
+      setupFit:
+        mentionsStarterLink || mentionsSetupPath
+          ? 'Reply maps to practical setup path for SBO onboarding.'
+          : 'Setup detail is limited; ask for setup flow to increase fit.',
+    },
+  };
+}
+
+function jsonReply(reply: string, source: DemoReplySource) {
+  const meta = buildReplyMeta(reply, source);
+  return NextResponse.json({
+    reply,
+    source,
+    safePreview: true,
+    meta,
+  });
+}
+
 const FALLBACK_DEFAULT =
   `TikoZap is an AI customer support platform for online stores.\n\n` +
   `It gives merchants a website chat widget + a Conversations inbox for staff, with human takeover, and a knowledge base to answer store questions (shipping/returns/orders) accurately.\n\n` +
@@ -22,7 +119,7 @@ const FALLBACK_DEFAULT =
 function platformIntro(): string {
   return (
     `TikoZap is an AI customer support platform for online stores.\n\n` +
-    `Merchants add a chat bubble widget to their site and manage conversations in a dashboard inbox. The AI answers common store questions and staff can take over any chat.\n\n` +
+    `Merchants can use a website chat widget, or use Starter Link if they do not have a website yet, and manage conversations in a dashboard inbox. The AI answers common store questions and staff can take over any chat.\n\n` +
     `What do you want to explore—features, pricing, or setup?`
   );
 }
@@ -74,6 +171,19 @@ function pickBucketReply(bucket: DemoBucketName | undefined): string {
 
 export async function POST(req: Request) {
   try {
+    const rate = checkRateLimit(req, {
+      namespace: 'demo-assistant',
+      limit: 60,
+      windowMs: 60_000,
+    });
+    if (!rate.ok) {
+      await trackMetric({ source: 'demo-assistant', event: 'rate_limited' });
+      return NextResponse.json(
+        { ok: false, error: 'Too many demo requests. Please try again shortly.' },
+        { status: 429, headers: rateLimitHeaders(rate) },
+      );
+    }
+
     const body: any = await req.json().catch(() => ({}));
 
     const userTextRaw =
@@ -82,16 +192,6 @@ export async function POST(req: Request) {
     const lower = userText.toLowerCase();
     const bucket = body.bucket as DemoBucketName | undefined;
     const historyRaw = Array.isArray(body.history) ? body.history : [];
-
-    // Debug: will appear in Vercel function logs when the route is called
-    console.log(
-      '[demo-assistant] env=',
-      process.env.VERCEL_ENV ?? 'local',
-      'hasKey=',
-      !!process.env.OPENAI_API_KEY,
-      'userText=',
-      userText,
-    );
 
     const history: HistoryMessage[] = historyRaw
       .map((m: any) => {
@@ -117,24 +217,41 @@ export async function POST(req: Request) {
       lower.includes('widget') ||
       lower.includes('dashboard');
 
+    const asksStarterLink =
+      lower.includes('starter link') ||
+      ((lower.includes('no website') || lower.includes("don't have a website") || lower.includes('without website')) &&
+        (lower.includes('setup') || lower.includes('start') || lower.includes('sell')));
+
+    if (asksStarterLink) {
+      await trackMetric({ source: 'demo-assistant', event: 'starter_link_question' });
+      const reply =
+        `Yes—Starter Link is designed exactly for SBOs without a website.\n\n` +
+        `You can share a single support link with customers, and TikoZap handles incoming questions in the same inbox workflow.\n\n` +
+        `When you're ready, you can add the website widget later without changing your core setup.`;
+      return jsonReply(reply, 'rule');
+    }
+
     if (mentionsTikoZap && asksPlatformIntent) {
+      await trackMetric({ source: 'demo-assistant', event: 'platform_intent_shortcut' });
       const reply =
         `TikoZap is an AI customer support platform for online stores.\n\n` +
         `It includes:\n` +
         `• A website chat widget (chat bubble)\n` +
+        `• A Starter Link for SBOs without websites\n` +
         `• A Conversations inbox for staff (human takeover)\n` +
         `• A knowledge/policies area to train accurate store answers\n` +
-        `• Onboarding steps like Store → Plan → Billing → Knowledge → Widget → Install → Test\n\n` +
+        `• Onboarding steps like Store → Plan → Billing → Knowledge → Widget/Starter Link → Install → Test\n\n` +
         `This demo doesn’t connect to real orders—it's a safe preview of how the assistant and workflow behave.\n\n` +
         `What are you evaluating: features, pricing, or setup?`;
 
-      return NextResponse.json({ reply }, { status: 200 });
+      return jsonReply(reply, 'rule');
     }
 
     // If somehow no user text, just return a platform-focused canned answer.
     if (!userText) {
       const reply = pickBucketReply(bucket);
-      return NextResponse.json({ reply });
+      await trackMetric({ source: 'demo-assistant', event: 'empty_user_text' });
+      return jsonReply(reply, 'canned');
     }
 
     // ---------- Translation detection ----------
@@ -149,13 +266,6 @@ export async function POST(req: Request) {
       lower.includes('转成英文') ||
       ((lower.includes('中文') || lower.includes('chinese')) && !!lastAssistant) ||
       ((lower.includes('英文') || lower.includes('english')) && !!lastAssistant);
-
-    console.log(
-      '[demo-assistant] wantsTranslation=',
-      wantsTranslation,
-      'hasLastAssistant=',
-      !!lastAssistant,
-    );
 
     let replyFromModel: string | null = null;
 
@@ -249,9 +359,15 @@ export async function POST(req: Request) {
       pickBucketReply(bucket) ||
       FALLBACK_DEFAULT;
 
-    return NextResponse.json({ reply });
+    await trackMetric({
+      source: 'demo-assistant',
+      event: replyFromModel ? 'model_reply' : 'canned_reply',
+      bucket: bucket ?? 'off_topic',
+    });
+
+    return jsonReply(reply, replyFromModel ? 'model' : 'canned');
   } catch (error) {
     console.error('Error in /api/demo-assistant', error);
-    return NextResponse.json({ reply: FALLBACK_DEFAULT });
+    return jsonReply(FALLBACK_DEFAULT, 'canned');
   }
 }

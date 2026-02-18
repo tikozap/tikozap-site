@@ -1,5 +1,20 @@
 .cx-grid{ display:grid; grid-template-columns:360px 1fr; gap:12px; align-items:start; }
 .cx-list{ padding:10px; }
+.cx-quickLinks{
+  margin-top: 8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.cx-quickLink{
+  text-decoration:none;
+  color:#111827;
+  background:#fff;
+}
+.cx-quickLink:hover{
+  background:#f8fafc;
+  text-decoration:none;
+}
 .cx-item{
   width:100%;
   text-align:left;

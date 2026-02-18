@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { buildSupportReply } from '@/lib/supportAssistant';
+import { canCreateConversationForTenant } from '@/lib/billingUsage';
+import { trackMetric } from '@/lib/metrics';
 
 export const runtime = 'nodejs';
 
@@ -9,15 +12,6 @@ function splitTags(csv: string) {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function assistantAutoReply(customerText: string) {
-  const t = (customerText || '').toLowerCase();
-  if (t.includes('return')) return 'Returns are accepted within 30 days if items are unworn with tags. Want me to outline the return steps?';
-  if (t.includes('ship') || t.includes('delivery')) return 'Orders ship in 1–2 business days. Typical US delivery is 3–7 business days. What’s your ZIP code?';
-  if (t.includes('order') || t.includes('tracking')) return 'I can help—please share your order number and the email used at checkout so I can check the status.';
-  if (t.includes('xl') || t.includes('size')) return 'I can help with sizing. Which item are you looking at, and what size do you usually wear?';
-  return 'Got it. Can you share a little more detail so I can help faster?';
 }
 
 function pick<T>(arr: T[]) {
@@ -31,6 +25,24 @@ function buildNewTestChat(aiEnabled: boolean) {
     { subject: 'Shipping time', first: 'How many days does shipping take?', tags: ['shipping'], channel: 'web' },
     { subject: 'Size availability', first: 'Do you have this dress in XL?', tags: ['sizing'], channel: 'shopify' },
     { subject: 'Order status', first: 'Where is my order? I placed it last week.', tags: ['order-status'], channel: 'email' },
+    {
+      subject: 'Starter Link bubble test',
+      first: 'I came from your Starter Link. Can you help with returns?',
+      tags: ['starter-link-bubble', 'no-website'],
+      channel: 'starter-link',
+    },
+    {
+      subject: 'Website bubble test',
+      first: 'Website chat bubble test: can I change my shipping address?',
+      tags: ['chat-test', 'website-bubble'],
+      channel: 'web',
+    },
+    {
+      subject: 'AnswerMachine follow-up',
+      first: 'Caller left voicemail. Please summarize callback points.',
+      tags: ['caller', 'answerMachine'],
+      channel: 'phone',
+    },
   ];
 
   const topic = pick(topics);
@@ -38,7 +50,7 @@ function buildNewTestChat(aiEnabled: boolean) {
   const customerName = `${pick(names)}${order}`;
 
   const customerMsg = topic.first;
-  const assistantMsg = assistantAutoReply(customerMsg);
+  const assistantMsg = buildSupportReply(customerMsg).reply;
 
   return {
     customerName,
@@ -96,6 +108,24 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const aiEnabled = body?.aiEnabled === false ? false : true;
+
+  const allowance = await canCreateConversationForTenant(auth.tenant.id);
+  if (!allowance.ok) {
+    await trackMetric({
+      source: 'conversations',
+      event: 'billing_limit_blocked',
+      tenantId: auth.tenant.id,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Monthly conversation limit reached for your current plan. Upgrade in Billing to continue.',
+        usage: allowance.usage,
+      },
+      { status: 402 },
+    );
+  }
 
   const draft = buildNewTestChat(aiEnabled);
 

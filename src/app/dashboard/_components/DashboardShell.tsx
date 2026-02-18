@@ -2,12 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
-
-const KEY_TENANT_NAME = 'tz_demo_tenant_name';
-const KEY_LOGIN = 'tz_demo_logged_in';
-const KEY_ONBOARDED = 'tz_demo_onboarded';
-const KEY_TENANT_SLUG = 'tz_demo_tenant_slug';
+import { ReactNode } from 'react';
 
 function NavItem({ href, label, pill }: { href: string; label: string; pill?: string }) {
   const pathname = usePathname() || '';
@@ -23,19 +18,24 @@ function NavItem({ href, label, pill }: { href: string; label: string; pill?: st
   );
 }
 
-export default function DashboardShell({ children }: { children: ReactNode }) {
-  const [tenantName, setTenantName] = useState('Three Tree Fashion');
+export default function DashboardShell({
+  children,
+  tenantName,
+}: {
+  children: ReactNode;
+  tenantName: string;
+}) {
 
-  useEffect(() => {
-    const name = localStorage.getItem(KEY_TENANT_NAME);
-    if (name) setTenantName(name);
-  }, []);
-
-  const signOut = () => {
-    localStorage.removeItem(KEY_LOGIN);
-    localStorage.removeItem(KEY_ONBOARDED);
-    localStorage.removeItem(KEY_TENANT_NAME);
-    localStorage.removeItem(KEY_TENANT_SLUG);
+  const signOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    try {
+      localStorage.removeItem('tz_demo_logged_in');
+      localStorage.removeItem('tz_demo_onboarded');
+      localStorage.removeItem('tz_demo_tenant_name');
+      localStorage.removeItem('tz_demo_tenant_slug');
+    } catch {}
     window.location.href = '/demo-login';
   };
 
@@ -45,21 +45,24 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
         <div className="db-brand">
           <div>
             <div className="db-ws">{tenantName}</div>
-            <div className="db-meta">Plan: Pro (demo)</div>
+            <div className="db-meta">Plan: PRO</div>
           </div>
-          <button className="db-btn" onClick={signOut} title="Sign out (demo)">
-            Sign out
-          </button>
         </div>
 
         <ul className="db-nav">
           <NavItem href="/dashboard" label="Overview" />
-          <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
+          <NavItem href="/dashboard/conversations" label="Conversations" />
+          <NavItem href="/dashboard/phone-agent" label="Phone Agent" />
+          <NavItem href="/dashboard/tikozap-link" label="TikoZap Link" />
           <NavItem href="/dashboard/knowledge" label="Knowledge" />
           <NavItem href="/dashboard/widget" label="Widget" />
           <NavItem href="/dashboard/billing" label="Billing" />
           <NavItem href="/dashboard/settings" label="Settings" />
         </ul>
+
+        <button className="db-btn db-signout" onClick={signOut} title="Sign out (demo)">
+          Sign out
+        </button>
 
         <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
           Merchant-only area. (Platform admin comes later under <code>/admin</code>.)
