@@ -1,8 +1,11 @@
+// src/app/api/auth/demo-login/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
+import { newWidgetPublicKey } from '@/lib/widgetKey';
 
 export const runtime = 'nodejs';
+
 const DEFAULT_DEMO_STORE_NAME = 'Demo Boutique';
 const DEFAULT_DEMO_EMAIL = 'owner@demo-boutique.demo';
 const LEGACY_DEMO_EMAIL = 'owner@three-tree-fashion.demo';
@@ -29,11 +32,14 @@ function isLikelySchemaDrift(error: unknown): boolean {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
+
     const emailRaw =
       typeof body.email === 'string' && body.email.trim()
         ? body.email
         : DEFAULT_DEMO_EMAIL;
+
     const nameRaw = typeof body.name === 'string' ? body.name : '';
+
     const storeRaw =
       typeof body.storeName === 'string' ? body.storeName : DEFAULT_DEMO_STORE_NAME;
 
@@ -45,39 +51,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Valid email required.' }, { status: 400 });
     }
 
+    // --- user ---
     let user = await prisma.user.findUnique({ where: { email } });
+
     if (!user && email === DEFAULT_DEMO_EMAIL) {
-      const legacy = await prisma.user.findUnique({
-        where: { email: LEGACY_DEMO_EMAIL },
-      });
+      const legacy = await prisma.user.findUnique({ where: { email: LEGACY_DEMO_EMAIL } });
       if (legacy) {
-        user = await prisma.user
-          .update({
-            where: { id: legacy.id },
-            data: { email: DEFAULT_DEMO_EMAIL },
-          })
-          .catch(() => legacy);
+        user =
+          (await prisma.user
+            .update({ where: { id: legacy.id }, data: { email: DEFAULT_DEMO_EMAIL } })
+            .catch(() => null)) || legacy;
       }
     }
+
     if (!user) {
       user = await prisma.user.create({ data: { email, name } });
     }
 
+    // --- membership + tenant ---
     let membership = await prisma.membership.findFirst({
       where: { userId: user.id },
       include: { tenant: true },
     });
 
+    // Legacy migration helper (optional)
     if (!membership && email === DEFAULT_DEMO_EMAIL) {
-      const legacy = await prisma.user.findUnique({
+      const legacyUser = await prisma.user.findUnique({
         where: { email: LEGACY_DEMO_EMAIL },
         select: { id: true },
       });
-      if (legacy && legacy.id !== user.id) {
+
+      if (legacyUser && legacyUser.id !== user.id) {
         const legacyMembership = await prisma.membership.findFirst({
-          where: { userId: legacy.id },
+          where: { userId: legacyUser.id },
           include: { tenant: true },
         });
+
         if (legacyMembership?.tenant) {
           await prisma.membership.upsert({
             where: {
@@ -93,6 +102,7 @@ export async function POST(req: Request) {
               role: 'owner',
             },
           });
+
           membership = await prisma.membership.findFirst({
             where: { userId: user.id, tenantId: legacyMembership.tenant.id },
             include: { tenant: true },
@@ -115,7 +125,7 @@ export async function POST(req: Request) {
           starterLinkEnabled: true,
           ownerId: user.id,
           memberships: { create: { userId: user.id, role: 'owner' } },
-          widget: { create: {} },
+          widget: { create: { publicKey: newWidgetPublicKey() } },
         },
       });
     } else {
@@ -127,10 +137,17 @@ export async function POST(req: Request) {
           ...(tenant.starterLinkSlug ? {} : { starterLinkSlug: tenant.slug }),
         },
       });
+
+      // ✅ ensure widget exists (and MUST include publicKey if creating)
       const widget = await prisma.widget.findUnique({ where: { tenantId: tenant.id } });
-      if (!widget) await prisma.widget.create({ data: { tenantId: tenant.id } });
+      if (!widget) {
+        await prisma.widget.create({
+          data: { tenantId: tenant.id, publicKey: newWidgetPublicKey() },
+        });
+      }
     }
 
+    // --- session cookie ---
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
@@ -162,22 +179,17 @@ export async function POST(req: Request) {
     return res;
   } catch (error) {
     console.error('[api/auth/demo-login] Failed to create demo session', error);
+
     if (isLikelySchemaDrift(error)) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            'Database schema looks outdated. Run: DATABASE_URL="file:./prisma/dev.db" npx prisma migrate deploy',
+          error: 'Database schema looks outdated or mismatched. Run: npx prisma db push',
         },
         { status: 500 },
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'Could not start demo session.',
-      },
-      { status: 500 },
-    );
+
+    return NextResponse.json({ ok: false, error: 'Could not start demo session.' }, { status: 500 });
   }
 }

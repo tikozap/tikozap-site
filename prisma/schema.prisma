@@ -68,13 +68,20 @@ model Membership {
 }
 
 model Widget {
-  id         String   @id @default(cuid())
-  tenantId   String   @unique
-  publicKey  String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
-  installedAt DateTime?
+  id            String    @id @default(cuid())
+  tenantId      String    @unique
+  publicKey     String    @unique
+  createdAt     DateTime  @default(now())
+  installedAt   DateTime?
+  enabled       Boolean   @default(true)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assistantName String?
+  greeting      String?
+  brandColor    String?
+
+  allowedDomains String[] @default([])
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model KnowledgeDoc {

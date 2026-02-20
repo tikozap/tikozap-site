@@ -5,7 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required in .env or .env.local");
+  throw new Error("DATABASE_URL is required in .env.local or Vercel env vars");
 }
 
 const globalForPrisma = globalThis as unknown as {
@@ -17,7 +17,8 @@ const pool =
   globalForPrisma.pgPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: process.env.NODE_ENV === "production" ? 5 : 10, // small pool for serverless
+    max: process.env.NODE_ENV === "production" ? 5 : 10,
+    ssl: { rejectUnauthorized: false }, // Neon requires this
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;

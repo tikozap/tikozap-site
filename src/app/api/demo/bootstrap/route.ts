@@ -1,3 +1,4 @@
+// src/app/api/demo/bootstrap/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit';

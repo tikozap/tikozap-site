@@ -1,3 +1,4 @@
+// src/app/dashboard/_components/DesignPartnerRolloutCard.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';

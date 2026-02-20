@@ -1,3 +1,4 @@
+// src/app/dashboard/layout.tsx
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import './dashboard.css';

@@ -1,34 +1,39 @@
 // src/lib/answerMachine.ts
-import { prisma } from "@/lib/prisma";
-import type { AnswerMachineType } from "@prisma/client";
+import 'server-only';
+
+import { prisma } from '@/lib/prisma';
+import type { AnswerMachineType, AnswerMachineStatus } from '@prisma/client';
+
+export type MsgRole = 'customer' | 'assistant' | 'staff' | 'note' | 'system';
 
 export async function ensurePhoneConversation(args: {
   tenantId: string;
   fromNumber?: string | null;
   subject?: string;
 }) {
-  // Always create a new phone conversation for a new call (simple + clean)
-  const conv = await prisma.conversation.create({
+  // One conversation per call (simple + clean). Webhook route handles idempotency via CallSession.
+  return prisma.conversation.create({
     data: {
       tenantId: args.tenantId,
-      channel: "phone",
-      status: "open",
-      customerName: args.fromNumber ? `Caller ${args.fromNumber}` : "Caller",
-      subject: args.subject || "Phone Support",
-      tags: "phone",
+      channel: 'phone',
+      status: 'open',
+      customerName: args.fromNumber ? `Caller ${args.fromNumber}` : 'Caller',
+      subject: args.subject || 'Phone Support',
+      tags: 'phone',
       lastMessageAt: new Date(),
     },
   });
-  return conv;
 }
 
 export async function addMessage(args: {
   conversationId: string;
-  role: "system" | "user" | "assistant";
+  role: MsgRole;
   content: string;
 }) {
+  // Keep roles compatible with the Inbox UI
+  const role = args.role === 'system' ? 'note' : args.role; // optional: store system logs as notes
   await prisma.message.create({
-    data: { conversationId: args.conversationId, role: args.role, content: args.content },
+    data: { conversationId: args.conversationId, role, content: args.content },
   });
   await prisma.conversation.update({
     where: { id: args.conversationId },
@@ -42,7 +47,7 @@ export async function createAnswerMachineItem(args: {
   callSessionId?: string | null;
   type: AnswerMachineType; // VOICEMAIL | CALLBACK
   fromNumber?: string | null;
-  reason: string; // after_hours | dtmf_0 | dtmf_1 | fallback | disabled
+  reason: string;
   callbackNumber?: string | null;
   callbackNotes?: string | null;
 }) {
@@ -56,6 +61,7 @@ export async function createAnswerMachineItem(args: {
       reason: args.reason,
       callbackNumber: args.callbackNumber || null,
       callbackNotes: args.callbackNotes || null,
+      status: 'NEW',
     },
   });
 }
@@ -64,13 +70,14 @@ export async function attachVoicemailRecording(args: {
   answerMachineItemId: string;
   recordingUrl?: string | null;
   transcriptText?: string | null;
+  status?: AnswerMachineStatus;
 }) {
   return prisma.answerMachineItem.update({
     where: { id: args.answerMachineItemId },
     data: {
       recordingUrl: args.recordingUrl || null,
       transcriptText: args.transcriptText || null,
-      status: "NEW",
+      status: args.status || 'IN_PROGRESS', // recording received; transcription pending
     },
   });
 }
