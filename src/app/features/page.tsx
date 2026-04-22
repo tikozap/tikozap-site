@@ -95,7 +95,7 @@ export default function FeaturesPage() {
           </div>
 
           <div className="features-grid">
-            {coreFeatures.map((feature) => (
+            {coreFeatures.map((feature: any) => (
               <article key={feature.id} className="feature-card" id={feature.id}>
                 <div className="feature-icon" aria-hidden="true">
                   <span>{feature.icon}</span>

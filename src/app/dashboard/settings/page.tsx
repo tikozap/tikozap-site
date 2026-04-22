@@ -1,14 +1,22 @@
+// src/app/dashboard/settings/page.tsx
+
+import MobilePageHeader from '../_components/MobilePageHeader';
+
 export default function SettingsPage() {
   return (
-    <div>
-      <h1 className="db-title">Settings</h1>
-      <p className="db-sub">Store profile, team members, domains, notifications (later).</p>
+    <div className="db-container">
+      <MobilePageHeader title="Settings" />
 
-      <div style={{ marginTop: 14, border: '1px solid #e5e7eb', borderRadius: 16, padding: 14, background: '#fff' }}>
-        <div style={{ fontWeight: 800 }}>Coming next</div>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          We’ll add workspace settings and team management after conversations.
-        </p>
+      <div className="db-pageStack">
+        <h1 className="db-title">Settings</h1>
+        <p className="db-sub">Store profile, team members, domains, notifications (later).</p>
+
+        <div className="db-card">
+          <div className="db-cardTitle">Coming next</div>
+          <p className="db-cardText">
+            We’ll add workspace settings and team management after conversations.
+          </p>
+        </div>
       </div>
     </div>
   );

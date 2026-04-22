@@ -1,3 +1,5 @@
+// src/app/api/starter-link/route.ts
+
 import { NextResponse } from 'next/server';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -31,7 +33,7 @@ export async function GET() {
     starterLink: {
       enabled: auth.tenant.starterLinkEnabled,
       slug,
-      url: linkFor(slug),
+      url: slug ? linkFor(slug) : null,
     },
   });
 }
@@ -44,8 +46,8 @@ export async function POST(req: Request) {
   const slugRaw = typeof body.slug === 'string' ? body.slug : '';
   const enabled = body.enabled === false ? false : true;
 
-  const normalized = toSlug(slugRaw) || auth.tenant.slug;
-  if (!isValidSlug(normalized)) {
+  const normalized = toSlug(slugRaw) || auth.tenant.slug || "";
+if (!isValidSlug(normalized)) {
     return NextResponse.json(
       { ok: false, error: 'Starter Link slug must be 3-64 chars (a-z, 0-9, hyphen).' },
       { status: 400 },
@@ -69,13 +71,13 @@ export async function POST(req: Request) {
 
     const slug = tenant.starterLinkSlug || tenant.slug;
     return NextResponse.json({
-      ok: true,
-      starterLink: {
-        enabled: tenant.starterLinkEnabled,
-        slug,
-        url: linkFor(slug),
-      },
-    });
+  ok: true,
+  starterLink: {
+    enabled: auth.tenant.starterLinkEnabled,
+    slug,
+    url: slug ? linkFor(slug) : null,
+  },
+});
   } catch (err: any) {
     if (err?.code === 'P2002') {
       return NextResponse.json(

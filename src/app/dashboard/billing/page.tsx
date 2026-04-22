@@ -1,7 +1,10 @@
+// src/app/dashboard/billing/page.tsx
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import MobilePageHeader from '../_components/MobilePageHeader';
 
 type BillingPlan = 'starter' | 'pro' | 'business';
 
@@ -96,139 +99,125 @@ export default function BillingPage() {
   };
 
   return (
-    <div>
-      <h1 className="db-title">Billing</h1>
-      <p className="db-sub">
-        Usage limits are enforced monthly by plan. Payment wiring can be added later.
-      </p>
+    <div className="db-container">
+      <MobilePageHeader title="Billing" />
 
-      <div
-        style={{
-          marginTop: 14,
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          padding: 14,
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontWeight: 800 }}>Current plan</div>
-        {error ? (
-          <p style={{ marginTop: 8, color: '#b91c1c' }}>{error}</p>
-        ) : !usage ? (
-          <p style={{ marginTop: 8, opacity: 0.75 }}>Loading…</p>
-        ) : (
-          <>
-            <p style={{ marginTop: 6, opacity: 0.85 }}>
-              {prettyPlan(usage.plan)} · {usage.usedConversations}/{usage.monthlyLimit} conversations used (
-              {usage.utilizationPct}%)
-            </p>
-            <p style={{ marginTop: 4, opacity: 0.7, fontSize: 13 }}>
-              Billing window: {monthLabel(usage.windowStart)}
-            </p>
+      <div className="db-pageStack">
+        <h1 className="db-title">Billing</h1>
+        <p className="db-sub">
+          Usage limits are enforced monthly by plan. Payment wiring can be added later.
+        </p>
 
-            <div
+        {/* Current plan */}
+        <div className="db-card">
+          <div className="db-cardTitle">Current plan</div>
+
+          {error ? (
+            <p className="db-cardText" style={{ color: '#b91c1c' }}>{error}</p>
+          ) : !usage ? (
+            <p className="db-cardText">Loading…</p>
+          ) : (
+            <>
+              <p className="db-cardText">
+                {prettyPlan(usage.plan)} · {usage.usedConversations}/{usage.monthlyLimit} conversations used (
+                {usage.utilizationPct}%)
+              </p>
+              <p className="db-cardText" style={{ fontSize: 13 }}>
+                Billing window: {monthLabel(usage.windowStart)}
+              </p>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  width: '100%',
+                  height: 10,
+                  borderRadius: 999,
+                  background: '#e5e7eb',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    height: '100%',
+                    width: `${Math.min(100, usage.utilizationPct)}%`,
+                    background: progressColor,
+                    borderRadius: 999,
+                    transition: 'width 180ms ease',
+                  }}
+                />
+              </div>
+
+              {usage.isOverLimit ? (
+                <p className="db-cardText" style={{ color: '#b91c1c' }}>
+                  Limit reached. Upgrade plan to allow new conversations this month.
+                </p>
+              ) : usage.isNearLimit ? (
+                <p className="db-cardText" style={{ color: '#b45309' }}>
+                  Near monthly limit. Consider upgrading to avoid interruptions.
+                </p>
+              ) : (
+                <p className="db-cardText" style={{ color: '#065f46' }}>
+                  Remaining this month: {usage.remainingConversations} conversations.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Change plan */}
+        <div className="db-card">
+          <div className="db-cardTitle">Change plan</div>
+          <p className="db-cardText">
+            MVP plan switcher (no Stripe checkout yet).
+          </p>
+
+          <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {PLAN_OPTIONS.map((option: any) => {
+              const active = option.plan === selectedPlan;
+              return (
+                <button
+                  key={option.plan}
+                  type="button"
+                  className={`db-btn ${active ? 'primary' : ''}`}
+                  onClick={() => changePlan(option.plan)}
+                  disabled={savingPlan !== null}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>{option.label}</span>
+                  <span style={{ opacity: 0.8, fontSize: 12 }}>{option.price}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {notice ? (
+            <p
+              className="db-cardText"
               style={{
-                marginTop: 10,
-                width: '100%',
-                height: 10,
-                borderRadius: 999,
-                background: '#e5e7eb',
-                overflow: 'hidden',
+                color: notice.toLowerCase().includes('could not') ? '#b91c1c' : '#065f46',
               }}
             >
-              <span
-                style={{
-                  display: 'block',
-                  height: '100%',
-                  width: `${Math.min(100, usage.utilizationPct)}%`,
-                  background: progressColor,
-                  borderRadius: 999,
-                  transition: 'width 180ms ease',
-                }}
-              />
-            </div>
-
-            {usage.isOverLimit ? (
-              <p style={{ marginTop: 8, color: '#b91c1c', fontSize: 13 }}>
-                Limit reached. Upgrade plan to allow new conversations this month.
-              </p>
-            ) : usage.isNearLimit ? (
-              <p style={{ marginTop: 8, color: '#b45309', fontSize: 13 }}>
-                Near monthly limit. Consider upgrading to avoid interruptions.
-              </p>
-            ) : (
-              <p style={{ marginTop: 8, color: '#065f46', fontSize: 13 }}>
-                Remaining this month: {usage.remainingConversations} conversations.
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      <div
-        style={{
-          marginTop: 14,
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          padding: 14,
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontWeight: 800 }}>Change plan</div>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          MVP plan switcher (no Stripe checkout yet).
-        </p>
-        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {PLAN_OPTIONS.map((option) => {
-            const active = option.plan === selectedPlan;
-            return (
-              <button
-                key={option.plan}
-                type="button"
-                className={`db-btn ${active ? 'primary' : ''}`}
-                onClick={() => changePlan(option.plan)}
-                disabled={savingPlan !== null}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <span>{option.label}</span>
-                <span style={{ opacity: 0.8, fontSize: 12 }}>{option.price}</span>
-              </button>
-            );
-          })}
+              {notice}
+            </p>
+          ) : null}
         </div>
-        {notice ? (
-          <p
-            style={{
-              marginTop: 8,
-              color: notice.toLowerCase().includes('could not') ? '#b91c1c' : '#065f46',
-              fontSize: 13,
-            }}
-          >
-            {notice}
-          </p>
-        ) : null}
-      </div>
 
-      <div
-        style={{
-          marginTop: 14,
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          padding: 14,
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontWeight: 800 }}>Quick links</div>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Use onboarding billing for setup flow, then manage usage here.
-        </p>
-        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link className="db-btn" href="/onboarding/billing">
-            Open billing step
-          </Link>
-          <Link className="db-btn" href="/pricing">
-            View pricing page
-          </Link>
+        {/* Quick links */}
+        <div className="db-card">
+          <div className="db-cardTitle">Quick links</div>
+          <p className="db-cardText">
+            Use onboarding billing for setup flow, then manage usage here.
+          </p>
+
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link className="db-btn" href="/onboarding/billing">
+              Open billing step
+            </Link>
+            <Link className="db-btn" href="/pricing">
+              View pricing page
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -114,6 +114,9 @@ model Conversation {
   messages          Message[]
   callSessions      CallSession[]             // ← NEW
   answerMachineItems AnswerMachineItem[]      // ← NEW
+  // --- Inbox UX state ---
+  needsHuman      Boolean  @default(false) // red dot + bubble-to-top
+  lastSeenAt      DateTime @default(now()) // MVP: single-staff seen timestamp
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, archivedAt])
 }

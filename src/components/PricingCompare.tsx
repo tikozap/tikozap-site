@@ -156,14 +156,14 @@ export default function PricingCompare() {
             </tr>
           </thead>
           <tbody>
-            {ROW_GROUPS.map((group) => (
+            {ROW_GROUPS.map((group: any) => (
               <Fragment key={group.label}>
                 <tr className="group-row">
                   <th colSpan={5} scope="rowgroup">
                     {group.label}
                   </th>
                 </tr>
-                {group.rows.map((row) => (
+                {group.rows.map((row: any) => (
                   <tr key={row.label}>
                     <th scope="row">{row.label}</th>
                     <td>{row.starter}</td>

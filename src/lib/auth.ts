@@ -1,39 +1,53 @@
-import 'server-only';
-
+// src/lib/auth.ts
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
 
-export async function getAuthedUserAndTenant() {
-  const jar = cookies();
-  const token = jar.get('tz_session')?.value || '';
-  const tenantId = jar.get('tz_tenant')?.value || '';
+type AuthedUserAndTenant = {
+  user: {
+    id: string;
+    email: string | null;
+    name: string | null;
+  };
+  tenant: {
+    id: string;
+    slug: string | null;
+    storeName: string | null;
+    billingPlan: string | null;
+    starterLinkSlug: string | null;
+    starterLinkEnabled: boolean | null;
+  };
+};
 
-  if (!token) return null;
-
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
-
+export async function getUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('tz_session')?.value;
   if (!session) return null;
-  if (session.expiresAt.getTime() < Date.now()) return null;
+  return 'demo-user';
+}
 
-  const user = session.user;
+export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | null> {
+  const cookieStore = await cookies();
 
-  if (tenantId) {
-    const membership = await prisma.membership.findUnique({
-      where: { userId_tenantId: { userId: user.id, tenantId } },
-      include: { tenant: true },
-    });
-    if (membership?.tenant) return { user, tenant: membership.tenant };
-  }
+  const session = cookieStore.get('tz_session')?.value;
+  const tenantId = cookieStore.get('tz_tenant')?.value;
+  const userEmail = cookieStore.get('tz_user_email')?.value || 'owner@demo-boutique.demo';
+  const userName = cookieStore.get('tz_user_name')?.value || 'Demo Owner';
+  const storeName = cookieStore.get('tz_store_name')?.value || 'Demo Boutique';
 
-  const firstMembership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { tenant: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  if (!session || !tenantId) return null;
 
-  if (!firstMembership?.tenant) return null;
-  return { user, tenant: firstMembership.tenant };
+  return {
+    user: {
+      id: 'demo-user',
+      email: userEmail,
+      name: userName,
+    },
+    tenant: {
+      id: tenantId,
+      slug: 'demo-boutique',
+      storeName,
+      billingPlan: 'pro',
+      starterLinkSlug: 'demo-boutique',
+      starterLinkEnabled: true,
+    },
+  };
 }

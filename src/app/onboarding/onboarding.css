@@ -1,7 +1,15 @@
+// src/app/onboarding/onboarding.css
 .ob-container{
+  /* keep your layout */
   max-width: 56rem;
   margin: 0 auto;
   padding: calc(2.5rem + 72px) 1.25rem 2.5rem;
+
+  /* ✅ key fix: always allow scrolling inside onboarding */
+  height: 100dvh;              /* modern viewport height */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smoother on Mac/iOS */
+  box-sizing: border-box;      /* padding doesn't break height */
 }
 
 .ob-header h1{
@@ -101,3 +109,10 @@
 }
 
 .ob-btn.primary:hover{ opacity: .92; }
+
+@media (max-height: 800px){
+  .ob-container{
+    padding-top: calc(1.5rem + 72px);
+    padding-bottom: 1.5rem;
+  }
+}

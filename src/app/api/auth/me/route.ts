@@ -1,21 +1,20 @@
-import { NextResponse } from 'next/server';
-import { getAuthedUserAndTenant } from '@/lib/auth';
+// src/app/api/auth/me/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth";
+
+export const runtime = "nodejs";
 
 export async function GET() {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const userId = await getUserId();
+
+  if (!userId) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
   return NextResponse.json({
     ok: true,
-    user: { id: auth.user.id, email: auth.user.email, name: auth.user.name },
-    tenant: {
-      id: auth.tenant.id,
-      slug: auth.tenant.slug,
-      storeName: auth.tenant.storeName,
-      billingPlan: auth.tenant.billingPlan,
-      starterLinkSlug: auth.tenant.starterLinkSlug,
-      starterLinkEnabled: auth.tenant.starterLinkEnabled,
-    },
+    user: { id: userId },
+    tenant: null,
   });
 }

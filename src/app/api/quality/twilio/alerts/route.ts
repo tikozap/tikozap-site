@@ -1,36 +1,42 @@
-import { NextResponse } from 'next/server';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import { getTwilioVoiceSummary } from '@/lib/twilioVoiceEvents';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-const WINDOW_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-} as const;
-
-type WindowKey = keyof typeof WINDOW_MS;
+type WindowKey = "24h" | "7d" | "30d";
 
 export async function GET(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
 
   const url = new URL(req.url);
-  const rawWindow = url.searchParams.get('window') || '24h';
-  const windowKey: WindowKey =
-    rawWindow in WINDOW_MS ? (rawWindow as WindowKey) : '24h';
-  const since = new Date(Date.now() - WINDOW_MS[windowKey]);
-
-  const summary = await getTwilioVoiceSummary({
-    tenantId: auth.tenant.id,
-    since,
-  });
+  const windowParam = (url.searchParams.get("window") || "24h") as WindowKey;
 
   return NextResponse.json({
     ok: true,
-    window: windowKey,
-    thresholds: summary.thresholds,
-    alerts: summary.alerts,
+    window: windowParam,
+    thresholds: {
+      mosWarning: 3.5,
+      mosCritical: 3.0,
+      jitterMsMax: 30,
+      packetLossPctMax: 2,
+      roundTripMsMax: 250,
+    },
+    alerts: [
+      {
+        id: "twilio-alert-1",
+        severity: "warning",
+        message: "One recent call showed elevated jitter.",
+        metric: "jitterMs",
+        value: 34,
+        threshold: 30,
+      },
+    ],
   });
 }

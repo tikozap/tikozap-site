@@ -92,12 +92,12 @@ export type ActivationFunnel = {
 };
 
 function buildStatus(events: Set<string>): ActivationStatus {
-  const checklist = CHECKLIST_RULES.map((rule) => ({
+  const checklist = CHECKLIST_RULES.map((rule: any) => ({
     id: rule.id,
     label: rule.label,
-    done: rule.anyOf.some((event) => events.has(event)),
+    done: rule.anyOf.some((event: string) => events.has(event)),
   }));
-  const completedCount = checklist.filter((item) => item.done).length;
+  const completedCount = checklist.filter((item: any) => item.done).length;
   const totalCount = checklist.length;
   const completionPct = totalCount
     ? Math.round((completedCount / totalCount) * 100)
@@ -141,7 +141,7 @@ export async function getActivationStatus(tenantId: string): Promise<ActivationS
     },
   });
 
-  const events = new Set(rows.map((row) => row.event));
+  const events = new Set<string>(rows.map((row: any) => row.event));
   return buildStatus(events);
 }
 
@@ -163,7 +163,7 @@ export async function getActivationFunnel(opts: {
     },
   });
 
-  const rawCounts = CHECKLIST_RULES.map((rule) => ({
+  const rawCounts = CHECKLIST_RULES.map((rule: any) => ({
     id: rule.id,
     label: rule.label,
     count: countEventsForRule(rows, rule),
@@ -171,7 +171,7 @@ export async function getActivationFunnel(opts: {
 
   const maxCount = rawCounts.reduce((max, row) => Math.max(max, row.count), 0);
   const baselineCount = rawCounts[0]?.count || maxCount || 0;
-  const steps: ActivationFunnelStep[] = rawCounts.map((row, idx) => {
+  const steps: ActivationFunnelStep[] = rawCounts.map((row, idx: any) => {
     const conversionPct =
       idx === 0
         ? baselineCount > 0

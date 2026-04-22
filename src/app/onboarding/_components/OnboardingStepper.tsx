@@ -8,7 +8,7 @@ const STEPS = [
   { key: 'plan', label: 'Plan', href: '/onboarding/plan' },
   { key: 'billing', label: 'Billing', href: '/onboarding/billing' },
   { key: 'knowledge', label: 'Knowledge', href: '/onboarding/knowledge' },
-  { key: 'widget', label: 'Widget / Link', href: '/onboarding/widget' },
+  { key: 'widget', label: 'Website or Starter Link', href: '/onboarding/widget' },
   { key: 'install', label: 'Install / Share', href: '/onboarding/install' },
   { key: 'test', label: 'Test', href: '/onboarding/test' },
 ];
@@ -20,7 +20,7 @@ export default function OnboardingStepper() {
   return (
     <nav aria-label="Onboarding steps" className="ob-stepper">
       <ol>
-        {STEPS.map((step, idx) => {
+        {STEPS.map((step, idx: any) => {
           const isDone = idx < activeIndex;
           const isActive = idx === activeIndex;
 

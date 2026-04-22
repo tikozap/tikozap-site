@@ -1,12 +1,30 @@
+// src/app/dashboard/widget/test/widget-test-client.tsx
+
 'use client';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import MobilePageHeader from '../../_components/MobilePageHeader';
 
-const KEY_CONVO_ID = 'tz_widget_test_conversation_id';
+const KEY_CONVO_ID = 'tz_widget_test_conversation_id_v2';
 const KEY_CUSTOMER = 'tz_widget_test_customer';
 
-type Msg = { id?: string; role: string; content: string; createdAt?: string };
+type Product = {
+  id?: string | number;
+  title?: string;
+  price?: number | string;
+  image?: string | null;
+  available?: boolean;
+  url?: string;
+};
+
+type Msg = {
+  id?: string;
+  role: string;
+  content: string;
+  createdAt?: string;
+  products?: Product[];
+};
 
 export default function WidgetTestClient() {
   const [customer, setCustomer] = useState('Sophia (Widget Test)');
@@ -15,7 +33,6 @@ export default function WidgetTestClient() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
 
-  // restore convo + customer
   useEffect(() => {
     const cid = localStorage.getItem(KEY_CONVO_ID) || '';
     const cname = localStorage.getItem(KEY_CUSTOMER) || 'Sophia (Widget Test)';
@@ -23,7 +40,6 @@ export default function WidgetTestClient() {
     setCustomer(cname);
   }, []);
 
-  // persist customer
   useEffect(() => {
     localStorage.setItem(KEY_CUSTOMER, customer);
   }, [customer]);
@@ -31,6 +47,7 @@ export default function WidgetTestClient() {
   async function send() {
     const text = message.trim();
     if (!text || busy) return;
+
     setBusy(true);
     setMessage('');
 
@@ -42,26 +59,44 @@ export default function WidgetTestClient() {
           customerName: customer || 'Sophia (Widget Test)',
           subject: 'Widget test',
           channel: 'web',
-          tags: 'widget-test',
-          aiEnabled: true, // server enforces per-conversation authority anyway
+          tags: '',
+          aiEnabled: true,
           text,
-
-          // ✅ critical: reuse same conversation
           conversationId: conversationId || undefined,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Request failed');
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Request failed');
+      }
 
       if (data.conversationId && data.conversationId !== conversationId) {
         setConversationId(data.conversationId);
         localStorage.setItem(KEY_CONVO_ID, data.conversationId);
       }
 
-      if (Array.isArray(data.messages)) setMessages(data.messages);
+      const assistantProducts = Array.isArray(data.products) ? data.products : [];
+
+      if (Array.isArray(data.messages)) {
+        const nextMessages = data.messages.map((m: Msg, idx: number) => {
+          const isLastAssistant =
+            m.role === 'assistant' &&
+            idx === data.messages.length - 1 &&
+            assistantProducts.length > 0;
+
+          return isLastAssistant
+            ? { ...m, products: assistantProducts }
+            : m;
+        });
+
+        setMessages(nextMessages);
+      }
     } catch (e: any) {
-      setMessages((m) => [...m, { role: 'assistant', content: `Sorry—failed to send. (${e?.message || 'error'})` }]);
+      setMessages((m) => [
+        ...m,
+        { role: 'assistant', content: `Sorry—failed to send. (${e?.message || 'error'})` },
+      ]);
     } finally {
       setBusy(false);
     }
@@ -78,16 +113,20 @@ export default function WidgetTestClient() {
     : '/dashboard/conversations';
 
   const preview = useMemo(() => {
-    if (!messages.length) return [{ role: 'assistant', content: 'No messages yet. Send one on the left.' }];
+    if (!messages.length) {
+      return [{ role: 'assistant', content: 'No messages yet. Send one on the left.' }];
+    }
     return messages;
   }, [messages]);
 
   return (
-    <div>
-      <div className="db-top">
+  <div>
+    <MobilePageHeader title="Widget" />
+
+    <div className="db-top">
         <div>
           <h1 className="db-title">Widget test</h1>
-          <p className="db-sub">This simulates customer messages and writes them to the Inbox (DB).</p>
+          <p className="db-sub">This simulates customer messages and writes them to the Inbox.</p>
           <p className="db-sub" style={{ marginTop: 6 }}>
             Latest conversation id: <code>{conversationId || '(new)'}</code>
           </p>
@@ -121,7 +160,9 @@ export default function WidgetTestClient() {
               rows={4}
               className="cx-textarea"
               placeholder="Type as a customer…"
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+              }}
             />
           </label>
 
@@ -140,11 +181,12 @@ export default function WidgetTestClient() {
           <div style={{ fontWeight: 900, marginBottom: 10 }}>Widget preview</div>
 
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, padding: 14, background: '#f8fafc', minHeight: 220 }}>
-            {preview.map((m, idx) => (
+            {preview.map((m, idx: number) => (
               <div key={m.id ?? idx} style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
                   <strong style={{ textTransform: 'capitalize' }}>{m.role}</strong>
                 </div>
+
                 <div
                   style={{
                     borderRadius: 14,
@@ -159,6 +201,80 @@ export default function WidgetTestClient() {
                 >
                   {m.content}
                 </div>
+
+                {Array.isArray(m.products) && m.products.length > 0 ? (
+                  <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                    {m.products.map((p, pIdx) => {
+                      const priceText =
+                        typeof p.price === 'number'
+                          ? `$${p.price.toFixed(2)}`
+                          : p.price
+                            ? String(p.price)
+                            : '';
+
+                      const stockText =
+                        p.available === false ? 'Unavailable' : 'In stock';
+
+                      return (
+                        <div
+                          key={p.id ?? pIdx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
+                            padding: 10,
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 12,
+                            background: '#fff',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            {p.image ? (
+                              <img
+                                src={p.image}
+                                alt={p.title || 'Product'}
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  objectFit: 'cover',
+                                  borderRadius: 10,
+                                  border: '1px solid #e5e7eb',
+                                  background: '#f3f4f6',
+                                  flex: '0 0 52px',
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: 10,
+                                  border: '1px solid #e5e7eb',
+                                  background: '#f3f4f6',
+                                  flex: '0 0 52px',
+                                }}
+                              />
+                            )}
+
+                            <div style={{ minWidth: 0, display: 'grid', gap: 4 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', lineHeight: 1.3 }}>
+                                {p.title || 'Product'}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                {stockText}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' }}>
+                            {priceText}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -169,6 +285,10 @@ export default function WidgetTestClient() {
         @media (max-width: 1000px) {
           div[style*="grid-template-columns: 420px 1fr"] {
             grid-template-columns: 1fr !important;
+          }
+
+          .db-title {
+            display: none;
           }
         }
       `}</style>

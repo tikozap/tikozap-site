@@ -72,7 +72,7 @@ function toStatus(
     updatedAt: Date;
   }>,
 ): DesignPartnerRolloutStatus {
-  const items: DesignPartnerRolloutItem[] = rows.map((row) => ({
+  const items: DesignPartnerRolloutItem[] = rows.map((row: any) => ({
     id: row.id,
     key: row.key,
     title: row.title,
@@ -83,7 +83,7 @@ function toStatus(
     updatedAt: row.updatedAt.toISOString(),
   }));
 
-  const completedCount = items.filter((item) => item.done).length;
+  const completedCount = items.filter((item: any) => item.done).length;
   const totalCount = items.length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -105,12 +105,12 @@ export async function getDesignPartnerRolloutStatus(
     },
   });
 
-  const existingKeys = new Set(existing.map((row) => row.key));
-  const missing = DESIGN_PARTNER_ROLLOUT_TEMPLATE.filter((item) => !existingKeys.has(item.key));
+  const existingKeys = new Set(existing.map((row: any) => row.key));
+  const missing = DESIGN_PARTNER_ROLLOUT_TEMPLATE.filter((item: any) => !existingKeys.has(item.key));
 
   if (missing.length > 0) {
     await prisma.designPartnerRolloutItem.createMany({
-      data: missing.map((item) => ({
+      data: missing.map((item: any) => ({
         tenantId,
         key: item.key,
         title: item.title,
@@ -119,7 +119,7 @@ export async function getDesignPartnerRolloutStatus(
     });
   }
 
-  const order = DESIGN_PARTNER_ROLLOUT_TEMPLATE.map((item) => item.key);
+  const order = DESIGN_PARTNER_ROLLOUT_TEMPLATE.map((item: any) => item.key);
   const rows = await prisma.designPartnerRolloutItem.findMany({
     where: { tenantId },
     select: {
@@ -134,7 +134,7 @@ export async function getDesignPartnerRolloutStatus(
     },
   });
 
-  rows.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  rows.sort((a: any, b: any) => order.indexOf(a.key) - order.indexOf(b.key));
   return toStatus(rows);
 }
 

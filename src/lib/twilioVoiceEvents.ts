@@ -365,27 +365,27 @@ export async function getTwilioVoiceSummary(opts: {
   });
 
   const withMetrics = rows.filter(
-    (r) =>
+    (r: any) =>
       r.mos != null ||
       r.jitterMs != null ||
       r.packetLossPct != null ||
       r.roundTripMs != null,
   );
 
-  const avgMos = avg(withMetrics.map((r) => r.mos));
-  const avgJitter = avg(withMetrics.map((r) => r.jitterMs));
-  const avgPacketLoss = avg(withMetrics.map((r) => r.packetLossPct));
-  const avgRoundTrip = avg(withMetrics.map((r) => r.roundTripMs));
+  const avgMos = avg(withMetrics.map((r: any) => r.mos));
+  const avgJitter = avg(withMetrics.map((r: any) => r.jitterMs));
+  const avgPacketLoss = avg(withMetrics.map((r: any) => r.packetLossPct));
+  const avgRoundTrip = avg(withMetrics.map((r: any) => r.roundTripMs));
 
   const degraded = {
-    lowMos: withMetrics.filter((r) => typeof r.mos === 'number' && r.mos < 3.5).length,
-    highJitter: withMetrics.filter((r) => typeof r.jitterMs === 'number' && r.jitterMs > 30)
+    lowMos: withMetrics.filter((r: any) => typeof r.mos === 'number' && r.mos < 3.5).length,
+    highJitter: withMetrics.filter((r: any) => typeof r.jitterMs === 'number' && r.jitterMs > 30)
       .length,
     highPacketLoss: withMetrics.filter(
-      (r) => typeof r.packetLossPct === 'number' && r.packetLossPct > 1.5,
+      (r: any) => typeof r.packetLossPct === "number" && r.packetLossPct > 1.5,
     ).length,
     highRoundTrip: withMetrics.filter(
-      (r) => typeof r.roundTripMs === 'number' && r.roundTripMs > 260,
+      (r: any) => typeof r.roundTripMs === "number" && r.roundTripMs > 260,
     ).length,
   };
 

@@ -74,8 +74,8 @@ function verifyTwilioSignature(opts: { req: Request; rawBody: string; form: URLS
   for (const url of candidateUrls(opts.req)) {
     // Twilio signature is usually URL + sorted POST params
     if (opts.form) {
-      const sortedForm = new URLSearchParams([...opts.form.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-      const data = url + Array.from(sortedForm.entries()).map(([k, v]) => k + v).join('');
+      const sortedForm = new URLSearchParams([...opts.form.entries()].sort((a: any, b: any) => a[0].localeCompare(b[0])));
+      const data = url + Array.from(sortedForm.entries()).map(([k, v]: any) => k + v).join('');
       if (safeEquals(signature, hmacSha1Base64(authToken, data))) return true;
     }
     // fallback attempt

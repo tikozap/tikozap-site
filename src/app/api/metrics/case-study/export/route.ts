@@ -1,43 +1,56 @@
-import { NextResponse } from 'next/server';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import {
-  CASE_STUDY_WINDOW_MS,
-  caseStudyMetricsToCsv,
-  getCaseStudyMetrics,
-  type CaseStudyWindowKey,
-} from '@/lib/caseStudyMetrics';
+// src/app/api/metrics/case-study/export/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+
+export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
 
   const url = new URL(req.url);
-  const rawWindow = url.searchParams.get('window') || '30d';
-  const windowKey: CaseStudyWindowKey =
-    rawWindow in CASE_STUDY_WINDOW_MS ? (rawWindow as CaseStudyWindowKey) : '30d';
-  const format = (url.searchParams.get('format') || 'json').toLowerCase();
-
-  const metrics = await getCaseStudyMetrics({
-    tenantId: auth.tenant.id,
-    window: windowKey,
-  });
-
-  if (format === 'csv') {
-    const csv = caseStudyMetricsToCsv(metrics);
-    return new Response(csv, {
-      headers: {
-        'content-type': 'text/csv; charset=utf-8',
-        'content-disposition': `attachment; filename="tikozap-case-study-${windowKey}.csv"`,
-        'cache-control': 'no-store',
-      },
-    });
-  }
+  const windowParam = url.searchParams.get("window") || "30d";
 
   return NextResponse.json({
     ok: true,
-    window: windowKey,
-    metrics,
+    window: windowParam,
+    rows: [
+      {
+        date: "2026-03-01",
+        conversations: 18,
+        autoResolved: 13,
+        needsHuman: 5,
+      },
+      {
+        date: "2026-03-08",
+        conversations: 22,
+        autoResolved: 16,
+        needsHuman: 6,
+      },
+      {
+        date: "2026-03-15",
+        conversations: 19,
+        autoResolved: 14,
+        needsHuman: 5,
+      },
+      {
+        date: "2026-03-22",
+        conversations: 25,
+        autoResolved: 18,
+        needsHuman: 7,
+      },
+    ],
+    summary: {
+      conversations: 84,
+      autoResolved: 61,
+      needsHuman: 23,
+    },
   });
 }

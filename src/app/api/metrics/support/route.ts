@@ -1,30 +1,39 @@
-import { NextResponse } from 'next/server';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import { getSupportMetrics } from '@/lib/metrics';
+// src/app/api/metrics/support/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
 
-const WINDOW_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-} as const;
+export const runtime = "nodejs";
 
-type WindowKey = keyof typeof WINDOW_MS;
+type WindowKey = "24h" | "7d" | "30d";
 
 export async function GET(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   const url = new URL(req.url);
-  const raw = url.searchParams.get('window') || '24h';
-  const windowKey: WindowKey = raw in WINDOW_MS ? (raw as WindowKey) : '24h';
-  const since = new Date(Date.now() - WINDOW_MS[windowKey]);
+  const windowParam = (url.searchParams.get("window") || "24h") as WindowKey;
 
-  const metrics = await getSupportMetrics({
-    tenantId: auth.tenant.id,
-    since,
+  return NextResponse.json({
+    ok: true,
+    window: windowParam,
+    metrics: {
+      startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      totalEvents: 84,
+      counters: {
+        answered: 61,
+        needsHumanFallback: 23,
+        rateLimited: 2,
+        intents: {
+          order_status: 18,
+          returns: 14,
+          product_search: 22,
+          shipping: 11,
+          unknown: 5,
+        },
+      },
+    },
   });
-
-  return NextResponse.json({ ok: true, window: windowKey, metrics });
 }

@@ -1,3 +1,5 @@
+// src/lib/caseStudyMetrics.ts
+
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
@@ -61,7 +63,7 @@ function pct(num: number, den: number): number {
 
 function percentile(values: number[], p: number): number | null {
   if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
+  const sorted = [...values].sort((a: any, b: any) => a - b);
   const idx = Math.min(sorted.length - 1, Math.max(0, Math.round((p / 100) * (sorted.length - 1))));
   return Math.round(sorted[idx]);
 }
@@ -89,7 +91,7 @@ export function caseStudyMetricsToCsv(metrics: CaseStudyMetrics): string {
     ['quality.rateLimitedEvents', metrics.quality.rateLimitedEvents],
     [
       'quality.topIntents',
-      metrics.quality.topIntents.map((i) => `${i.intent}:${i.count}`).join(' | '),
+      metrics.quality.topIntents.map((i: any) => `${i.intent}:${i.count}`).join(' | '),
     ],
     ['onboarding.completionPct', metrics.onboarding.completionPct],
     ['onboarding.completedCount', metrics.onboarding.completedCount],
@@ -105,7 +107,7 @@ export function caseStudyMetricsToCsv(metrics: CaseStudyMetrics): string {
     ['voice.avgPacketLossPct', metrics.voice.avgPacketLossPct],
   ];
 
-  const lines = ['"metric","value"', ...rows.map(([k, v]) => toCsvRow(k, v))];
+  const lines = ['"metric","value"', ...rows.map(([k, v]: any) => toCsvRow(k, v))];
   return lines.join('\n');
 }
 
@@ -143,23 +145,29 @@ export async function getCaseStudyMetrics(args: {
   ]);
 
   const totalConversations = conversations.length;
-  const unresolvedConversations = conversations.filter((c) => c.status !== 'closed').length;
+  const unresolvedConversations = conversations.filter(
+  (c: any) => c.status !== "closed"
+).length;
 
   const firstResponseSeconds: number[] = [];
-  for (const conversation of conversations) {
-    const firstCustomer = conversation.messages.find((m) => m.role === 'customer');
-    if (!firstCustomer) continue;
-    const firstResponder = conversation.messages.find(
-      (m) =>
-        (m.role === 'assistant' || m.role === 'staff') &&
-        m.createdAt.getTime() >= firstCustomer.createdAt.getTime(),
-    );
-    if (!firstResponder) continue;
-    const seconds = Math.round(
-      (firstResponder.createdAt.getTime() - firstCustomer.createdAt.getTime()) / 1000,
-    );
-    if (seconds >= 0) firstResponseSeconds.push(seconds);
-  }
+for (const conversation of conversations) {
+  const firstCustomer = conversation.messages.find((m: any) => m.role === "customer");
+  if (!firstCustomer) continue;
+
+  const firstResponder = conversation.messages.find(
+    (m: any) =>
+      (m.role === "assistant" || m.role === "staff") &&
+      m.createdAt.getTime() >= firstCustomer.createdAt.getTime()
+  );
+
+  if (!firstResponder) continue;
+
+  const seconds = Math.round(
+    (firstResponder.createdAt.getTime() - firstCustomer.createdAt.getTime()) / 1000
+  );
+
+  if (seconds >= 0) firstResponseSeconds.push(seconds);
+}
 
   let answeredEvents = 0;
   let needsHumanEvents = 0;
@@ -175,9 +183,9 @@ export async function getCaseStudyMetrics(args: {
   }
 
   const topIntents = Object.entries(intentCounts)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a: any, b: any) => b[1] - a[1])
     .slice(0, 5)
-    .map(([intent, count]) => ({ intent, count }));
+    .map(([intent, count]: any) => ({ intent, count }));
 
   return {
     window: args.window,

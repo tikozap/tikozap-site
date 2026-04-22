@@ -1,3 +1,4 @@
+// src/app/onboarding/layout.tsx
 import type { ReactNode } from 'react';
 import './onboarding.css';
 import OnboardingStepper from './_components/OnboardingStepper';
@@ -19,9 +20,10 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
 
       <OnboardingStepper />
 
-      <section className="ob-card">{children}</section>
+      {/* IMPORTANT: this becomes the scroll region */}
+      <section className="ob-card ob-cardScroll">{children}</section>
 
-      <p style={{ marginTop: '1.25rem', fontSize: '.8rem', opacity: 0.7 }}>
+      <p className="ob-footerNote">
         Layout-only for now. Next we’ll wire auth → tenant creation → billing → widget install → inbox.
       </p>
     </main>

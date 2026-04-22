@@ -1,3 +1,5 @@
+// import SiteFooter from "@/components/SiteFooter";
+
 'use client';
 
 import Link from 'next/link';
@@ -8,9 +10,14 @@ export default function Footer() {
   const pathname = usePathname();
 
   // Hide footer on dashboard/demo routes to maximize workspace area.
-  if (pathname && (pathname.startsWith('/demo') || pathname.startsWith('/dashboard'))) {
-    return null;
-  }
+if (
+  pathname &&
+  (pathname.startsWith('/demo') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/l/'))
+) {
+  return null;
+}
 
   return (
     <footer className="footer footer-band-navy">

@@ -1,63 +1,74 @@
-'use client';
+// src/app/page.tsx
 
-import HowItWorksGraphic from '../components/HowItWorksGraphic';
-import SafetyShields from '@/components/SafetyShields';
-import Image from 'next/image';
+"use client";
+
+import { useState } from "react";
+import HowItWorksGraphic from "../components/HowItWorksGraphic";
+import SafetyShields from "@/components/SafetyShields";
+import Image from "next/image";
+import HeroOrbPreview from "@/components/HeroOrbPreview";
+import HeroDemoModal from "@/components/HeroDemoModal";
+
+type DemoMode = "chat" | "voice";
 
 export default function Page() {
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoMode, setDemoMode] = useState<DemoMode>("voice");
+
+  function openDemo(mode: DemoMode) {
+    setDemoMode(mode);
+    setDemoOpen(true);
+  }
+
   return (
     <main id="main" className="has-sticky">
-      {/* Hero – full-width light gray band, content in container */}
-      <section className="section-band-gray hero-band">
-        <div className="container hero stack">
-          <h1 className="hero-title">Instant AI customer support for your store</h1>
+      <section className="section-band-gray hero-new">
+        <div className="container hero-grid">
+          <div className="hero-left">
+            <h1 className="hero-title">
+              Instant AI support
+              <br />
+              for your store
+            </h1>
 
-          <p className="sub">
-            Website widget or Starter Link • Affordable pricing •{' '}
-            <span className="nowrap">24/7&nbsp;on-call.</span>
-          </p>
+            <p className="hero-sub">
+              Easy setup. Affordable pricing. 24/7 on-call.
+            </p>
 
-          <div className="cluster hero-ctas" style={{ justifyContent: 'center' }}>
-            <a className="button" href="/signup?plan=pro">
-              Get started free
-            </a>
-            <a className="button-outline" href="/demo">
-              Live demo
-            </a>
+            <div className="hero-cta">
+              <a className="button" href="/signup?plan=pro">
+                Free Pro 14-day trial
+              </a>
+            </div>
+
+            <p className="hero-trust">No credit card required.</p>
           </div>
 
-          <div className="helpers">
-            <span>No credit card required for trial</span>
-            <span className="dot" />
-            <span>No website required</span>
-            <span className="dot" />
-            <span>Cancel anytime</span>
-          </div>
-
-          <p
-            className="hero-microtrust small"
-            style={{ textAlign: 'center', marginTop: '0.75rem' }}
-          >
-            Actions always under your control.
-          </p>
+          <HeroOrbPreview
+            onPenClick={() => openDemo("chat")}
+            onMicClick={() => openDemo("voice")}
+          />
         </div>
       </section>
 
-      {/* How it works – full-width lilac band */}
+      <HeroDemoModal
+        open={demoOpen}
+        mode={demoMode}
+        onClose={() => setDemoOpen(false)}
+      />
+
       <section className="section-band-lilac">
         <div className="container-wide">
           <HowItWorksGraphic />
         </div>
       </section>
 
-      {/* Three safety shields */}
       <section className="section-band-white">
         <div className="container stack">
           <SafetyShields />
         </div>
       </section>
 
-      {/* Testimonials – three bubbles */}
       <section className="section-band-gray">
         <div className="container testimonials stack">
           <header className="testimonials-head stack">
@@ -80,8 +91,6 @@ export default function Page() {
         </div>
       </section>
 
-      {/* Homepage bottom CTA on white */}
-      {/* Bottom CTA – mirror Pricing page spacing */}
       <section
         className="section-band-white home-cta-band"
         aria-labelledby="home-pricing-cta"
@@ -91,7 +100,6 @@ export default function Page() {
             View TikoZap pricing
           </h2>
 
-          {/* Blue button with white text (same as Pricing page) */}
           <a href="/pricing" className="button">
             View pricing
           </a>
@@ -102,21 +110,7 @@ export default function Page() {
         </div>
       </section>
 
-
       <style jsx>{`
-        /* Reduce gap between navbar and hero heading */
-        .hero {
-          padding-top: 2.5rem;
-        }
-
-        @media (min-width: 768px) {
-          .hero {
-            padding-top: 3rem;
-          }
-        }
-
-        /* === Home: testimonials === */
-
         .testimonials {
           padding: 2.8rem 0 3rem;
         }
@@ -130,7 +124,7 @@ export default function Page() {
         .testimonials-eyebrow {
           margin: 0;
           letter-spacing: 0.08em;
-          text-transform: none; /* no ALL CAPS */
+          text-transform: none;
           color: var(--muted);
         }
 
@@ -144,14 +138,13 @@ export default function Page() {
         }
 
         .testimonials-art {
-          width: min(560px, 100%); /* bigger bubbles -> more readable text */
+          width: min(560px, 100%);
           max-width: 560px;
           height: auto;
         }
 
-        /* === Home: bottom CTA (match Pricing spacing) === */
         .home-cta-band {
-          padding: 1rem 0 0rem; /* same vertical rhythm as Pricing CTA */
+          padding: 1rem 0 0rem;
         }
 
         .home-cta {

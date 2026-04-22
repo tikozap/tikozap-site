@@ -116,7 +116,7 @@ export default function DesignPartnerRolloutCard() {
         <p style={{ marginTop: 8 }}>Loading…</p>
       ) : (
         <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
-          {sortedItems.map((item) => (
+          {sortedItems.map((item: any) => (
             <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flex: 1 }}>

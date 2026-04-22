@@ -1,13 +1,24 @@
-import { NextResponse } from 'next/server';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import { getTenantBillingUsage } from '@/lib/billingUsage';
+// src/app/api/billing/usage/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+
+export const runtime = "nodejs";
 
 export async function GET() {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
-  const usage = await getTenantBillingUsage(auth.tenant.id);
-  return NextResponse.json({ ok: true, usage });
+  return NextResponse.json({
+    ok: true,
+    usage: {
+      plan: "pro",
+      conversationsUsed: 84,
+      conversationsLimit: 500,
+      utilizationPct: 17,
+      overage: false,
+    },
+  });
 }

@@ -19,8 +19,8 @@ function hmacSha1Base64(secret: string, data: string): string {
 
 function computeTwilioSignature(authToken: string, url: string, params: Record<string, string>): string {
   const sorted = Object.keys(params)
-    .sort((a, b) => a.localeCompare(b))
-    .map((k) => `${k}${params[k] ?? ''}`)
+    .sort((a: any, b: any) => a.localeCompare(b))
+    .map((k: any) => `${k}${params[k] ?? ''}`)
     .join('');
 
   return hmacSha1Base64(authToken, url + sorted);

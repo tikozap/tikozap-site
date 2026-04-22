@@ -114,15 +114,20 @@
 }
 
 /* Buttons (override global blue marketing button) */
+
 .db-btn{
   border-radius: 14px;
-  padding: 10px 12px;
+  height: 34px;
+  padding: 0 12px;
   border: 1px solid #d1d5db;
   background: #fff;
   color: #111827;
   cursor: pointer;
   font-size: 13px;
-  min-height: auto; /* override global */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .db-btn:hover{ background: #f8fafc; }
@@ -387,10 +392,10 @@ html, body{
 }
 
 /* Overview-specific */
-.db-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: var(--db-gap);
+.db-container{
+  width:100%;
+  max-width:980px;
+  margin:0;
 }
 
 .db-header {
@@ -416,7 +421,7 @@ html, body{
 
 .db-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -527,6 +532,12 @@ html, body{
   .db-main {
     padding: 16px;
   }
+
+.db-top{
+  flex: 0 0 auto;
+  margin-bottom: 16px;
+}
+
 }
 
 /* Hide mobile topbar on desktop */
@@ -534,4 +545,67 @@ html, body{
   .db-topbar, .db-scrim {
     display: none;
   }
+
+.db-pageStack{
+  display:grid;
+  gap:14px;
+}
+
+.db-card{
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:16px;
+  background:#fff;
+}
+
+.db-cardTitle{
+  font-size:16px;
+  font-weight:800;
+  color:#111827;
+}
+
+.db-cardText{
+  margin-top:6px;
+  font-size:14px;
+  line-height:1.5;
+  color:#6b7280;
+}
+
+.db-sub{
+  margin-top:4px;
+  font-size:13px;
+  line-height:1.45;
+  color:#6b7280;
+}
+
+.db-title{
+  font-size:28px;
+  line-height:1.1;
+  font-weight:900;
+  color:#111827;
+}
+
+@media (max-width: 900px){
+  .db-title{
+    font-size:18px;
+    line-height:1.2;
+    font-weight:800;
+  }
+
+  .db-card{
+    padding:14px;
+  }
+
+  .db-cardTitle{
+    font-size:15px;
+  }
+
+  .db-cardText{
+    font-size:13px;
+  }
+
+  .db-sub{
+    font-size:12px;
+  }
+}
 }

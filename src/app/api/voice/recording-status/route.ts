@@ -1,7 +1,7 @@
 // src/app/api/voice/recording-status/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { toFile } from "openai/uploads"; // ✅ add
+import { toFile } from "openai/uploads";
 import { prisma } from "@/lib/prisma";
 import { buildAbsoluteUrl, readTwilioParams, validateTwilioWebhookOrThrow } from "@/lib/twilio/validate";
 
@@ -22,13 +22,19 @@ export async function POST(req: Request) {
   }
 
   const status = (params.RecordingStatus || "").toLowerCase();
-  if (status !== "completed") return NextResponse.json({ ok: true });
+  if (status !== "completed") {
+    console.log("[recording-status] Ignoring non-completed status:", status);
+    return NextResponse.json({ ok: true });
+  }
 
   const recordingUrl = params.RecordingUrl as string | undefined;
   const recordingSid = params.RecordingSid as string | undefined;
   const callSid = params.CallSid as string | undefined;
 
-  if (!recordingUrl || !callSid) return NextResponse.json({ ok: true });
+  if (!recordingUrl || !callSid) {
+    console.log("[recording-status] Missing required params:", { recordingUrl, callSid });
+    return NextResponse.json({ ok: true });
+  }
 
   const item = await prisma.answerMachineItem.findFirst({
     where: {
@@ -40,14 +46,20 @@ export async function POST(req: Request) {
     include: { callSession: { select: { conversationId: true } } },
   });
 
-  if (!item) return NextResponse.json({ ok: true });
+  if (!item) {
+    console.log("[recording-status] No matching voicemail item found for callSid:", callSid);
+    return NextResponse.json({ ok: true });
+  }
 
+  // Skip if already transcribed
   if (item.transcriptText && item.transcriptText.trim().length > 5) {
+    console.log("[recording-status] Transcription already exists, skipping");
     return NextResponse.json({ ok: true });
   }
 
   try {
     const audioFetchUrl = `${recordingUrl}.mp3`;
+    console.log("[recording-status] Fetching audio from:", audioFetchUrl);
 
     const audioResponse = await fetch(audioFetchUrl, {
       headers: {
@@ -59,23 +71,28 @@ export async function POST(req: Request) {
 
     if (!audioResponse.ok) {
       const errorText = await audioResponse.text().catch(() => "");
-      throw new Error(`Audio fetch failed: ${audioResponse.status} ${errorText}`);
+      throw new Error(`Audio fetch failed: ${audioResponse.status} - ${errorText}`);
     }
 
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-
     const file = await toFile(audioBuffer, `voicemail-${recordingSid || Date.now()}.mp3`, {
       type: "audio/mpeg",
     });
 
+    console.log("[recording-status] Sending audio to Whisper for transcription...");
+
     const transcription = await openai.audio.transcriptions.create({
       file,
-      model: "gpt-4o-mini-transcribe",
+      model: "whisper-1",
       response_format: "text",
     });
 
     const transcript = (transcription || "").trim();
-    if (!transcript) throw new Error("Empty transcription result");
+    console.log("[recording-status] Whisper transcription result:", transcript);
+
+    if (!transcript) {
+      throw new Error("Empty transcription result from Whisper");
+    }
 
     await prisma.answerMachineItem.update({
       where: { id: item.id },
@@ -84,6 +101,7 @@ export async function POST(req: Request) {
 
     const convoId = item.callSession?.conversationId;
     if (convoId) {
+      console.log("[recording-status] Adding transcribed message to conversation:", convoId);
       await prisma.$transaction([
         prisma.message.create({
           data: {
@@ -99,6 +117,7 @@ export async function POST(req: Request) {
       ]);
     }
 
+    console.log("[recording-status] Transcription success for item:", item.id);
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("[recording-status] Transcription failed:", error?.message || error);
@@ -106,6 +125,6 @@ export async function POST(req: Request) {
       where: { id: item.id },
       data: { status: "FAILED" },
     }).catch(() => {});
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }); // still 200 to Twilio
   }
 }

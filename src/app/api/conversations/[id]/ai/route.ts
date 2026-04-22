@@ -1,26 +1,51 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthedUserAndTenant } from '@/lib/auth';
+// src/app/api/conversations/[id]/ai/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+import { getDemoInboxConversation } from "@/lib/demoInboxStore";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+export const runtime = "nodejs";
 
-  const body = await req.json().catch(() => ({}));
-  const aiEnabled = body.aiEnabled === false ? false : true;
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = await getDemoSession();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
 
-  const convo = await prisma.conversation.findFirst({
-    where: { id: params.id, tenantId: auth.tenant.id },
-    select: { id: true },
-  });
-  if (!convo) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    const body = await req.json().catch(() => ({}));
+    const aiEnabled = body.aiEnabled === false ? false : true;
 
-  await prisma.conversation.update({
-    where: { id: params.id },
-    data: { aiEnabled },
-  });
+    const convo = getDemoInboxConversation(params.id);
+    if (!convo) {
+      return NextResponse.json(
+        { ok: false, error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
 
-  return NextResponse.json({ ok: true });
+    convo.aiEnabled = aiEnabled;
+    convo.needsHuman = false;
+
+    if (convo.status !== "closed") {
+      convo.status = aiEnabled ? "open" : "waiting";
+    }
+
+    return NextResponse.json({
+      ok: true,
+      conversation: convo,
+    });
+  } catch (error) {
+    console.error("POST /api/conversations/[id]/ai failed:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 }
+    );
+  }
 }

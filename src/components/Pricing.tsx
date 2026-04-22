@@ -123,7 +123,7 @@ export default function Pricing() {
 
       {/* Pricing grid */}
       <div className="grid cols-1 pricing-grid">
-        {PLANS.map((p) => (
+        {PLANS.map((p: any) => (
           <article
             key={p.id}
             className={`plan ${p.focused ? 'plan--focus' : ''}`}
@@ -166,7 +166,7 @@ export default function Pricing() {
             </header>
 
             <ul className="features">
-              {p.features.map((f) => (
+              {p.features.map((f: any) => (
                 <li key={f}>
                   <svg
                     width="18"

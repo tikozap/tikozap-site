@@ -38,7 +38,7 @@ export default function DocsPage() {
               <li>
                 <a href="#features">Core features</a>
               </li>
-              {featureSections.map((s) => (
+              {featureSections.map((s: any) => (
                 <li key={s.id}>
                   <a href={`#${s.id}`}>{s.title}</a>
                 </li>
@@ -79,7 +79,7 @@ export default function DocsPage() {
 
               {/* ONE COLUMN: read one feature at a time */}
               <div className="feature-docs-column">
-                {featureSections.map((s) => (
+                {featureSections.map((s: any) => (
                   <section key={s.id} id={s.id} className="stack feature-doc">
                     <h3>{s.title}</h3>
 

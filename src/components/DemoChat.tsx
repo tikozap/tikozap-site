@@ -1,35 +1,24 @@
-'use client';
+// src/components/DemoChat.tsx
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+"use client";
+
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   DEMO_BUCKET_TEXT,
   demoDetectBucket,
   type DemoBucketName,
-} from '@/config/demoAssistant';
+} from "@/config/demoAssistant";
 
-type Role = 'assistant' | 'user';
-type ReplySource = 'rule' | 'model' | 'canned';
-type ScoreDelta = {
-  accuracy: number;
-  safety: number;
-  handoff: number;
-  setupFit: number;
-};
+type Role = "assistant" | "user";
+type ReplySource = "rule" | "model" | "canned";
 
-type DemoReplyMeta = {
-  scoreDelta: ScoreDelta;
-  signals: {
-    mentionsStarterLink: boolean;
-    mentionsHandoff: boolean;
-    mentionsSafePreview: boolean;
-    mentionsSetupPath: boolean;
-  };
-  rationale: {
-    accuracy: string;
-    safety: string;
-    handoff: string;
-    setupFit: string;
-  };
+type DemoProduct = {
+  id: string;
+  title: string;
+  price?: number;
+  image?: string;
+  available?: boolean;
+  url?: string;
 };
 
 type DemoMessage = {
@@ -38,107 +27,32 @@ type DemoMessage = {
   text: string;
   source?: ReplySource;
   safePreview?: boolean;
-  meta?: DemoReplyMeta;
+  products?: DemoProduct[];
 };
-
-function fallbackDefault(): string {
-  return (
-    'In this demo I am focused on store-style questions like orders, ' +
-    'shipping, returns, and sizing. In the full product, I would use your own ' +
-    'FAQs, docs, and store data to answer more precisely.'
-  );
-}
 
 const STARTER_PROMPTS = [
-  'I do not have a website. How would Starter Link work?',
-  'Show me how you handle an order status question.',
-  'How does human takeover work in the inbox?',
-  'What can I set up in the first 15 minutes?',
+  "Show me dresses",
+  "Find me a black jacket",
+  "How does this help my Shopify store?",
+  "How do I start?",
 ];
 
-type DemoScorecard = {
-  accuracy: number;
-  safety: number;
-  handoff: number;
-  setupFit: number;
-};
-
-type TransportSnapshot = {
-  firstTokenMs?: number;
-  totalResponseMs?: number;
-  usedSse: boolean;
-  fallbackUsed: boolean;
-};
-
-type TwoLayerQualityReport = {
-  scores: {
-    transport: number;
-    conversation: number;
-    overall: number;
-  };
-  grade: 'A' | 'B' | 'C' | 'D';
-  reasons: string[];
-  recommendations: string[];
-};
-
-function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, value));
+function fallbackDefault(): string {
+  return "I’m here to help with products, Shopify, and growing your store.";
 }
 
-function applyDelta(prev: DemoScorecard, delta?: ScoreDelta): DemoScorecard {
-  if (!delta) return prev;
-  return {
-    accuracy: clampScore(prev.accuracy + delta.accuracy),
-    safety: clampScore(prev.safety + delta.safety),
-    handoff: clampScore(prev.handoff + delta.handoff),
-    setupFit: clampScore(prev.setupFit + delta.setupFit),
-  };
-}
-
-function fallbackMeta(source: ReplySource): DemoReplyMeta {
-  const base =
-    source === 'model'
-      ? { accuracy: 8, safety: 6, handoff: 4, setupFit: 5 }
-      : source === 'rule'
-      ? { accuracy: 7, safety: 7, handoff: 5, setupFit: 6 }
-      : { accuracy: 5, safety: 5, handoff: 3, setupFit: 4 };
-  return {
-    scoreDelta: base,
-    signals: {
-      mentionsStarterLink: false,
-      mentionsHandoff: false,
-      mentionsSafePreview: true,
-      mentionsSetupPath: false,
-    },
-    rationale: {
-      accuracy:
-        source === 'model'
-          ? 'Model response path used for richer answer coverage.'
-          : source === 'rule'
-          ? 'Rule-guided reply keeps product positioning consistent.'
-          : 'Canned fallback path used to keep responses safe.',
-      safety: 'Safety baseline applied by demo guardrails.',
-      handoff: 'Ask about escalation to see explicit handoff guidance.',
-      setupFit: 'Ask about setup or Starter Link to increase setup-fit score.',
-    },
-  };
+function sourceLabel(source?: ReplySource) {
+  if (source === "model") return "Live model";
+  if (source === "rule") return "Grounded reply";
+  return "Safe preview";
 }
 
 export default function DemoChat() {
   const [messages, setMessages] = useState<DemoMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
   const [showLeadCta, setShowLeadCta] = useState(false);
-  const [scorecard, setScorecard] = useState<DemoScorecard>({
-    accuracy: 58,
-    safety: 64,
-    handoff: 52,
-    setupFit: 54,
-  });
-  const [lastAssistantMeta, setLastAssistantMeta] = useState<DemoReplyMeta | null>(null);
-  const [qualityReport, setQualityReport] = useState<TwoLayerQualityReport | null>(null);
-  const [qualityError, setQualityError] = useState('');
 
   const bucketIndexRef = useRef<Partial<Record<DemoBucketName, number>>>({});
   const lastTopicRef = useRef<DemoBucketName | null>(null);
@@ -146,28 +60,18 @@ export default function DemoChat() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputRowRef = useRef<HTMLFormElement | null>(null);
 
-  // Auto-scroll when messages change (plus nudge the whole page for iOS)
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'end',
-      });
-    }
-
-    if (typeof window !== 'undefined') {
-      window.requestAnimationFrame(() => {
-        window.scrollTo({
-          top: document.documentElement.scrollHeight,
-          behavior: 'smooth',
-        });
+        behavior: "smooth",
+        block: "end",
       });
     }
   }, [messages.length]);
 
   const pickFromBucket = (bucket: DemoBucketName): string => {
     const variants = DEMO_BUCKET_TEXT[bucket];
-    if (!variants || variants.length === 0) return '';
+    if (!variants || variants.length === 0) return "";
 
     const currentIndex = bucketIndexRef.current[bucket] ?? 0;
     const nextText = variants[currentIndex];
@@ -177,32 +81,34 @@ export default function DemoChat() {
 
   const resolveBucket = (text: string): DemoBucketName => {
     const detected = demoDetectBucket(text);
-    if (detected !== 'off_topic') {
+    if (detected !== "off_topic") {
       lastTopicRef.current = detected;
       return detected;
     }
 
     const lower = text.toLowerCase().trim();
     const followup =
-      lower.startsWith('and ') ||
-      lower.startsWith('also ') ||
-      lower.startsWith('what about') ||
-      lower.startsWith('how about') ||
-      lower.startsWith('then ') ||
-      lower.includes('can you explain more') ||
-      lower.includes('tell me more') ||
+      lower.startsWith("and ") ||
+      lower.startsWith("also ") ||
+      lower.startsWith("what about") ||
+      lower.startsWith("how about") ||
+      lower.startsWith("then ") ||
+      lower.includes("tell me more") ||
       lower.split(/\s+/).length <= 6;
 
-    if (followup && lastTopicRef.current && lastTopicRef.current !== 'off_topic') {
+    if (followup && lastTopicRef.current && lastTopicRef.current !== "off_topic") {
       return lastTopicRef.current;
     }
 
     return detected;
   };
 
-  const updateAssistantMessage = (messageId: string, patch: Partial<DemoMessage>) => {
+  const updateAssistantMessage = (
+    messageId: string,
+    patch: Partial<DemoMessage>
+  ) => {
     setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
+      prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m))
     );
   };
 
@@ -210,58 +116,46 @@ export default function DemoChat() {
     messageId: string,
     fullText: string,
     source: ReplySource,
-    safePreview: boolean,
-    meta: DemoReplyMeta,
-  ): Promise<TransportSnapshot> => {
-    const start = performance.now();
+    safePreview: boolean
+  ) => {
     const chunks = fullText.split(/(\s+)/).filter(Boolean);
-    let built = '';
-    let firstTokenMs: number | undefined;
+    let built = "";
 
     setMessages((prev) => [
       ...prev,
       {
         id: messageId,
-        role: 'assistant',
-        text: '',
+        role: "assistant",
+        text: "",
         source,
         safePreview,
-        meta,
+        products: [],
       },
     ]);
 
     setIsStreamingReply(true);
+
     for (let i = 0; i < chunks.length; i++) {
       built += chunks[i];
-      if (firstTokenMs === undefined) {
-        firstTokenMs = Math.round(performance.now() - start);
-      }
-      const nextText = built;
-      updateAssistantMessage(messageId, { text: nextText });
+      updateAssistantMessage(messageId, { text: built });
+
       if (i < chunks.length - 1) {
-        // Simulated token streaming fallback for browsers without SSE support.
-        await new Promise((resolve) => setTimeout(resolve, i < 10 ? 20 : 12));
+        await new Promise((resolve) => setTimeout(resolve, i < 10 ? 18 : 12));
       }
     }
-    setIsStreamingReply(false);
 
-    return {
-      firstTokenMs,
-      totalResponseMs: Math.round(performance.now() - start),
-      usedSse: false,
-      fallbackUsed: true,
-    };
+    setIsStreamingReply(false);
   };
 
   const callDemoApi = async (
     userText: string,
     bucket: DemoBucketName,
-    history: DemoMessage[],
+    history: DemoMessage[]
   ): Promise<{
     reply: string;
     source: ReplySource;
     safePreview: boolean;
-    meta: DemoReplyMeta;
+    products: DemoProduct[];
   }> => {
     const historyForApi = history.slice(-12).map((m) => ({
       role: m.role,
@@ -269,9 +163,9 @@ export default function DemoChat() {
     }));
 
     try {
-      const res = await fetch('/api/demo-assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/demo-assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userText, bucket, history: historyForApi }),
       });
 
@@ -283,224 +177,26 @@ export default function DemoChat() {
         reply?: string;
         source?: ReplySource;
         safePreview?: boolean;
-        meta?: DemoReplyMeta;
+        products?: DemoProduct[];
       } = await res.json();
-      if (data.reply && data.reply.trim()) {
-        const source = data.source ?? 'canned';
-        return {
-          reply: data.reply.trim(),
-          source,
-          safePreview: data.safePreview !== false,
-          meta: data.meta ?? fallbackMeta(source),
-        };
-      }
 
-      const source: ReplySource = 'canned';
+      const source = data.source ?? "canned";
+
       return {
-        reply: pickFromBucket(bucket) || fallbackDefault(),
+        reply: data.reply?.trim() || pickFromBucket(bucket) || fallbackDefault(),
         source,
-        safePreview: true,
-        meta: fallbackMeta(source),
+        safePreview: data.safePreview !== false,
+        products: Array.isArray(data.products) ? data.products : [],
       };
     } catch (err) {
-      console.error('Demo assistant API error', err);
-      const source: ReplySource = 'canned';
+      console.error("Demo assistant API error", err);
+
       return {
         reply: pickFromBucket(bucket) || fallbackDefault(),
-        source,
+        source: "canned",
         safePreview: true,
-        meta: fallbackMeta(source),
+        products: [],
       };
-    }
-  };
-
-  const callDemoSseApi = async (
-    userText: string,
-    bucket: DemoBucketName,
-    history: DemoMessage[],
-    assistantId: string,
-  ): Promise<{
-    reply: string;
-    source: ReplySource;
-    safePreview: boolean;
-    meta: DemoReplyMeta;
-    transport: TransportSnapshot;
-  }> => {
-    const historyForApi = history.slice(-12).map((m) => ({
-      role: m.role,
-      content: m.text,
-    }));
-
-    const start = performance.now();
-    const res = await fetch('/api/demo-assistant/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userText, bucket, history: historyForApi }),
-    });
-
-    if (!res.ok || !res.body) {
-      throw new Error(`SSE unavailable (HTTP ${res.status})`);
-    }
-
-    let source: ReplySource = 'canned';
-    let safePreview = true;
-    let meta = fallbackMeta(source);
-    let replyText = '';
-    let firstTokenMs: number | undefined;
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: assistantId,
-        role: 'assistant',
-        text: '',
-        source,
-        safePreview,
-        meta,
-      },
-    ]);
-
-    const applyMeta = (data: any) => {
-      const nextSource =
-        data?.source === 'model' || data?.source === 'rule' || data?.source === 'canned'
-          ? (data.source as ReplySource)
-          : source;
-      source = nextSource;
-      safePreview = data?.safePreview !== false;
-      meta = data?.meta ?? fallbackMeta(nextSource);
-      updateAssistantMessage(assistantId, {
-        source,
-        safePreview,
-        meta,
-      });
-    };
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    setIsStreamingReply(true);
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-
-        let sep = buffer.indexOf('\n\n');
-        while (sep !== -1) {
-          const rawEvent = buffer.slice(0, sep);
-          buffer = buffer.slice(sep + 2);
-          sep = buffer.indexOf('\n\n');
-          if (!rawEvent.trim()) continue;
-
-          const lines = rawEvent.split('\n');
-          let eventName = 'message';
-          const dataParts: string[] = [];
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              eventName = line.slice(6).trim();
-              continue;
-            }
-            if (line.startsWith('data:')) {
-              dataParts.push(line.slice(5).trim());
-            }
-          }
-
-          if (!dataParts.length) continue;
-          let payload: any = null;
-          try {
-            payload = JSON.parse(dataParts.join('\n'));
-          } catch {
-            continue;
-          }
-
-          if (eventName === 'meta') {
-            applyMeta(payload);
-            continue;
-          }
-
-          if (eventName === 'delta') {
-            const chunk = typeof payload?.chunk === 'string' ? payload.chunk : '';
-            if (!chunk) continue;
-            if (firstTokenMs === undefined) {
-              firstTokenMs = Math.round(performance.now() - start);
-              setIsLoading(false);
-            }
-            replyText += chunk;
-            updateAssistantMessage(assistantId, { text: replyText });
-            continue;
-          }
-
-          if (eventName === 'done') {
-            applyMeta(payload);
-            if (typeof payload?.reply === 'string') {
-              replyText = payload.reply;
-              updateAssistantMessage(assistantId, { text: replyText });
-            }
-            continue;
-          }
-
-          if (eventName === 'error') {
-            throw new Error(
-              typeof payload?.error === 'string'
-                ? payload.error
-                : 'Stream failed',
-            );
-          }
-        }
-      }
-    } finally {
-      setIsStreamingReply(false);
-      setIsLoading(false);
-    }
-
-    if (!replyText.trim()) {
-      throw new Error('Empty stream response');
-    }
-
-    return {
-      reply: replyText.trim(),
-      source,
-      safePreview,
-      meta,
-      transport: {
-        firstTokenMs: firstTokenMs ?? Math.round(performance.now() - start),
-        totalResponseMs: Math.round(performance.now() - start),
-        usedSse: true,
-        fallbackUsed: false,
-      },
-    };
-  };
-
-  const runTwoLayerQuality = async (args: {
-    source: ReplySource;
-    signals: DemoReplyMeta['signals'];
-    transport: TransportSnapshot;
-    userTurns: number;
-  }) => {
-    try {
-      setQualityError('');
-      const res = await fetch('/api/quality/two-layer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transport: args.transport,
-          conversation: {
-            source: args.source,
-            signals: args.signals,
-            userTurns: args.userTurns,
-          },
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok || !data?.report) {
-        throw new Error('Quality API error');
-      }
-      setQualityReport(data.report as TwoLayerQualityReport);
-    } catch (err) {
-      console.error('Two-layer quality evaluation error', err);
-      setQualityError('Quality score unavailable for this turn.');
     }
   };
 
@@ -512,65 +208,90 @@ export default function DemoChat() {
 
     const userMessage: DemoMessage = {
       id: `u-${Date.now()}`,
-      role: 'user',
+      role: "user",
       text: trimmed,
     };
 
     const newHistory = [...messages, userMessage];
     setMessages(newHistory);
-    setInput('');
-    const userTurnCount = newHistory.filter((m) => m.role === 'user').length;
-    if (userTurnCount >= 3) setShowLeadCta(true);
+    setInput("");
 
-    // Keep keyboard open + input row visible
+    const userTurnCount = newHistory.filter((m) => m.role === "user").length;
+    if (userTurnCount >= 2) {
+      setShowLeadCta(true);
+    }
+
     setTimeout(() => {
       inputRef.current?.focus();
       inputRowRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'end',
+        behavior: "smooth",
+        block: "end",
       });
     }, 50);
 
     const assistantId = `a-${Date.now()}`;
-    let apiResult: {
-      reply: string;
-      source: ReplySource;
-      safePreview: boolean;
-      meta: DemoReplyMeta;
-    };
-    let transport: TransportSnapshot;
 
     setIsLoading(true);
     try {
-      const sseResult = await callDemoSseApi(trimmed, bucket, newHistory, assistantId);
-      apiResult = sseResult;
-      transport = sseResult.transport;
-    } catch (sseErr) {
-      console.warn('SSE stream unavailable, using simulated fallback', sseErr);
-      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-
-      const apiFallback = await callDemoApi(trimmed, bucket, newHistory);
+      const apiResult = await callDemoApi(trimmed, bucket, newHistory);
       setIsLoading(false);
-      transport = await streamAssistantText(
+
+      await streamAssistantText(
         assistantId,
-        apiFallback.reply,
-        apiFallback.source,
-        apiFallback.safePreview,
-        apiFallback.meta,
+        apiResult.reply,
+        apiResult.source,
+        apiResult.safePreview
       );
-      apiResult = apiFallback;
-    } finally {
+
+      if (apiResult.products.length) {
+        updateAssistantMessage(assistantId, { products: apiResult.products });
+        setShowLeadCta(true);
+      }
+
+      if (
+        userTurnCount === 2 &&
+        !trimmed.toLowerCase().includes("revenue") &&
+        !trimmed.toLowerCase().includes("roi")
+      ) {
+        fetch("/api/demo/revenue-estimate")
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data?.ok || !data?.estimate) return;
+
+            const est = data.estimate;
+            const summary = data.summary;
+
+            const revenueText =
+              `I reviewed your recent store context.\n\n` +
+              `• Store: ${summary?.storeName || "Shopify Store"}\n` +
+              `• Current monthly revenue: ~$${Math.round(est.baselineRevenue)}\n` +
+              `• Estimated lift with Tiko: +$${Math.round(est.conservativeGain)} to +$${Math.round(est.strongGain)}\n` +
+              `• Expected midpoint: ~$${Math.round(est.expectedGain)}\n\n` +
+              `That’s the upside when shoppers get answers instantly instead of leaving.\n\n` +
+              `Want me to show how this would work on your store?`;
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `a-roi-${Date.now()}`,
+                role: "assistant",
+                text: revenueText,
+                source: "rule",
+                safePreview: true,
+                products: [],
+              },
+            ]);
+
+            setShowLeadCta(true);
+          })
+          .catch((err) => {
+            console.error("Revenue estimate fetch failed", err);
+          });
+      }
+    } catch (err) {
+      console.error("sendMessage error", err);
       setIsLoading(false);
     }
-
-    setLastAssistantMeta(apiResult.meta);
-    setScorecard((prev) => applyDelta(prev, apiResult.meta.scoreDelta));
-    await runTwoLayerQuality({
-      source: apiResult.source,
-      signals: apiResult.meta.signals,
-      transport,
-      userTurns: userTurnCount,
-    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -580,98 +301,41 @@ export default function DemoChat() {
 
   const startFresh = () => {
     setMessages([]);
-    setInput('');
+    setInput("");
     setShowLeadCta(false);
     setIsStreamingReply(false);
-    setLastAssistantMeta(null);
-    setQualityReport(null);
-    setQualityError('');
-    setScorecard({
-      accuracy: 58,
-      safety: 64,
-      handoff: 52,
-      setupFit: 54,
-    });
     bucketIndexRef.current = {};
     lastTopicRef.current = null;
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const sourceLabel = (source?: ReplySource) => {
-    if (source === 'model') return 'Live model';
-    if (source === 'rule') return 'Product rule';
-    return 'Safe preview';
-  };
-
   const isBusy = isLoading || isStreamingReply;
   const isSendingDisabled = !input.trim() || isBusy;
-  const userTurns = messages.filter((m) => m.role === 'user').length;
-  const scoreRows: Array<{
-    key: 'accuracy' | 'safety' | 'handoff' | 'setup-fit';
-    label: string;
-    value: number;
-    rationale: string;
-  }> = [
-    {
-      key: 'accuracy',
-      label: 'Accuracy',
-      value: scorecard.accuracy,
-      rationale:
-        lastAssistantMeta?.rationale.accuracy ||
-        'Accuracy grows with specific and relevant product answers.',
-    },
-    {
-      key: 'safety',
-      label: 'Safety',
-      value: scorecard.safety,
-      rationale:
-        lastAssistantMeta?.rationale.safety ||
-        'Safety reflects clear expectations and non-deceptive demo behavior.',
-    },
-    {
-      key: 'handoff',
-      label: 'Handoff',
-      value: scorecard.handoff,
-      rationale:
-        lastAssistantMeta?.rationale.handoff ||
-        'Handoff improves when escalation to a human is explicit.',
-    },
-    {
-      key: 'setup-fit',
-      label: 'Setup fit',
-      value: scorecard.setupFit,
-      rationale:
-        lastAssistantMeta?.rationale.setupFit ||
-        'Setup fit increases when the assistant maps to concrete onboarding steps.',
-    },
-  ];
+  const userTurns = messages.filter((m) => m.role === "user").length;
 
   return (
-    <section
-      className="demo-chat-shell"
-      aria-label="TikoZap conversation"
-    >
+    <section className="demo-chat-shell" aria-label="TikoZap conversation">
       <div className="demo-chat-card">
-        {/* Header */}
         <header className="demo-chat-header">
           <div className="demo-chat-header-main">
             <div className="demo-chat-avatar">TZ</div>
             <div className="demo-chat-header-text">
-              <div className="demo-chat-title">TikoZap</div>
-              <div className="demo-chat-subtitle">
-                Marketing preview. Evaluate answer quality, handoff behavior, and setup fit for your store.
-              </div>
+              <div className="demo-chat-title">Tiko</div>
+              <div className="demo-chat-subtitle">Preview mode</div>
             </div>
           </div>
+
           <div className="demo-chat-header-actions">
-            <span className="demo-chat-pill">Live demo</span>
-            <button type="button" className="demo-chat-reset" onClick={startFresh}>
+            <button
+              type="button"
+              className="demo-chat-reset"
+              onClick={startFresh}
+            >
               New chat
             </button>
           </div>
         </header>
 
-        {/* Body */}
         <div className="demo-chat-body">
           {userTurns < 2 && (
             <div className="demo-chat-prompts" aria-label="Suggested prompts">
@@ -689,115 +353,109 @@ export default function DemoChat() {
             </div>
           )}
 
-          <div className="demo-scorecard" aria-label="Merchant scorecard">
-            <div className="demo-scorecard-head">
-              <strong>Merchant scorecard</strong>
-              <span>Live demo heuristic</span>
-            </div>
-            <div className="demo-score-grid">
-              {scoreRows.map(({ key, label, value, rationale }) => (
-                <div key={label} className="demo-score-item">
-                  <div className="demo-score-meta">
-                    <span className="demo-score-label-wrap">
-                      <span>{label}</span>
-                      <button
-                        type="button"
-                        className="demo-score-help"
-                        title={rationale}
-                        aria-label={`${label} rationale`}
-                      >
-                        ?
-                      </button>
-                    </span>
-                    <span>{value}/100</span>
-                  </div>
-                  <div className="demo-score-track">
-                    <span
-                      className={`demo-score-fill demo-score-fill--${key}`}
-                      style={{ width: `${value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="demo-two-layer" aria-label="Two-layer quality health">
-            <div className="demo-two-layer-head">
-              <strong>Two-layer quality</strong>
-              <span>Transport + conversation</span>
-            </div>
-            {qualityReport ? (
-              <>
-                <div className="demo-two-layer-scores">
-                  <span>Transport: {qualityReport.scores.transport}</span>
-                  <span>Conversation: {qualityReport.scores.conversation}</span>
-                  <span>Overall: {qualityReport.scores.overall}</span>
-                  <span className={`demo-two-layer-grade grade-${qualityReport.grade}`}>
-                    Grade {qualityReport.grade}
-                  </span>
-                </div>
-                <p className="demo-two-layer-note">
-                  {qualityReport.reasons[0] ||
-                    'Quality report updates after each assistant turn.'}
-                </p>
-              </>
-            ) : (
-              <p className="demo-two-layer-note">
-                Send a message to generate transport + conversation quality scoring.
-              </p>
-            )}
-            {qualityError ? <p className="demo-two-layer-error">{qualityError}</p> : null}
-          </div>
-
           <div className="demo-chat-messages">
-            {/* Static intro bubble */}
             <div className="demo-chat-row">
               <div className="demo-chat-bubble demo-chat-bubble--assistant">
                 <p>
-                  Ask about orders, shipping, returns, or sizing - or ask how I would work
-                  in your own store. I will answer like I would in the real product, but
-                  using safe sample data in this preview.
+                  Hi, I’m Tiko. Ask me about products, orders, Shopify, or how I
+                  help merchants convert more shoppers.
                 </p>
                 <p className="demo-chat-note">
-                  In a real workspace I connect to your platform (for example Shopify),
-                  read your policies, products, and past tickets, and handle routine
-                  questions 24/7 while passing edge cases to your human team.
-                </p>
-                <p className="demo-chat-note">
-                  If you do not have a website yet, ask about Starter Link to see how
-                  TikoZap can run support before you install a widget.
+                  In this preview, I’ll sound like the real assistant while staying
+                  honest about demo limits.
                 </p>
               </div>
             </div>
 
-            {/* Conversation */}
             {messages.map((msg) => {
-              const isUser = msg.role === 'user';
+              const isUser = msg.role === "user";
               const paragraphs = msg.text
-                .split('\n')
-                .flatMap((block) => block.split('\n\n'));
+                .split("\n")
+                .flatMap((block) => block.split("\n\n"));
 
               return (
                 <div
                   key={msg.id}
                   className={`demo-chat-row ${
-                    isUser ? 'demo-chat-row--user' : 'demo-chat-row--assistant'
+                    isUser
+                      ? "demo-chat-row--user"
+                      : "demo-chat-row--assistant"
                   }`}
                 >
                   <div
                     className={`demo-chat-bubble ${
                       isUser
-                        ? 'demo-chat-bubble--user'
-                        : 'demo-chat-bubble--assistant'
+                        ? "demo-chat-bubble--user"
+                        : "demo-chat-bubble--assistant"
                     }`}
                   >
                     {paragraphs.map((p, idx) => (
                       <p key={idx}>{p}</p>
                     ))}
+
+                    {!isUser && msg.products?.length ? (
+                      <div className="demo-product-list">
+                        {msg.products.map((p, idx) => {
+                          const tag =
+                            idx === 0
+                              ? "Best Match"
+                              : idx === 1
+                              ? "Best Value"
+                              : "Popular Pick";
+
+                          return (
+                            <a
+                              key={p.id}
+                              href={p.url || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="demo-product-card"
+                            >
+                              <div className="demo-product-main">
+                                {p.image ? (
+                                  <img
+                                    src={p.image}
+                                    alt={p.title}
+                                    className="demo-product-image"
+                                  />
+                                ) : (
+                                  <div className="demo-product-image demo-product-image--empty" />
+                                )}
+
+                                <div className="demo-product-copy">
+                                  <div className="demo-product-title">
+                                    {p.title}
+                                  </div>
+
+                                  {typeof p.price === "number" ? (
+                                    <div className="demo-product-price">
+                                      ${p.price.toFixed(2)}
+                                    </div>
+                                  ) : null}
+
+                                  <div className="demo-product-stock">
+                                    {p.available ? "In stock" : "Unavailable"}
+                                  </div>
+
+                                  <div className="demo-product-tag">{tag}</div>
+                                </div>
+                              </div>
+
+                              <div className="demo-product-footer">
+                                <span>Ready to present in chat</span>
+                                <span>View product →</span>
+                              </div>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
                     {!isUser ? (
                       <div className="demo-chat-meta">
-                        <span className="demo-chat-source">{sourceLabel(msg.source)}</span>
+                        <span className="demo-chat-source">
+                          {sourceLabel(msg.source)}
+                        </span>
                       </div>
                     ) : null}
                   </div>
@@ -816,29 +474,44 @@ export default function DemoChat() {
             )}
 
             {showLeadCta && (
-              <div className="demo-chat-row demo-chat-row--assistant">
-                <div className="demo-chat-cta">
-                  <strong>Want this running on your store?</strong>
-                  <p>
-                    Start a free 14-day Pro trial and connect your policies, products,
-                    and channels in one workspace.
-                  </p>
-                  <div className="demo-chat-cta-actions">
-                    <a className="demo-chat-cta-btn primary" href="/signup?plan=pro">
-                      Start free trial
-                    </a>
-                    <a className="demo-chat-cta-btn" href="/pricing">
-                      View pricing
-                    </a>
-                  </div>
+              <div className="demo-lead-cta" aria-label="Demo conversion CTA">
+                <p className="demo-lead-cta-kicker">
+                  See how this turns into real revenue:
+                </p>
+
+                <p className="demo-lead-cta-title">
+                  <strong>Want Tiko running on your store?</strong>
+                </p>
+
+                <p className="demo-lead-cta-copy">
+                  Connect your store, sync your catalog, and start converting
+                  shoppers in chat.
+                </p>
+
+                <div className="demo-lead-cta-actions">
+                  <a href="/signup?plan=pro" className="demo-lead-cta-primary">
+                    Start Free 14-day Trial
+                  </a>
+
+                  <a href="/pricing" className="demo-lead-cta-secondary">
+                    View Pricing
+                  </a>
+
+                  <a href="/demo-book" className="demo-lead-cta-secondary">
+                    Book Live Demo
+                  </a>
                 </div>
+
+                <p className="demo-lead-cta-note">
+                  No credit card required. Tiko only earns when it helps generate
+                  sales.
+                </p>
               </div>
             )}
 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input row */}
           <form
             ref={inputRowRef}
             className="demo-chat-input-row"
@@ -850,16 +523,8 @@ export default function DemoChat() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about an order, shipping, returns, or sizing…"
+              placeholder="Ask about products, orders, or store info..."
               autoComplete="off"
-              onFocus={() => {
-                setTimeout(() => {
-                  inputRowRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'end',
-                  });
-                }, 150);
-              }}
             />
             <button
               type="submit"
@@ -867,7 +532,7 @@ export default function DemoChat() {
               disabled={isSendingDisabled}
               aria-label="Send message"
             >
-              ↑
+              Send
             </button>
           </form>
         </div>
@@ -924,32 +589,13 @@ export default function DemoChat() {
         }
 
         .demo-chat-title {
-          font-size: 0.9rem;
-          font-weight: 600;
+          font-size: 0.95rem;
+          font-weight: 700;
         }
 
         .demo-chat-subtitle {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: #6b7280;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-          overflow: hidden;
-        }
-
-        .demo-chat-pill {
-          font-size: 0.75rem;
-          padding: 0.2rem 0.55rem;
-          border-radius: 999px;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
-          color: #4b5563;
-          flex-shrink: 0;
-        }
-
-        .demo-chat-body {
-          display: flex;
-          flex-direction: column;
-          max-height: min(650px, 75vh);
         }
 
         .demo-chat-header-actions {
@@ -964,19 +610,15 @@ export default function DemoChat() {
           background: #ffffff;
           color: #374151;
           font-size: 0.75rem;
-          padding: 0.2rem 0.55rem;
+          padding: 0.35rem 0.65rem;
           cursor: pointer;
         }
 
-        .demo-chat-reset:hover {
-          background: #f3f4f6;
-        }
-
-        .demo-chat-messages {
-          flex: 1;
-          overflow-y: auto;
-          padding: 0.9rem 1rem 0.6rem;
-          background: #f9fafb;
+        .demo-chat-body {
+          display: flex;
+          flex-direction: column;
+          max-height: min(720px, 78vh);
+          min-height: 0;
         }
 
         .demo-chat-prompts {
@@ -994,14 +636,9 @@ export default function DemoChat() {
           background: #ffffff;
           color: #111827;
           font-size: 0.75rem;
-          padding: 0.28rem 0.55rem;
+          padding: 0.32rem 0.58rem;
           cursor: pointer;
-          max-width: 100%;
           text-align: left;
-        }
-
-        .demo-chat-prompt:hover {
-          background: #f8fafc;
         }
 
         .demo-chat-prompt:disabled {
@@ -1009,254 +646,170 @@ export default function DemoChat() {
           cursor: default;
         }
 
-        .demo-scorecard {
-          border-bottom: 1px solid #eef2f7;
-          background: #ffffff;
-          padding: 0.55rem 0.8rem 0.65rem;
-        }
-
-        .demo-scorecard-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          margin-bottom: 0.45rem;
-        }
-
-        .demo-scorecard-head strong {
-          font-size: 0.78rem;
-          color: #111827;
-        }
-
-        .demo-scorecard-head span {
-          font-size: 0.68rem;
-          color: #6b7280;
-        }
-
-        .demo-score-grid {
-          display: grid;
-          gap: 0.36rem;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .demo-score-item {
-          border: 1px solid #eef2f7;
-          border-radius: 10px;
-          padding: 0.35rem 0.45rem;
+        .demo-chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 0.9rem 1rem 6rem;
           background: #f9fafb;
-        }
-
-        .demo-score-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 0.68rem;
-          color: #374151;
-          margin-bottom: 0.2rem;
-        }
-
-        .demo-score-label-wrap {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.2rem;
-        }
-
-        .demo-score-help {
-          border: 1px solid #d1d5db;
-          background: #ffffff;
-          border-radius: 999px;
-          width: 0.95rem;
-          height: 0.95rem;
-          font-size: 0.62rem;
-          line-height: 1;
-          color: #64748b;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: help;
-          padding: 0;
-        }
-
-        .demo-score-track {
-          width: 100%;
-          height: 0.32rem;
-          border-radius: 999px;
-          background: #e5e7eb;
-          overflow: hidden;
-        }
-
-        .demo-score-fill {
-          display: block;
-          height: 100%;
-          border-radius: 999px;
-          background: linear-gradient(90deg, #93c5fd 0%, #2563eb 100%);
-          transition: width 240ms ease;
-        }
-
-        .demo-score-fill--accuracy {
-          background: linear-gradient(90deg, #93c5fd 0%, #2563eb 100%);
-        }
-
-        .demo-score-fill--safety {
-          background: linear-gradient(90deg, #86efac 0%, #16a34a 100%);
-        }
-
-        .demo-score-fill--handoff {
-          background: linear-gradient(90deg, #fdba74 0%, #ea580c 100%);
-        }
-
-        .demo-score-fill--setup-fit {
-          background: linear-gradient(90deg, #c4b5fd 0%, #7c3aed 100%);
-        }
-
-        .demo-two-layer {
-          border-bottom: 1px solid #eef2f7;
-          background: #ffffff;
-          padding: 0.45rem 0.8rem 0.6rem;
-        }
-
-        .demo-two-layer-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          margin-bottom: 0.3rem;
-        }
-
-        .demo-two-layer-head strong {
-          font-size: 0.76rem;
-          color: #111827;
-        }
-
-        .demo-two-layer-head span {
-          font-size: 0.67rem;
-          color: #6b7280;
-        }
-
-        .demo-two-layer-scores {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.35rem;
-        }
-
-        .demo-two-layer-scores span {
-          font-size: 0.68rem;
-          border: 1px solid #e5e7eb;
-          border-radius: 999px;
-          padding: 0.12rem 0.42rem;
-          color: #334155;
-          background: #f9fafb;
-        }
-
-        .demo-two-layer-grade {
-          font-weight: 600;
-        }
-
-        .demo-two-layer-grade.grade-A {
-          color: #166534;
-          border-color: #86efac;
-          background: #f0fdf4;
-        }
-
-        .demo-two-layer-grade.grade-B {
-          color: #1d4ed8;
-          border-color: #93c5fd;
-          background: #eff6ff;
-        }
-
-        .demo-two-layer-grade.grade-C {
-          color: #92400e;
-          border-color: #fcd34d;
-          background: #fffbeb;
-        }
-
-        .demo-two-layer-grade.grade-D {
-          color: #991b1b;
-          border-color: #fca5a5;
-          background: #fef2f2;
-        }
-
-        .demo-two-layer-note {
-          margin-top: 0.3rem;
-          font-size: 0.72rem;
-          color: #475569;
-        }
-
-        .demo-two-layer-error {
-          margin-top: 0.2rem;
-          font-size: 0.7rem;
-          color: #b91c1c;
         }
 
         .demo-chat-row {
           display: flex;
-          margin-bottom: 0.6rem;
-        }
-
-        .demo-chat-row--assistant {
-          justify-content: flex-start;
+          margin-bottom: 0.65rem;
         }
 
         .demo-chat-row--user {
           justify-content: flex-end;
         }
 
+        .demo-chat-row--assistant {
+          justify-content: flex-start;
+        }
+
         .demo-chat-bubble {
-          max-width: 80%;
+          max-width: min(88%, 680px);
           border-radius: 1rem;
-          padding: 0.6rem 0.8rem;
-          font-size: 0.9rem;
-          line-height: 1.5;
+          padding: 0.78rem 0.9rem;
+          font-size: 0.95rem;
+          line-height: 1.55;
+          border: 1px solid #e5e7eb;
+          box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
         }
 
         .demo-chat-bubble--assistant {
           background: #ffffff;
-          border: 1px solid #e5e7eb;
           color: #111827;
         }
 
         .demo-chat-bubble--user {
-          background: #e5e7eb;
-          color: #111827;
-          border: 1px solid #d1d5db;
+          background: #2563eb;
+          color: #ffffff;
+          border-color: #2563eb;
+        }
+
+        .demo-chat-bubble p {
+          margin: 0 0 0.6rem;
+        }
+
+        .demo-chat-bubble p:last-child {
+          margin-bottom: 0;
         }
 
         .demo-chat-note {
-          margin-top: 0.35rem;
-          font-size: 0.78rem;
           color: #6b7280;
+          font-size: 0.82rem;
         }
 
         .demo-chat-meta {
-          margin-top: 0.4rem;
+          margin-top: 0.55rem;
+          display: flex;
+          justify-content: flex-start;
         }
 
         .demo-chat-source {
-          display: inline-flex;
-          font-size: 0.68rem;
-          border: 1px solid #e5e7eb;
-          border-radius: 999px;
-          padding: 0.13rem 0.4rem;
+          font-size: 0.72rem;
           color: #6b7280;
-          background: #f9fafb;
+        }
+
+        .demo-product-list {
+          margin-top: 0.85rem;
+          display: grid;
+          gap: 0.85rem;
+        }
+
+        .demo-product-card {
+          display: block;
+          border-radius: 1rem;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+          text-decoration: none;
+          color: #111827;
+          overflow: hidden;
+          box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        }
+
+        .demo-product-main {
+          display: flex;
+          gap: 0.8rem;
+          padding: 0.8rem;
+        }
+
+        .demo-product-image {
+          width: 84px;
+          height: 84px;
+          border-radius: 0.8rem;
+          object-fit: cover;
+          background: #f3f4f6;
+          flex-shrink: 0;
+        }
+
+        .demo-product-image--empty {
+          background: #f3f4f6;
+        }
+
+        .demo-product-copy {
+          min-width: 0;
+          flex: 1;
+        }
+
+        .demo-product-title {
+          font-size: 0.92rem;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+
+        .demo-product-price {
+          margin-top: 0.25rem;
+          font-size: 0.94rem;
+          font-weight: 600;
+        }
+
+        .demo-product-stock {
+          margin-top: 0.2rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+
+        .demo-product-tag {
+          margin-top: 0.45rem;
+          display: inline-flex;
+          border-radius: 999px;
+          border: 1px solid #bfdbfe;
+          background: #eff6ff;
+          color: #1d4ed8;
+          padding: 0.15rem 0.45rem;
+          font-size: 0.68rem;
+          font-weight: 600;
+        }
+
+        .demo-product-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          border-top: 1px solid #f1f5f9;
+          padding: 0.6rem 0.8rem 0.75rem;
+          font-size: 0.74rem;
+          color: #6b7280;
+        }
+
+        .demo-product-footer span:last-child {
+          color: #2563eb;
+          font-weight: 600;
         }
 
         .demo-chat-bubble--typing {
           display: inline-flex;
-          gap: 0.22rem;
           align-items: center;
-          min-width: 3rem;
-          justify-content: center;
-          padding-top: 0.6rem;
-          padding-bottom: 0.6rem;
+          gap: 0.35rem;
         }
 
         .typing-dot {
-          width: 0.38rem;
-          height: 0.38rem;
+          width: 0.42rem;
+          height: 0.42rem;
           border-radius: 999px;
-          background: #9ca3af;
-          animation: demo-typing 1s infinite ease-in-out;
+          background: #94a3b8;
+          animation: pulse 1.1s infinite ease-in-out;
         }
 
         .typing-dot:nth-child(2) {
@@ -1267,117 +820,145 @@ export default function DemoChat() {
           animation-delay: 0.3s;
         }
 
-        @keyframes demo-typing {
-          0%,
-          80%,
-          100% {
-            opacity: 0.35;
-            transform: translateY(0);
-          }
-          40% {
-            opacity: 1;
-            transform: translateY(-2px);
-          }
-        }
-
-        .demo-chat-cta {
-          max-width: 88%;
+        .demo-lead-cta {
+          margin-top: 1rem;
           border: 1px solid #dbeafe;
-          background: #eff6ff;
+          background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
           border-radius: 1rem;
-          padding: 0.7rem 0.8rem;
+          padding: 1rem;
         }
 
-        .demo-chat-cta p {
-          margin-top: 0.3rem;
-          font-size: 0.84rem;
-          color: #334155;
+        .demo-lead-cta-kicker {
+          margin: 0 0 0.25rem;
+          font-size: 0.72rem;
+          color: #2563eb;
+          font-weight: 600;
         }
 
-        .demo-chat-cta-actions {
-          margin-top: 0.45rem;
+        .demo-lead-cta-title {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #111827;
+        }
+
+        .demo-lead-cta-copy {
+          margin: 0.4rem 0 0;
+          font-size: 0.8rem;
+          line-height: 1.45;
+          color: #4b5563;
+        }
+
+        .demo-lead-cta-actions {
           display: flex;
-          gap: 0.45rem;
           flex-wrap: wrap;
+          gap: 0.55rem;
+          margin-top: 0.8rem;
         }
 
-        .demo-chat-cta-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.76rem;
-          border-radius: 999px;
-          border: 1px solid #bfdbfe;
-          color: #1d4ed8;
+        .demo-lead-cta-primary,
+        .demo-lead-cta-secondary {
           text-decoration: none;
-          padding: 0.3rem 0.58rem;
-          background: #ffffff;
+          border-radius: 999px;
+          padding: 0.6rem 0.9rem;
+          font-size: 0.8rem;
+          font-weight: 600;
         }
 
-        .demo-chat-cta-btn.primary {
-          background: #1d4ed8;
-          color: #ffffff;
-          border-color: #1d4ed8;
+        .demo-lead-cta-primary {
+          background: #2563eb;
+          color: white;
+        }
+
+        .demo-lead-cta-secondary {
+          background: white;
+          color: #1f2937;
+          border: 1px solid #d1d5db;
+        }
+
+        .demo-lead-cta-note {
+          margin: 0.7rem 0 0;
+          font-size: 0.72rem;
+          color: #6b7280;
         }
 
         .demo-chat-input-row {
-          position: sticky;
-          bottom: 0;
           display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.6rem 0.75rem;
+          gap: 0.6rem;
+          padding: 0.85rem 1rem;
           border-top: 1px solid #e5e7eb;
           background: #ffffff;
-          scroll-margin-bottom: 320px;
+          position: sticky;
+          bottom: 0;
         }
 
         .demo-chat-input {
           flex: 1;
+          min-width: 0;
+          border: 1px solid #cbd5e1;
           border-radius: 999px;
-          border: 1px solid #e5e7eb;
-          padding: 0.6rem 0.9rem;
-          font-size: 0.9rem;
+          padding: 0.78rem 1rem;
+          font-size: 0.95rem;
           outline: none;
         }
 
         .demo-chat-input:focus {
           border-color: #2563eb;
-          box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
         }
 
         .demo-chat-send {
-          width: 2.4rem;
-          height: 2.4rem;
-          border-radius: 999px;
           border: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.1rem;
-          font-weight: 600;
           background: #2563eb;
-          color: #f9fafb;
+          color: white;
+          border-radius: 999px;
+          padding: 0 1rem;
+          min-width: 72px;
+          font-weight: 700;
           cursor: pointer;
-          flex-shrink: 0;
         }
 
         .demo-chat-send:disabled {
-          opacity: 0.45;
+          opacity: 0.55;
           cursor: default;
         }
 
-        @media (min-width: 768px) {
-          .demo-chat-card {
-            border-radius: 1.5rem;
+        @keyframes pulse {
+          0%,
+          80%,
+          100% {
+            opacity: 0.35;
+            transform: scale(0.92);
+          }
+          40% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .demo-chat-header {
+            padding: 0.7rem 0.8rem;
           }
 
-          .demo-chat-body {
-            max-height: 600px;
+          .demo-chat-messages {
+            padding: 0.8rem 0.75rem 7rem;
           }
 
-          .demo-score-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+          .demo-chat-input-row {
+            padding: 0.75rem;
+          }
+
+          .demo-chat-bubble {
+            max-width: 92%;
+          }
+
+          .demo-product-main {
+            padding: 0.72rem;
+          }
+
+          .demo-product-image {
+            width: 70px;
+            height: 70px;
           }
         }
       `}</style>

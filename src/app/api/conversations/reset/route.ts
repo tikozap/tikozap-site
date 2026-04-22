@@ -1,157 +1,119 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import { buildSupportReply } from '@/lib/supportAssistant';
+// src/app/api/conversations/reset/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+import {
+  appendDemoInboxMessage,
+  findOrCreateDemoInboxConversation,
+  listDemoInboxConversations,
+} from "@/lib/demoInboxStore";
+import { buildSupportReply } from "@/lib/supportAssistant";
+
+export const runtime = "nodejs";
 
 type SeedMessage = {
-  role: string;
+  role: "customer" | "assistant" | "staff";
   content: string;
 };
 
 type SeedConversation = {
+  id: string;
   customerName: string;
   subject: string;
-  tags: string;
+  tags: string[];
   channel: string;
-  status: 'open' | 'waiting' | 'closed';
+  status: "open" | "waiting" | "closed";
   aiEnabled: boolean;
   messages: SeedMessage[];
 };
 
 function buildDemoSeeds(aiEnabled: boolean): SeedConversation[] {
-  const assistantFor = (text: string) =>
-    aiEnabled ? [{ role: 'assistant', content: buildSupportReply(text).reply }] : [];
+  const assistantFor = (text: string): SeedMessage[] =>
+    aiEnabled ? [{ role: "assistant", content: buildSupportReply(text).reply }] : [];
 
   return [
     {
-      customerName: 'Caller +19175353559',
-      subject: 'Phone call +19175353559',
-      tags: 'caller,answerMachine,voice',
-      channel: 'phone',
-      status: aiEnabled ? 'open' : 'waiting',
+      id: "demo-1",
+      customerName: "Emily R.",
+      subject: "Show me jackets",
+      tags: [],
+      channel: "web",
+      status: aiEnabled ? "open" : "waiting",
       aiEnabled,
       messages: [
-        {
-          role: 'system',
-          content:
-            'Call started. provider=twilio callSid=CA8971eec2e3d94895cf9f4f48ea2dddc8 from=+19175353559',
-        },
-        {
-          role: 'user',
-          content:
-            'Voicemail received (recordingSid=<twilio-recording-id>). RecordingUrl: https://api.twilio.com/2010-04-01/Accounts/<twilio-account-id>/Recordings/<twilio-recording-id>',
-        },
-        ...(aiEnabled
-          ? [
-              {
-                role: 'assistant',
-                content:
-                  'I captured the voicemail summary and flagged this caller for staff follow-up.',
-              },
-            ]
-          : []),
+        { role: "customer", content: "Show me jackets" },
+        ...assistantFor("Show me jackets"),
       ],
     },
     {
-      customerName: 'Website shopper',
-      subject: 'Website bubble test',
-      tags: 'chat-test,website-bubble,web',
-      channel: 'web',
-      status: aiEnabled ? 'open' : 'waiting',
-      aiEnabled,
+      id: "demo-2",
+      customerName: "John D. · Order #1438",
+      subject: "Where is my order?",
+      tags: [],
+      channel: "email",
+      status: "waiting",
+      aiEnabled: false,
       messages: [
-        { role: 'customer', content: 'Website chat bubble test: where is my order?' },
-        ...assistantFor('Website chat bubble test: where is my order?'),
+        { role: "customer", content: "Where is my order? I placed it last week." },
       ],
     },
     {
-      customerName: 'Starter Link visitor',
-      subject: 'Starter Link bubble test',
-      tags: 'starter-link-bubble,no-website',
-      channel: 'starter-link',
-      status: aiEnabled ? 'open' : 'waiting',
+      id: "demo-3",
+      customerName: "Sophia",
+      subject: "Return policy question",
+      tags: [],
+      channel: "web",
+      status: aiEnabled ? "open" : "waiting",
       aiEnabled,
       messages: [
-        {
-          role: 'customer',
-          content: 'I came from your Starter Link. Can you explain return steps?',
-        },
-        ...assistantFor('I came from your Starter Link. Can you explain return steps?'),
-      ],
-    },
-    {
-      customerName: 'Caller +14155550199',
-      subject: 'AnswerMachine follow-up',
-      tags: 'answerMachine,caller,voicemail',
-      channel: 'phone',
-      status: aiEnabled ? 'waiting' : 'waiting',
-      aiEnabled,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'AnswerMachine event captured. provider=twilio callSid=CA3f75c9e1891e83ed5ec9725c22acfd4d',
-        },
-        {
-          role: 'note',
-          content:
-            'Suggested callback: mention order-status update and offer a direct SMS follow-up link.',
-        },
-      ],
-    },
-    {
-      customerName: 'Marketplace DM shopper',
-      subject: 'Marketplace DM handoff test',
-      tags: 'marketplace-dm,handoff',
-      channel: 'marketplace',
-      status: aiEnabled ? 'open' : 'waiting',
-      aiEnabled,
-      messages: [
-        {
-          role: 'customer',
-          content:
-            'Can we move this to your support link? I need help with a delayed shipment.',
-        },
-        ...assistantFor(
-          'Can we move this to your support link? I need help with a delayed shipment.',
-        ),
+        { role: "customer", content: "What is your return policy?" },
+        ...assistantFor("What is your return policy?"),
       ],
     },
   ];
 }
 
 export async function POST(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const aiEnabled = body?.aiEnabled === false ? false : true;
 
-  await prisma.conversation.deleteMany({ where: { tenantId: auth.tenant.id } });
-
+  // Reset the in-memory demo store by overwriting the known demo IDs.
   const seeds = buildDemoSeeds(aiEnabled);
+
   for (const seed of seeds) {
-    await prisma.conversation.create({
-      data: {
-        tenantId: auth.tenant.id,
-        customerName: seed.customerName,
-        subject: seed.subject,
-        status: seed.status,
-        channel: seed.channel,
-        tags: seed.tags,
-        aiEnabled: seed.aiEnabled,
-        lastMessageAt: new Date(),
-        messages: {
-          create: seed.messages.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-        },
-      },
+    const convo = findOrCreateDemoInboxConversation({
+      tenantId: "demo-tenant",
+      conversationId: seed.id,
+      customerName: seed.customerName,
+      subject: seed.subject,
+      channel: seed.channel,
+      tags: seed.tags,
     });
+
+    convo.status = seed.status;
+    convo.aiEnabled = seed.aiEnabled;
+    convo.tags = [...seed.tags];
+    convo.archivedAt = null;
+    convo.needsHuman = seed.status === "waiting";
+    convo.unread = false;
+    convo.messages = [];
+    convo.lastMessageAt = new Date().toISOString();
+
+    for (const msg of seed.messages) {
+      appendDemoInboxMessage(convo.id, msg.role, msg.content);
+    }
+
+    convo.unread = seed.messages.some((m) => m.role === "customer");
+    convo.needsHuman = convo.status === "waiting";
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    conversations: listDemoInboxConversations(false),
+  });
 }

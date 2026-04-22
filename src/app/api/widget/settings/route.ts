@@ -50,7 +50,7 @@ function normalizeDomainToken(raw: string) {
 function parseDomainsText(text: string) {
   const parts = String(text || "")
     .split(/[\n,]/g)
-    .map((x) => x.trim())
+    .map((x: any) => x.trim())
     .filter(Boolean);
 
   const out: string[] = [];

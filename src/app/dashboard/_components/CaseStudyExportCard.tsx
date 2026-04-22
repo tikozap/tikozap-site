@@ -89,7 +89,7 @@ export default function CaseStudyExportCard() {
             value={windowKey}
             onChange={(e) => setWindowKey(e.target.value as CaseStudyWindow)}
           >
-            {WINDOW_OPTIONS.map((option) => (
+            {WINDOW_OPTIONS.map((option: any) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

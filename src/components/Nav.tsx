@@ -1,3 +1,5 @@
+// src/components/Nav.tsx
+
 'use client';
 
 import Link from 'next/link';
@@ -14,13 +16,14 @@ const LINKS = [
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const hideOnDashboard = pathname?.startsWith('/dashboard');
+  const hideGlobalNav =
+  pathname?.startsWith('/dashboard') || pathname?.startsWith('/l/');
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  if (hideOnDashboard) return null;
+  if (hideGlobalNav) return null;
 
   const isActive = (href: string) =>
     pathname === href ? 'nav__link nav__link--active' : 'nav__link';
@@ -52,7 +55,7 @@ export default function Nav() {
 
           {/* Desktop links */}
           <div className="nav__links">
-            {LINKS.map((item) => {
+            {LINKS.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link
@@ -112,7 +115,7 @@ export default function Nav() {
       {open && (
         <div className="nav__overlay" aria-label="Mobile navigation">
           <div className="nav__menu">
-            {LINKS.map((item) => {
+            {LINKS.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link

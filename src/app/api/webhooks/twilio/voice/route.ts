@@ -9,10 +9,6 @@ import { trackMetric } from '@/lib/metrics';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
-  return NextResponse.json({ ok: true, hint: 'Use POST', alias: '/api/voice/incoming' });
-}
-
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
 function xml(body: string) {
@@ -67,6 +63,11 @@ async function resolveTenantId(params: Record<string, string>, url: URL) {
 
   console.log('[resolveTenantId] Looking up PhoneAgentSettings for inboundNumberE164 =', to);
 
+  console.log('[resolveTenantId] All inbound numbers in DB:', 
+  (await prisma.phoneAgentSettings.findMany({ select: { inboundNumberE164: true } }))
+    .map((r: { inboundNumberE164: string | null }) => r.inboundNumberE164)
+);
+
   const settings = await prisma.phoneAgentSettings.findUnique({
     where: { inboundNumberE164: to },
     select: { tenantId: true },
@@ -82,7 +83,6 @@ async function resolveTenantId(params: Record<string, string>, url: URL) {
 }
 
 /* ───────── webhook verification helpers ───────── */
-
 function safeEquals(left: string, right: string): boolean {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
@@ -102,24 +102,20 @@ function firstHeaderValue(v: string | null): string {
 function candidateUrls(req: Request): string[] {
   const original = new URL(req.url);
   const urls = new Set<string>([`${original.origin}${original.pathname}${original.search}`]);
-
   const forwardedHost = firstHeaderValue(req.headers.get('x-forwarded-host'));
   const forwardedProto =
     firstHeaderValue(req.headers.get('x-forwarded-proto')) ||
     original.protocol.replace(':', '');
-
   if (forwardedHost) {
     const hostNoPort = forwardedHost.replace(/:443$|:80$/, '');
     urls.add(`${forwardedProto}://${forwardedHost}${original.pathname}${original.search}`);
     urls.add(`${forwardedProto}://${hostNoPort}${original.pathname}${original.search}`);
   }
-
-  // ✅ Add APP_BASE_URL candidate (very helpful on Vercel/custom domain)
+  // Add APP_BASE_URL candidate
   const appBase = (process.env.APP_BASE_URL || '').trim().replace(/\/$/, '');
   if (appBase) {
     urls.add(`${appBase}${original.pathname}${original.search}`);
   }
-
   return Array.from(urls);
 }
 
@@ -127,16 +123,14 @@ function verifyTwilioSignature(opts: { req: Request; rawBody: string; form: URLS
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
   const signature = (opts.req.headers.get('x-twilio-signature') || '').trim();
   if (!authToken || !signature) return false;
-
   for (const url of candidateUrls(opts.req)) {
     if (opts.form) {
-      const sortedForm = new URLSearchParams([...opts.form.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-      const data = url + Array.from(sortedForm.entries()).map(([k, v]) => k + v).join('');
+      const sortedForm = new URLSearchParams([...opts.form.entries()].sort((a: any, b: any) => a[0].localeCompare(b[0])));
+      const data = url + Array.from(sortedForm.entries()).map(([k, v]: any) => k + v).join('');
       if (safeEquals(signature, hmacSha1Base64(authToken, data))) return true;
     }
     if (safeEquals(signature, hmacSha1Base64(authToken, url + opts.rawBody))) return true;
   }
-
   return false;
 }
 
@@ -144,10 +138,10 @@ function verifyWebhook(opts: { req: Request; rawBody: string; form: URLSearchPar
   const url = new URL(opts.req.url);
 
   // Bypass all verification in local development (critical for testing)
-if (process.env.NODE_ENV !== 'development') {
-  console.log('[PROD] Bypassing verification for testing');
-  return { ok: true, mode: 'prod-bypass' };
-}
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[DEV MODE] Bypassing webhook verification - URL:', url.toString());
+    return { ok: true as const, mode: 'dev-bypass' as const };
+  }
 
   // Production verification
   const secretConfigured = process.env.TWILIO_WEBHOOK_SECRET?.trim() || '';
@@ -185,7 +179,6 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 /* ───────── main webhook handler ───────── */
-
 export async function POST(req: Request) {
   const rate = checkRateLimit(req, {
     namespace: 'twilio-voice-webhook',
@@ -201,7 +194,6 @@ export async function POST(req: Request) {
   }
 
   const vr = new VoiceResponse();
-
   let rawBody = '';
   try {
     rawBody = await req.text();
@@ -231,18 +223,16 @@ export async function POST(req: Request) {
     where: { id: tenantId },
     select: { id: true, storeName: true },
   });
-
   if (!tenant) {
     vr.say('Unknown tenant. Please contact the store owner.');
     return xml(vr.toString());
   }
 
   const settings = await prisma.phoneAgentSettings.findUnique({ where: { tenantId } });
-
   const callSid = (params.CallSid || '').trim();
   const provider = 'twilio';
 
-  // Idempotency: if Twilio retries, reuse the same CallSession + Conversation
+  // Idempotency: reuse existing session/conversation if Twilio retries
   let session = callSid
     ? await prisma.callSession.findFirst({
         where: { provider, providerCallSid: callSid },
@@ -251,14 +241,12 @@ export async function POST(req: Request) {
     : null;
 
   let conversationId = session?.conversationId || '';
-
   if (!conversationId) {
     const conversation = await ensurePhoneConversation({
       tenantId,
       fromNumber: normE164(params.From) || null,
       subject: `Phone call ${normE164(params.From) || ''}`.trim(),
     });
-
     conversationId = conversation.id;
 
     session = await prisma.callSession.create({
@@ -282,27 +270,38 @@ export async function POST(req: Request) {
   }
 
   const enabled = settings?.enabled ?? false;
-
   if (!enabled) {
     vr.say(settings?.fallbackLine || 'Sorry, please leave a message after the tone.');
     vr.record(recordWithTranscription({ tenantId, callSessionId: session!.id, reason: 'disabled' }));
+    console.log('[Voice] Disabled mode - returning fallback recording TwiML');
     return xml(vr.toString());
   }
 
   const greeting = settings?.greeting || `Thanks for calling ${tenant.storeName}. How can I help you today?`;
+  console.log('[Voice] Using greeting:', greeting);
+
   vr.say(greeting);
 
   const turnUrl = `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${session!.id}&turn=0`;
+  console.log('[Voice] Generated <Gather> action URL:', turnUrl);
 
-  vr.gather({
-    input: ['speech'],
-    action: turnUrl,
-    method: 'POST',
-    timeout: 8,
-    speechTimeout: 'auto',
-    actionOnEmptyResult: true, // ✅ key: let /api/voice/turn handle “no speech”
-  });
+  try {
+    vr.gather({
+      input: ['speech'],
+      action: turnUrl,
+      method: 'POST',
+      timeout: 8,
+      speechTimeout: 'auto',
+      actionOnEmptyResult: true, // crucial for handling silence
+    });
+    console.log('[Voice] <Gather> added successfully');
+  } catch (gatherErr) {
+    console.error('[Voice] Failed to add <Gather>:', gatherErr);
+    vr.say('Sorry, there was an error setting up the assistant. Goodbye.');
+  }
 
   await trackMetric({ source: 'twilio-webhook', event: 'call_handled' });
-  return xml(vr.toString());
+  const finalXml = vr.toString();
+  console.log('[Voice] Final TwiML returned:', finalXml);
+  return xml(finalXml);
 }

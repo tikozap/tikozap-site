@@ -1,148 +1,68 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthedUserAndTenant } from '@/lib/auth';
-import { buildSupportReply } from '@/lib/supportAssistant';
-import { canCreateConversationForTenant } from '@/lib/billingUsage';
-import { trackMetric } from '@/lib/metrics';
+// src/app/api/conversations/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+import {
+  appendDemoInboxMessage,
+  findOrCreateDemoInboxConversation,
+  listDemoInboxConversations,
+} from "@/lib/demoInboxStore";
+import { buildSupportReply } from "@/lib/supportAssistant";
 
-function splitTags(csv: string) {
-  return (csv || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function pick<T>(arr: T[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function buildNewTestChat(aiEnabled: boolean) {
-  const names = ['Mia', 'Sophia', 'Emma', 'Ava', 'Olivia', 'Isabella', 'Chloe', 'Amelia'];
-  const topics = [
-    { subject: 'Return policy question', first: 'What is your return policy?', tags: ['returns'], channel: 'web' },
-    { subject: 'Shipping time', first: 'How many days does shipping take?', tags: ['shipping'], channel: 'web' },
-    { subject: 'Size availability', first: 'Do you have this dress in XL?', tags: ['sizing'], channel: 'shopify' },
-    { subject: 'Order status', first: 'Where is my order? I placed it last week.', tags: ['order-status'], channel: 'email' },
-    {
-      subject: 'Starter Link bubble test',
-      first: 'I came from your Starter Link. Can you help with returns?',
-      tags: ['starter-link-bubble', 'no-website'],
-      channel: 'starter-link',
-    },
-    {
-      subject: 'Website bubble test',
-      first: 'Website chat bubble test: can I change my shipping address?',
-      tags: ['chat-test', 'website-bubble'],
-      channel: 'web',
-    },
-    {
-      subject: 'AnswerMachine follow-up',
-      first: 'Caller left voicemail. Please summarize callback points.',
-      tags: ['caller', 'answerMachine'],
-      channel: 'phone',
-    },
-  ];
-
-  const topic = pick(topics);
-  const order = Math.random() < 0.6 ? ` · Order #${1000 + Math.floor(Math.random() * 900)}` : '';
-  const customerName = `${pick(names)}${order}`;
-
-  const customerMsg = topic.first;
-  const assistantMsg = buildSupportReply(customerMsg).reply;
-
-  return {
-    customerName,
-    subject: topic.subject,
-    status: aiEnabled ? 'open' : 'waiting',
-    channel: topic.channel,
-    tags: topic.tags.join(','),
-    aiEnabled,
-    messages: [
-      { role: 'customer', content: customerMsg },
-      ...(aiEnabled ? [{ role: 'assistant', content: assistantMsg }] : []),
-    ],
-  };
-}
+export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   const url = new URL(req.url);
-  const includeArchived = url.searchParams.get('includeArchived') === '1';
+  const includeArchived = url.searchParams.get("includeArchived") === "1";
 
-  const rows = await prisma.conversation.findMany({
-    where: {
-      tenantId: auth.tenant.id,
-      ...(includeArchived ? {} : { archivedAt: null }),
-    },
-    orderBy: { lastMessageAt: 'desc' },
-    include: { messages: { orderBy: { createdAt: 'desc' }, take: 6 } },
+  const conversations = listDemoInboxConversations(includeArchived);
+
+  return NextResponse.json({
+    ok: true,
+    conversations,
   });
-
-  const conversations = rows.map((c: any) => {
-    const preview = c.messages.find((m: any) => m.role !== 'note') ?? c.messages[0] ?? null;
-
-    return {
-      id: c.id,
-      customerName: c.customerName,
-      subject: c.subject,
-      status: c.status,
-      channel: c.channel,
-      aiEnabled: c.aiEnabled,
-      tags: splitTags(c.tags),
-      lastMessageAt: c.lastMessageAt,
-      archivedAt: c.archivedAt,
-      preview: preview ? { role: preview.role, content: preview.content, createdAt: preview.createdAt } : null,
-    };
-  });
-
-  return NextResponse.json({ ok: true, conversations });
 }
 
 export async function POST(req: Request) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const aiEnabled = body?.aiEnabled === false ? false : true;
 
-  const allowance = await canCreateConversationForTenant(auth.tenant.id);
-  if (!allowance.ok) {
-    await trackMetric({
-      source: 'conversations',
-      event: 'billing_limit_blocked',
-      tenantId: auth.tenant.id,
-    });
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          'Monthly conversation limit reached for your current plan. Upgrade in Billing to continue.',
-        usage: allowance.usage,
-      },
-      { status: 402 },
-    );
-  }
-
-  const draft = buildNewTestChat(aiEnabled);
-
-  const convo = await prisma.conversation.create({
-    data: {
-      tenantId: auth.tenant.id,
-      customerName: draft.customerName,
-      subject: draft.subject,
-      status: draft.status,
-      channel: draft.channel,
-      tags: draft.tags,
-      aiEnabled: draft.aiEnabled,
-      lastMessageAt: new Date(),
-      archivedAt: null,
-      messages: { create: draft.messages.map((m) => ({ role: m.role, content: m.content })) },
-    },
+  const convo = findOrCreateDemoInboxConversation({
+    tenantId: "demo-tenant",
+    customerName: "Website shopper",
+    subject: "New test chat",
+    channel: "web",
+    tags: [],
   });
 
-  return NextResponse.json({ ok: true, id: convo.id });
+  convo.aiEnabled = aiEnabled;
+  convo.status = aiEnabled ? "open" : "waiting";
+  convo.needsHuman = !aiEnabled;
+  convo.unread = true;
+
+  appendDemoInboxMessage(convo.id, "customer", "Hello, I need help with my order.");
+
+  if (aiEnabled) {
+    appendDemoInboxMessage(
+      convo.id,
+      "assistant",
+      buildSupportReply("Hello, I need help with my order.").reply
+    );
+    convo.unread = false;
+  }
+
+  return NextResponse.json({
+    ok: true,
+    id: convo.id,
+  });
 }

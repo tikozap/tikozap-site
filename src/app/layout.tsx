@@ -1,3 +1,5 @@
+// src/app/layout.tsx
+
 import '@/styles/base.css';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';

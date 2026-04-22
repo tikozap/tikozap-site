@@ -1,38 +1,68 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthedUserAndTenant } from '@/lib/auth';
+// src/app/api/conversations/[id]/message/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+import {
+  appendDemoInboxMessage,
+  getDemoInboxConversation,
+} from "@/lib/demoInboxStore";
 
-const ALLOWED = new Set(['customer', 'assistant', 'staff', 'note']);
+export const runtime = "nodejs";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = await getDemoSession();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = await req.json().catch(() => ({}));
-  const role = typeof body.role === 'string' ? body.role : '';
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
+    const convo = getDemoInboxConversation(params.id);
+    if (!convo) {
+      return NextResponse.json(
+        { ok: false, error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
 
-  if (!ALLOWED.has(role)) return NextResponse.json({ ok: false, error: 'Invalid role' }, { status: 400 });
-  if (!content) return NextResponse.json({ ok: false, error: 'Empty message' }, { status: 400 });
+    const body = await req.json().catch(() => ({}));
+    const role =
+      typeof body.role === "string" && body.role.trim()
+        ? body.role.trim()
+        : "staff";
+    const content =
+      typeof body.content === "string" ? body.content.trim() : "";
 
-  const convo = await prisma.conversation.findFirst({
-    where: { id: params.id, tenantId: auth.tenant.id },
-    select: { id: true },
-  });
-  if (!convo) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    const products = Array.isArray(body.products) ? body.products : [];
 
-  await prisma.message.create({
-    data: { conversationId: params.id, role, content },
-  });
+    if (!content && products.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "Message content or product required" },
+        { status: 400 }
+      );
+    }
 
-  if (role !== 'note') {
-    await prisma.conversation.update({
-      where: { id: params.id },
-      data: { lastMessageAt: new Date() },
+    const message = appendDemoInboxMessage(
+      convo.id,
+      role === "assistant" || role === "customer" ? role : "staff",
+      content,
+      products
+    );
+
+    return NextResponse.json({
+      ok: true,
+      message,
     });
+  } catch (error) {
+    console.error("POST /api/conversations/[id]/message failed:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }

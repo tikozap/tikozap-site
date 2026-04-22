@@ -1,7 +1,16 @@
+// src/app/onboarding/install/page.tsx
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import OnboardingNav from '../_components/OnboardingNav';
+import {
+  DEFAULT_DEMO_ONBOARDING_CONFIG,
+  KEY_ONBOARDING_CONFIG,
+  type DemoOnboardingConfig,
+} from '@/lib/onboardingConfig';
+
+  const [config, setConfig] = useState<DemoOnboardingConfig>(DEFAULT_DEMO_ONBOARDING_CONFIG);
 
 const DEFAULT_SLUG = 'demo-boutique';
 
@@ -153,6 +162,19 @@ export default function InstallStep() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(KEY_ONBOARDING_CONFIG);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setConfig({
+        ...DEFAULT_DEMO_ONBOARDING_CONFIG,
+        ...parsed,
+      });
+    } catch {}
+  }, []);
+
   const trackActivation = async (event: string) => {
     try {
       const res = await fetch('/api/onboarding/activation', {
@@ -175,8 +197,8 @@ export default function InstallStep() {
     [tenantSlug],
   );
 
-  const starterLink = useMemo(
-    () => `https://app.tikozap.com/s/${tenantSlug || DEFAULT_SLUG}`,
+    const starterLink = useMemo(
+    () => `https://link.tikozap.com/l/${tenantSlug || DEFAULT_SLUG}`,
     [tenantSlug],
   );
 
@@ -250,8 +272,9 @@ export default function InstallStep() {
     <div>
       <h2 className="text-lg font-semibold">Install widget or share Starter Link</h2>
       <p className="mt-1 text-sm opacity-80">
-        Use the widget snippet for websites, or share Starter Link if you do not have a
-        site yet.
+                {config.entryMode === 'website'
+          ? 'Install the widget on your website, then test it.'
+          : 'Share your Starter Link if you do not have a website yet.'}
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -274,7 +297,7 @@ export default function InstallStep() {
             />
           </div>
           <ul className="mt-3 grid gap-2">
-            {activation.checklist.map((item) => (
+            {(activation?.checklist ?? []).map((item: any) => (
               <li key={item.id} className="flex items-start gap-2 text-sm">
                 <span
                   className={[

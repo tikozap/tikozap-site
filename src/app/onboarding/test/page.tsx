@@ -1,8 +1,17 @@
+// src/app/onboarding/test/page.tsx
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import FinishOnboarding from '../_components/FinishOnboarding';
+import {
+  DEFAULT_DEMO_ONBOARDING_CONFIG,
+  KEY_ONBOARDING_CONFIG,
+  type DemoOnboardingConfig,
+} from '@/lib/onboardingConfig';
+
+  const [config, setConfig] = useState<DemoOnboardingConfig>(DEFAULT_DEMO_ONBOARDING_CONFIG);
 
 type Msg = { id?: string; role: 'customer' | 'assistant' | 'staff' | 'note'; content: string; createdAt?: string };
 
@@ -34,6 +43,19 @@ export default function OnboardingTestPage() {
       });
     } catch {}
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(KEY_ONBOARDING_CONFIG);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setConfig({
+        ...DEFAULT_DEMO_ONBOARDING_CONFIG,
+        ...parsed,
+      });
+    } catch {}
+  }, []);
 
   // 1) Pull tenant context from demo storage (set by /demo-login quick start)
   useEffect(() => {
@@ -112,7 +134,14 @@ export default function OnboardingTestPage() {
   function resetThread() {
     setConversationId('');
     window.localStorage.removeItem(storageKey);
-    setMessages([{ role: 'assistant', content: `Hi! Welcome to ${storeName}. Ask me about orders, shipping, returns, or sizing.` }]);
+        setMessages([
+      {
+        role: 'assistant',
+        content:
+          config.greeting ||
+          `Hi! Welcome to ${storeName}. Ask me about orders, shipping, returns, or sizing.`,
+      },
+    ]);
   }
 
   return (
@@ -140,7 +169,7 @@ export default function OnboardingTestPage() {
 
       <div className="rounded-2xl border bg-white p-4 shadow-sm">
         <div className="h-[360px] space-y-3 overflow-auto rounded-xl bg-zinc-50 p-3">
-          {messages.map((m, idx) => (
+          {messages.map((m, idx: any) => (
             <div key={m.id ?? idx} className={`flex ${m.role === 'customer' ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={[

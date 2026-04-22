@@ -1,44 +1,31 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthedUserAndTenant } from '@/lib/auth';
+// src/app/api/conversations/[id]/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { getDemoSession } from "@/lib/demoAuth";
+import { getDemoInboxConversation } from "@/lib/demoInboxStore";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const auth = await getAuthedUserAndTenant();
-  if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
+export const runtime = "nodejs";
 
-  const id = params.id;
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const auth = await getDemoSession();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
-  const convo = await prisma.conversation.findFirst({
-    where: { id, tenantId: auth.tenant.id },
-    select: {
-      id: true,
-      customerName: true,
-      subject: true,
-      status: true,
-      channel: true,
-      aiEnabled: true,
-      tags: true,
-      lastMessageAt: true,
-      archivedAt: true,
-    },
-  });
+  const conversation = getDemoInboxConversation(params.id);
 
-  if (!convo) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
-
-  const messages = await prisma.message.findMany({
-    where: { conversationId: id },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, role: true, content: true, createdAt: true },
-  });
+  if (!conversation) {
+    return NextResponse.json(
+      { ok: false, error: "Conversation not found" },
+      { status: 404 }
+    );
+  }
 
   return NextResponse.json({
     ok: true,
-    conversation: {
-      ...convo,
-      tags: (convo.tags || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-      messages,
-    },
+    conversation,
   });
 }

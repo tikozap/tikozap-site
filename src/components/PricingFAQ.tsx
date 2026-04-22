@@ -38,7 +38,7 @@ export default function PricingFAQ() {
       </header>
 
       <div className="stack">
-        {faqs.map(({ q, a }) => (
+        {faqs.map(({ q, a }: any) => (
           <details key={q} className="faq-item">
             <summary>
               <span className="faq-question">{q}</span>

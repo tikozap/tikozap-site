@@ -188,7 +188,7 @@ export default function SupportMetricsCards() {
 
   const intentRows = useMemo(() => {
     if (!metrics) return [];
-    const rows = Object.entries(metrics.counters.intents).sort((a, b) => b[1] - a[1]);
+    const rows = Object.entries(metrics.counters.intents).sort((a: any, b: any) => b[1] - a[1]);
     return rows.slice(0, 5);
   }, [metrics]);
 
@@ -206,7 +206,7 @@ export default function SupportMetricsCards() {
   }, [activationData]);
 
   const activeVoiceAlerts = useMemo(
-    () => voiceAlerts.filter((alert) => alert.severity !== 'info'),
+    () => voiceAlerts.filter((alert: any) => alert.severity !== 'info'),
     [voiceAlerts],
   );
 
@@ -224,7 +224,7 @@ export default function SupportMetricsCards() {
             value={windowKey}
             onChange={(e) => setWindowKey(e.target.value as SupportMetricsPayload['window'])}
           >
-            {WINDOW_OPTIONS.map((w) => (
+            {WINDOW_OPTIONS.map((w: any) => (
               <option key={w.value} value={w.value}>
                 {w.label}
               </option>
@@ -292,7 +292,7 @@ export default function SupportMetricsCards() {
           <p>No activation data yet. Go through onboarding steps to populate this.</p>
         ) : (
           <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
-            {activationFunnelSteps.map((step) => (
+            {activationFunnelSteps.map((step: any) => (
               <div key={step.id}>
                 <div
                   style={{
@@ -346,7 +346,7 @@ export default function SupportMetricsCards() {
           <p>No intent data yet. Send a few test messages to populate this.</p>
         ) : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            {intentRows.map(([intent, count]) => (
+            {intentRows.map(([intent, count]: any) => (
               <span key={intent} className="db-pill">
                 {prettyIntent(intent)}: {count}
               </span>

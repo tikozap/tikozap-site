@@ -1,33 +1,12 @@
 // src/app/api/auth/demo-login/route.ts
+
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
-import { newWidgetPublicKey } from '@/lib/widgetKey';
 
 export const runtime = 'nodejs';
 
 const DEFAULT_DEMO_STORE_NAME = 'Demo Boutique';
 const DEFAULT_DEMO_EMAIL = 'owner@demo-boutique.demo';
-const LEGACY_DEMO_EMAIL = 'owner@three-tree-fashion.demo';
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-function isLikelySchemaDrift(error: unknown): boolean {
-  const err = error as { code?: string; message?: string };
-  const code = err?.code || '';
-  const message = (err?.message || '').toLowerCase();
-  if (code === 'P2021' || code === 'P2022') return true;
-  if (message.includes('no such table')) return true;
-  if (message.includes('no such column')) return true;
-  if (message.includes('does not exist')) return true;
-  return false;
-}
 
 export async function POST(req: Request) {
   try {
@@ -38,158 +17,61 @@ export async function POST(req: Request) {
         ? body.email
         : DEFAULT_DEMO_EMAIL;
 
-    const nameRaw = typeof body.name === 'string' ? body.name : '';
-
+    const nameRaw = typeof body.name === 'string' ? body.name.trim() : '';
     const storeRaw =
-      typeof body.storeName === 'string' ? body.storeName : DEFAULT_DEMO_STORE_NAME;
+      typeof body.storeName === 'string' && body.storeName.trim()
+        ? body.storeName.trim()
+        : DEFAULT_DEMO_STORE_NAME;
 
     const email = emailRaw.trim().toLowerCase();
-    const name = nameRaw.trim() || null;
-    const storeName = storeRaw.trim() || DEFAULT_DEMO_STORE_NAME;
 
     if (!email || !email.includes('@')) {
-      return NextResponse.json({ ok: false, error: 'Valid email required.' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: 'Valid email required.' },
+        { status: 400 }
+      );
     }
 
-    // --- user ---
-    let user = await prisma.user.findUnique({ where: { email } });
+    const demoUser = {
+      id: 'demo-user',
+      email,
+      name: nameRaw || 'Demo Owner',
+    };
 
-    if (!user && email === DEFAULT_DEMO_EMAIL) {
-      const legacy = await prisma.user.findUnique({ where: { email: LEGACY_DEMO_EMAIL } });
-      if (legacy) {
-        user =
-          (await prisma.user
-            .update({ where: { id: legacy.id }, data: { email: DEFAULT_DEMO_EMAIL } })
-            .catch(() => null)) || legacy;
-      }
-    }
+    const demoTenant = {
+      id: 'demo-tenant',
+      slug: 'demo-boutique',
+      storeName: storeRaw,
+    };
 
-    if (!user) {
-      user = await prisma.user.create({ data: { email, name } });
-    }
-
-    // --- membership + tenant ---
-    let membership = await prisma.membership.findFirst({
-      where: { userId: user.id },
-      include: { tenant: true },
-    });
-
-    // Legacy migration helper (optional)
-    if (!membership && email === DEFAULT_DEMO_EMAIL) {
-      const legacyUser = await prisma.user.findUnique({
-        where: { email: LEGACY_DEMO_EMAIL },
-        select: { id: true },
-      });
-
-      if (legacyUser && legacyUser.id !== user.id) {
-        const legacyMembership = await prisma.membership.findFirst({
-          where: { userId: legacyUser.id },
-          include: { tenant: true },
-        });
-
-        if (legacyMembership?.tenant) {
-          await prisma.membership.upsert({
-            where: {
-              userId_tenantId: {
-                userId: user.id,
-                tenantId: legacyMembership.tenant.id,
-              },
-            },
-            update: {},
-            create: {
-              userId: user.id,
-              tenantId: legacyMembership.tenant.id,
-              role: 'owner',
-            },
-          });
-
-          membership = await prisma.membership.findFirst({
-            where: { userId: user.id, tenantId: legacyMembership.tenant.id },
-            include: { tenant: true },
-          });
-        }
-      }
-    }
-
-    let tenant = membership?.tenant ?? null;
-
-    if (!tenant) {
-      const base = slugify(storeName) || 'store';
-      const slug = `${base}-${user.id.slice(0, 6)}`;
-
-      tenant = await prisma.tenant.create({
-        data: {
-          slug,
-          storeName,
-          starterLinkSlug: slug,
-          starterLinkEnabled: true,
-          ownerId: user.id,
-          memberships: { create: { userId: user.id, role: 'owner' } },
-          widget: { create: { publicKey: newWidgetPublicKey() } },
-        },
-      });
-    } else {
-      tenant = await prisma.tenant.update({
-        where: { id: tenant.id },
-        data: {
-          storeName,
-          starterLinkEnabled: true,
-          ...(tenant.starterLinkSlug ? {} : { starterLinkSlug: tenant.slug }),
-        },
-      });
-
-      // ✅ ensure widget exists (and MUST include publicKey if creating)
-      const widget = await prisma.widget.findUnique({ where: { tenantId: tenant.id } });
-      if (!widget) {
-        await prisma.widget.create({
-          data: { tenantId: tenant.id, publicKey: newWidgetPublicKey() },
-        });
-      }
-    }
-
-    // --- session cookie ---
     const token = randomBytes(24).toString('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-
-    await prisma.session.create({
-      data: { token, userId: user.id, expiresAt },
-    });
 
     const res = NextResponse.json({
       ok: true,
-      tenant: { id: tenant.id, slug: tenant.slug, storeName: tenant.storeName },
+      tenant: demoTenant,
+      user: demoUser,
     });
 
-    res.cookies.set('tz_session', token, {
-      httpOnly: true,
-      sameSite: 'lax',
+    const commonCookie = {
+      httpOnly: true as const,
+      sameSite: 'lax' as const,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
-    });
+    };
 
-    res.cookies.set('tz_tenant', tenant.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    res.cookies.set('tz_session', token, commonCookie);
+    res.cookies.set('tz_tenant', demoTenant.id, commonCookie);
+    res.cookies.set('tz_user_email', demoUser.email, commonCookie);
+    res.cookies.set('tz_user_name', demoUser.name, commonCookie);
+    res.cookies.set('tz_store_name', demoTenant.storeName, commonCookie);
 
     return res;
   } catch (error) {
     console.error('[api/auth/demo-login] Failed to create demo session', error);
-
-    if (isLikelySchemaDrift(error)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'Database schema looks outdated or mismatched. Run: npx prisma db push',
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({ ok: false, error: 'Could not start demo session.' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Could not start demo session.' },
+      { status: 500 }
+    );
   }
 }
