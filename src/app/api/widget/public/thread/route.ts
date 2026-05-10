@@ -2,9 +2,40 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDemoInboxConversation } from "@/lib/demoInboxStore";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+
+function orderMessages(messages: any[]) {
+  const sorted = [...messages].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+
+    if (
+      a.role === "assistant" &&
+      b.role === "customer" &&
+      bTime >= aTime &&
+      bTime - aTime <= 8000
+    ) {
+      sorted[i] = b;
+      sorted[i + 1] = a;
+      i++;
+    }
+  }
+
+  return sorted;
+}
 
 const Query = z.object({
   key: z.string().min(2).max(200),
@@ -34,38 +65,97 @@ export async function GET(req: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         { ok: false, error: "Invalid request" },
-        { status: 400, headers: { ...corsHeaders, "cache-control": "no-store" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
       );
     }
 
-    const { conversationId } = parsed.data;
-    const conv = getDemoInboxConversation(conversationId);
+    const { key, conversationId } = parsed.data;
 
-    if (!conv) {
+    const widget = await prisma.widget.findFirst({
+      where: {
+        publicKey: key,
+        enabled: true,
+      },
+      select: {
+        tenantId: true,
+      },
+    });
+
+    if (!widget) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid widget key" },
+        {
+          status: 404,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
+
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        tenantId: widget.tenantId,
+      },
+      select: {
+        id: true,
+        messages: {
+          where: {
+            role: {
+              not: "note",
+            },
+          },
+          orderBy: [
+  { createdAt: "asc" },
+  { id: "asc" },
+],
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
       return NextResponse.json(
         { ok: false, error: "Conversation not found" },
-        { status: 404, headers: { ...corsHeaders, "cache-control": "no-store" } }
+        {
+          status: 404,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
       );
     }
 
-    const messages = (conv.messages || [])
-      .filter((m: any) => m && m.role !== "note")
-      .map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-        products: Array.isArray(m.products) ? m.products : [],
-      }));
+    const messages = orderMessages(conversation.messages).map((m) => ({
+  id: m.id,
+  role: m.role,
+  content: m.content,
+  createdAt: m.createdAt,
+  products: [],
+}));
 
-    return NextResponse.json(
-      { ok: true, conversationId: conv.id, messages },
-      { headers: { ...corsHeaders, "cache-control": "no-store" } }
+return NextResponse.json(
+  {
+    ok: true,
+    conversationId: conversation.id,
+    messages,
+  },
+      {
+        headers: { ...corsHeaders, "cache-control": "no-store" },
+      }
     );
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || "Server error" },
-      { status: 500, headers: { ...corsHeaders, "cache-control": "no-store" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "cache-control": "no-store" },
+      }
     );
   }
 }

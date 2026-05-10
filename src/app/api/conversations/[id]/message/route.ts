@@ -1,11 +1,8 @@
 // src/app/api/conversations/[id]/message/route.ts
 
 import { NextResponse } from "next/server";
-import { getDemoSession } from "@/lib/demoAuth";
-import {
-  appendDemoInboxMessage,
-  getDemoInboxConversation,
-} from "@/lib/demoInboxStore";
+import { getAuthedUserAndTenant } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -14,24 +11,18 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await getDemoSession();
+    const auth = await getAuthedUserAndTenant();
     if (!auth) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const convo = getDemoInboxConversation(params.id);
-    if (!convo) {
-      return NextResponse.json(
-        { ok: false, error: "Conversation not found" },
-        { status: 404 }
-      );
-    }
-
     const body = await req.json().catch(() => ({}));
+
     const role =
       typeof body.role === "string" && body.role.trim()
         ? body.role.trim()
         : "staff";
+
     const content =
       typeof body.content === "string" ? body.content.trim() : "";
 
@@ -44,16 +35,55 @@ export async function POST(
       );
     }
 
-    const message = appendDemoInboxMessage(
-      convo.id,
-      role === "assistant" || role === "customer" ? role : "staff",
-      content,
-      products
-    );
+    const convo = await prisma.conversation.findFirst({
+      where: {
+        id: params.id,
+        tenantId: auth.tenant.id,
+      },
+      select: { id: true },
+    });
+
+    if (!convo) {
+      return NextResponse.json(
+        { ok: false, error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
+    const finalRole =
+      role === "assistant" || role === "customer" || role === "note"
+        ? role
+        : "staff";
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId: convo.id,
+        role: finalRole,
+        content,
+      },
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: convo.id },
+      data: {
+        lastMessageAt: new Date(),
+        lastSeenAt: new Date(),
+        needsHuman: finalRole === "staff" ? false : undefined,
+      },
+    });
 
     return NextResponse.json({
       ok: true,
-      message,
+      message: {
+        ...message,
+        products,
+      },
     });
   } catch (error) {
     console.error("POST /api/conversations/[id]/message failed:", error);

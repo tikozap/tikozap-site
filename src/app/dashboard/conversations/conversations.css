@@ -167,8 +167,9 @@
 }
 
 .cx-item.active{
-  background:#e9eef5;
-  border-color:#bfc8d4;
+  background:#eef2ff;
+  border-color:#c7d2fe;
+  box-shadow:0 2px 6px rgba(99,102,241,0.08);
 }
 
 .cx-item.archived{
@@ -190,7 +191,7 @@
   align-items:center;
   justify-content:center;
   background:#f9fafb;
-  border:1px solid #d1d5db;
+  border:none;
   color:#111827;
   font-size:12px;
   font-weight:700;
@@ -291,7 +292,7 @@
   margin-top:6px;
   font-size:14px;
   line-height:1.35;
-  color:#111827;
+  color:#6b7280;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -449,9 +450,15 @@
   word-break:break-word;
 }
 
-.cx-bubble.agent{
-  background:#111827;
-  border-color:#111827;
+.cx-bubble.assistant {
+  background: #eef2ff;
+  color: #1e293b;
+  border-color: #e0e7ff;
+}
+
+.cx-bubble.agent {
+  background:#374151;
+  border-color:#374151;
   color:#fff;
 }
 
@@ -928,6 +935,22 @@
   background:#f8fafc;
 }
 
+.cx-mobileScreen{
+  height:100svh;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.cx-mobileList{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+
 .cx-mobileInboxLayer,
 .cx-mobileThreadLayer{
   width:100%;
@@ -1328,6 +1351,7 @@
   }
 
   .cx-threadPane{
+    background:#fafbfc;
     height: calc(100vh - 100px);
     min-height: 0;
     overflow: hidden;
@@ -1462,4 +1486,836 @@
   gap: 6px !important;
 }
 
+.cx-inlineLabel--web{
+  background:#e0f2fe;
+  color:#0369a1;
+  border:none;
+}
+
+.cx-inlineLabel--link{
+  background:#ede9fe;
+  color:#5b21b6;
+  border:none;
+}
+
+.cx-inlineLabel--email{
+  background:#dcfce7;
+  color:#166534;
+  border:none;
+}
+
+.cx-inlineLabel--shopify{
+  background:#fef3c7;
+  color:#92400e;
+  border:none;
+}
+}
+
+/* =========================
+   TikoZap color polish v2
+========================= */
+
+/* 1) Selected inbox item: warm light yellow */
+.cx-item.active{
+  background:#fffdf5 !important;
+  border-color:#fcd34d !important;
+  box-shadow:0 1px 4px rgba(146,64,14,.06) !important;
+}
+
+/* 3) Staff Kevin bubble: softer, less strong */
+.cx-bubble.agent{
+  background:#334155 !important;
+  border-color:#334155 !important;
+  color:#ffffff !important;
+}
+
+/* Keep assistant bubble soft blue, but separate from selected yellow */
+.cx-bubble.assistant{
+  background:#e8f1ff !important;
+  border-color:#d6e6ff !important;
+  color:#1e293b !important;
+}
+
+/* 4) Channel labels back to original quiet gray */
+.cx-inlineLabel,
+.cx-inlineLabel--web,
+.cx-inlineLabel--link,
+.cx-inlineLabel--email,
+.cx-inlineLabel--shopify,
+.cx-inlineLabel--phone{
+  font-size:12px !important;
+  line-height:1 !important;
+  color:#374151 !important;
+  background:#e5e7eb !important;
+  border:1px solid #d1d5db !important;
+  border-radius:999px !important;
+  padding:3px 7px !important;
+  font-weight:600 !important;
+}
+
+.cx-bubble{
+  padding:13px 14px;  /* was 12px */
+}
+
+.cx-dot.unread{
+  background:#3b82f6;
+}
+
+/* =========================
+   Abstract human avatar
+========================= */
+
+.cx-avatar{
+  position:relative;
+  overflow:hidden;
+  margin-top:2px;
+}
+
+/* head */
+.cx-avatarIcon::before{
+  content:"";
+  position:absolute;
+  top:7px;
+  left:50%;
+  transform:translateX(-50%);
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  background:currentColor;
+  opacity:0.3;
+}
+
+/* shoulders */
+.cx-avatarIcon::after{
+  content:"";
+  position:absolute;
+  bottom:6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:18px;
+  height:10px;
+  border-radius:10px 10px 6px 6px;
+  background:currentColor;
+  opacity:0.3;
+}
+
+/* =========================
+   TikoZap button + staff polish
+========================= */
+
+/* Softer Staff Kevin bubble */
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+/* Make dashboard buttons feel more button-like */
+.db-btn{
+  background:#ffffff !important;
+  border:1px solid #cbd5e1 !important;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.08),
+    0 1px 1px rgba(15,23,42,.04) !important;
+  font-weight:700 !important;
+  transition:
+    background .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    transform .16s ease !important;
+}
+
+.db-btn:hover{
+  background:#f8fafc !important;
+  border-color:#94a3b8 !important;
+  box-shadow:
+    0 3px 8px rgba(15,23,42,.10),
+    0 1px 2px rgba(15,23,42,.06) !important;
+  transform:translateY(-1px);
+}
+
+.db-btn:active{
+  transform:translateY(0);
+  box-shadow:0 1px 2px rgba(15,23,42,.08) !important;
+}
+
+/* Keep primary buttons visually stronger */
+.db-btn.primary{
+  background:#111827 !important;
+  border-color:#111827 !important;
+  color:#ffffff !important;
+}
+
+.db-btn.primary:hover{
+  background:#1f2937 !important;
+  border-color:#1f2937 !important;
+}
+
+/* =========================
+   Add tag combo control
+========================= */
+
+.cx-addTagCombo{
+  justify-self:end;
+  width:240px;
+  max-width:100%;
+  height:34px;
+  display:flex;
+  align-items:center;
+  background:#fff;
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.08),
+    0 1px 1px rgba(15,23,42,.04);
+  overflow:hidden;
+}
+
+.cx-addTagInput{
+  flex:1 1 auto;
+  min-width:0;
+  height:100%;
+  border:none;
+  outline:none;
+  background:transparent;
+  padding:0 10px;
+  font-size:12px;
+  color:#111827;
+}
+
+.cx-addTagButton{
+  width:34px;
+  height:34px;
+  border:none;
+  border-left:1px solid #e5e7eb;
+  background:#fff;
+  color:#111827;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.cx-addTagButton:hover{
+  background:#f8fafc;
+}
+
+/* =========================
+   Dashboard balance polish
+   Move warmth from Inbox to customer messages
+========================= */
+
+/* Inbox active row: calmer darker grey */
+.cx-item.active{
+  background:#e5e7eb !important;
+  border-color:#cbd5e1 !important;
+  box-shadow:0 1px 4px rgba(15,23,42,.08) !important;
+}
+
+/* Customer bubbles: warm light yellow */
+.cx-bubble{
+  background:#fff8e6 !important;
+  border-color:#fff8e6 !important;
+  color:#111827 !important;
+}
+
+/* Assistant bubbles stay soft blue */
+.cx-bubble.assistant{
+  background:#e8f1ff !important;
+  border-color:#d6e6ff !important;
+  color:#1e293b !important;
+}
+
+/* Staff Kevin stays medium slate */
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+/* Internal notes stay neutral */
+.cx-bubble.note{
+  background:#f8fafc !important;
+  border-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+
+/* =========================
+   Mobile thread header polish
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileThreadTop{
+    background:#eef1f5 !important;
+    border-bottom:1px solid #d7dde6 !important;
+    grid-template-columns:96px 1fr 96px !important;
+    padding:10px 0 !important;
+  }
+
+  .cx-mobileThreadLeft{
+    min-width:96px !important;
+  }
+
+  .cx-mobileThreadIdentity{
+    text-align:center !important;
+  }
+
+  .cx-mobileThreadName{
+    font-size:18px !important;
+    font-weight:900 !important;
+  }
+
+  .cx-mobileThreadMeta{
+    font-size:13px !important;
+  }
+
+  .cx-mobileTopBtn{
+    width:52px !important;
+    height:52px !important;
+    min-width:52px !important;
+    min-height:52px !important;
+  }
+
+  .cx-mobileTopBtn svg{
+    width:24px !important;
+    height:24px !important;
+  }
+
+  .cx-mobileThreadTop .db-btn[aria-label="More"]{
+    font-size:30px !important;
+    font-weight:800 !important;
+  }
+}
+
+/* =========================
+   Mobile top-right menu alignment
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileThreadTop{
+    grid-template-columns:104px 1fr 104px !important;
+  }
+
+  .cx-mobileThreadTop > .cx-mobileTopBtn,
+  .cx-mobileInboxTop > .cx-mobileTopBtn:last-child{
+    justify-self:end !important;
+    margin-right:4px !important;
+    font-size:26px !important;
+    font-weight:600 !important;
+    color:#1f2937 !important;
+  }
+
+  .cx-mobileThreadTop .db-btn[aria-label="More"]{
+    justify-self:end !important;
+    margin-right:4px !important;
+    font-size:26px !important;
+    font-weight:600 !important;
+    color:#1f2937 !important;
+  }
+
+  .cx-mobileInboxTop{
+    grid-template-columns:104px 1fr 104px !important;
+  }
+}
+
+/* =========================
+   Mobile inbox + reply action polish
+========================= */
+
+@media (max-width: 900px){
+  /* Inbox screen/card should match thread screen height/background */
+  .cx-mobileStage,
+  .cx-mobileScreen,
+  .cx-mobileInboxLayer,
+  .cx-mobileThreadLayer,
+  .cx-mobileThreadScreen{
+    background:#f8fafc !important;
+    min-height:100svh !important;
+  }
+
+  .cx-mobileList{
+    padding-bottom:120px !important;
+  }
+
+  /* Prevent last inbox card from being visually cut off */
+  .cx-mobileList .cx-item:last-child{
+    margin-bottom:120px !important;
+  }
+
+  /* Keep reply label + buttons in one row */
+  .cx-replyModeBar{
+    display:grid !important;
+    grid-template-columns:auto 1fr !important;
+    align-items:center !important;
+    gap:8px !important;
+  }
+
+  .cx-replyModeBar > div:first-child{
+    white-space:nowrap !important;
+    font-size:13px !important;
+  }
+
+  .cx-replyQuickActions{
+    display:flex !important;
+    justify-content:flex-end !important;
+    gap:6px !important;
+    flex-wrap:nowrap !important;
+    min-width:0 !important;
+  }
+
+  .cx-replyQuickActions .db-btn{
+    height:38px !important;
+    min-height:38px !important;
+    padding:0 10px !important;
+    font-size:12px !important;
+    border-radius:14px !important;
+    white-space:nowrap !important;
+  }
+}
+
+/* Mobile search full width */
+@media (max-width: 900px){
+  .cx-mobileSearchWrap{
+    padding:12px 12px 10px !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileSearch{
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
+    justify-content:flex-start !important;
+  }
+}
+
+/* =========================
+   Intercom-style neutral avatar
+========================= */
+
+.cx-avatar{
+  width:36px !important;
+  height:36px !important;
+  background:#f1f5f9 !important;
+  color:#64748b !important;
+  border:1px solid #e2e8f0 !important;
+  box-shadow:none !important;
+  margin-top:0 !important;
+}
+
+.cx-avatarIcon::before{
+  opacity:.38 !important;
+}
+
+.cx-avatarIcon::after{
+  opacity:.28 !important;
+}
+
+.cx-item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  padding: 12px 12px;
+}
+
+.cx-subject {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.cx-time {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* =========================
+   Thread calmer bubble system
+========================= */
+
+.cx-bubble{
+  background:#ffffff !important;
+  border-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+
+.cx-bubble.assistant{
+  background:#eef5ff !important;
+  border-color:#dbeafe !important;
+  color:#1f2937 !important;
+}
+
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+.cx-bubble.note{
+  background:#f8fafc !important;
+  border-color:#e5e7eb !important;
+  color:#374151 !important;
+}
+
+/* =========================
+   Intercom-style neutral buttons
+========================= */
+
+.db-btn,
+.db-btn.primary{
+  background:#f8fafc !important;
+  border:1px solid #e2e8f0 !important;
+  color:#374151 !important;
+  box-shadow:none !important;
+  font-weight:600 !important;
+}
+
+.db-btn:hover,
+.db-btn.primary:hover{
+  background:#f1f5f9 !important;
+  border-color:#cbd5e1 !important;
+  color:#111827 !important;
+}
+
+.db-btn:active,
+.db-btn.primary:active{
+  background:#e2e8f0 !important;
+}
+
+/* More breathing room between messages */
+.cx-message{
+  margin-bottom:12px !important;
+}
+
+/* Make labels lighter */
+.cx-meta{
+  font-size:12px !important;
+  color:#9ca3af !important;
+}
+
+.cx-bubble.assistant{
+  background:#f1f5f9 !important;
+  border-color:#e2e8f0 !important;
+}
+
+/* =========================
+   Dashboard corner radius reset
+   Less pill-like, more premium SaaS
+========================= */
+
+.cx-item,
+.cx-thread,
+.cx-threadPane,
+.cx-bubble,
+.cx-textarea,
+.cx-tagInput,
+.cx-addTagCombo,
+.cx-productCard,
+.cx-productList,
+.db-btn,
+select,
+input,
+textarea{
+  border-radius:10px !important;
+}
+
+.cx-avatar,
+.cx-dot,
+.cx-sendFab{
+  border-radius:999px !important;
+}
+
+/* Smaller buttons should not look like pills */
+.db-btn{
+  border-radius:8px !important;
+}
+
+/* Chat bubbles: soft but not overly round */
+.cx-bubble{
+  border-radius:10px !important;
+}
+
+/* Composer still slightly softer */
+.cx-composerWrap,
+.cx-textarea--composer{
+  border-radius:12px !important;
+}
+
+/* =========================
+   Hide secondary actions (move to menu)
+========================= */
+
+.cx-threadActions,
+.cx-threadTopActions,
+.cx-addNoteBtn,
+.cx-closeBtn,
+.cx-markWaitingBtn{
+  display:none !important;
+}
+
+/* =========================
+   Desktop inbox top controls
+========================= */
+
+.db-topSplit{
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+
+.db-topLeft{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.db-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.db-search{
+  width:100%;
+  height:34px;
+  padding:0 10px;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  font-size:13px;
+  color:#111827;
+  background:#fff;
+  box-sizing:border-box;
+}
+
+.db-search:focus{
+  outline:none;
+  border-color:#cbd5e1;
+}
+
+/* Align desktop thread with inbox list */
+@media (min-width: 901px){
+  .db-topSplit{
+    grid-template-columns:320px 1fr !important;
+    align-items:start !important;
+  }
+
+  .db-topRight{
+    display:none !important;
+  }
+
+  .cx-split{
+    margin-top:0 !important;
+    grid-template-columns:320px 1fr !important;
+    align-items:start !important;
+  }
+
+  .cx-threadCol,
+  .cx-threadPane{
+    margin-top:0 !important;
+  }
+}
+
+/* Pull desktop thread upward into empty top-right space */
+@media (min-width: 901px){
+  .cx-threadCol{
+    margin-top:-104px !important;
+  }
+
+  .cx-threadPane{
+    min-height:calc(100vh - 32px) !important;
+  }
+}
+
+/* =========================
+   Desktop: top-aligned thread header
+========================= */
+
+@media (min-width: 901px){
+  .db-topSplit{
+    grid-template-columns:320px 1fr !important;
+    gap:24px !important;
+    align-items:start !important;
+  }
+
+  .cx-split{
+    grid-template-columns:320px 1fr !important;
+    gap:24px !important;
+  }
+
+  .db-topRight{
+    display:block !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+    align-items:start;
+    padding-top:2px;
+    padding-bottom:8px;
+    border-bottom:1px solid #e5e7eb;
+  }
+
+  .cx-topThreadMain{
+    min-width:0;
+  }
+
+  .cx-topThreadActions{
+    display:grid;
+    grid-template-columns:160px 72px 104px;
+    gap:8px;
+    align-items:center;
+    justify-content:end;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    grid-column:1 / -1;
+    justify-self:end;
+    width:260px;
+  }
+
+  /* Hide the old desktop thread header inside the thread pane.
+     Keep mobile header untouched. */
+  .cx-threadPane .cx-threadFrame > .cx-threadHead{
+    display:none !important;
+  }
+
+  .cx-threadMessages{
+    padding-top:0 !important;
+  }
+}
+
+/* Align desktop thread header with Inbox title */
+@media (min-width: 901px){
+  .cx-topThreadHead{
+    padding-top:24px !important;
+  }
+}
+
+/* Desktop scroll fixes */
+@media (min-width: 901px){
+  .cx-listPane{
+    overflow-y:auto !important;
+    max-height:calc(100vh - 150px) !important;
+    min-height:0 !important;
+  }
+
+  .cx-threadPane,
+  .cx-threadFrame{
+    overflow:hidden !important;
+    min-height:0 !important;
+  }
+
+  .cx-threadMessages{
+    overflow-y:auto !important;
+    padding-right:18px !important;
+    scrollbar-gutter:stable !important;
+  }
+
+  .cx-msgList{
+    padding-right:4px !important;
+  }
+}
+
+/* Keep desktop composer visible */
+@media (min-width: 901px){
+  .cx-threadPane{
+    height:calc(100vh - 32px) !important;
+  }
+
+  .cx-threadFrame{
+    height:100% !important;
+    display:flex !important;
+    flex-direction:column !important;
+  }
+
+  .cx-threadMessages{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+  }
+
+  .cx-replyDock{
+    flex:0 0 auto !important;
+    background:#fff !important;
+    border-top:1px solid #e5e7eb !important;
+  }
+}
+
+/* Desktop composer breathing room */
+@media (min-width: 901px){
+  .cx-replyDock{
+    padding-bottom:14px !important;
+  }
+
+  .cx-composerWrap{
+    margin-bottom:4px !important;
+  }
+}
+
+/* =========================
+   Desktop dashboard width + button polish
+========================= */
+
+@media (min-width: 901px){
+  /* Let Inbox grow/shrink with screen */
+  .db-topSplit,
+  .cx-split{
+    grid-template-columns: clamp(360px, 30vw, 460px) 1fr !important;
+    gap: 28px !important;
+  }
+
+  /* Make thread header and message body use same width */
+  .db-topRight,
+  .cx-threadCol,
+  .cx-threadPane,
+  .cx-threadFrame{
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .cx-topThreadHead{
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cx-threadMessages,
+  .cx-replyDock{
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Unify top button/select height */
+  .db-row .db-btn,
+  .db-row select.db-btn{
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .db-row select.db-btn{
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+  }
+}
+
+/* Desktop top controls: equal button width */
+@media (min-width: 901px){
+  .db-row .db-btn,
+  .db-row select.db-btn,
+  .cx-topThreadActions > .db-btn{
+    width: 108px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .cx-topThreadActions{
+    grid-template-columns: 108px 108px 108px !important;
+  }
 }

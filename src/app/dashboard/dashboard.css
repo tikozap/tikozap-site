@@ -579,9 +579,9 @@ html, body{
 }
 
 .db-title{
-  font-size:28px;
+  font-size:24px;
   line-height:1.1;
-  font-weight:900;
+  font-weight:600;
   color:#111827;
 }
 
@@ -589,7 +589,7 @@ html, body{
   .db-title{
     font-size:18px;
     line-height:1.2;
-    font-weight:800;
+    font-weight:600;
   }
 
   .db-card{
@@ -608,4 +608,191 @@ html, body{
     font-size:12px;
   }
 }
+}
+
+/* Overview visual dashboard */
+.ov-visual{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:14px;
+}
+
+.ov-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:16px;
+}
+
+.ov-cardTitle{
+  font-size:13px;
+  font-weight:700;
+  color:#64748b;
+  margin-bottom:10px;
+}
+
+.ov-legend{
+  display:grid;
+  gap:8px;
+  font-size:13px;
+  color:#475569;
+}
+
+.ov-legend div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.ov-legend span{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  display:inline-block;
+}
+
+@media (max-width: 900px){
+  .ov-visual{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Make legacy cards lighter */
+.db-rollout,
+.db-export{
+  opacity:0.9;
+}
+
+.db-rollout .db-card,
+.db-export .db-card{
+  border-color:#eef2f7 !important;
+  background:#fafbfc !important;
+}
+
+.db-section{
+  margin-bottom:14px;
+}
+
+.db-metricsGrid{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:12px;
+}
+
+.db-metricCard{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:14px;
+  min-height:78px;
+}
+
+.db-metricLabel{
+  font-size:12px;
+  color:#64748b;
+  margin-bottom:6px;
+}
+
+.db-metricValue{
+  font-size:20px;
+  font-weight:700;
+  color:#111827;
+}
+
+.db-metricSub{
+  margin-top:4px;
+  font-size:12px;
+  color:#94a3b8;
+}
+
+@media (max-width:900px){
+  .db-metricsGrid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+/* Activation funnel polish */
+.db-funnelCard{
+  grid-column:1 / -1;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:16px;
+}
+
+.db-funnelRow{
+  margin-bottom:10px;
+}
+
+.db-funnelLabel{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  margin-bottom:4px;
+  color:#374151;
+}
+
+.db-funnelBar{
+  height:8px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+}
+
+.db-funnelFill{
+  height:100%;
+  background:#3b82f6;
+}
+
+/* Design-partner rollout checklist: 2-column layout */
+.db-rollout .db-card{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px 18px;
+}
+
+.db-rollout .db-card h3,
+.db-rollout .db-card p{
+  grid-column:1 / -1;
+}
+
+@media (max-width:900px){
+  .db-rollout .db-card{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Fix design-partner checklist: make checklist items 2 columns */
+.db-rollout .db-card{
+  display:block !important;
+}
+
+.db-rollout .db-card > div{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+}
+
+.db-rollout .db-card > h3,
+.db-rollout .db-card > p{
+  display:block !important;
+}
+
+@media (max-width:900px){
+  .db-rollout .db-card > div{
+    grid-template-columns:1fr !important;
+  }
+}
+
+/* Design-partner checklist: compact Save owner buttons */
+.db-rollout .db-card button{
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:10px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  line-height:1 !important;
 }

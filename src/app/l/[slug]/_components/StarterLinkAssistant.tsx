@@ -20,7 +20,8 @@ type ChatProduct = {
 
 type AssistantMessage = {
   id: string;
-  role: "assistant" | "user";
+  role: "assistant" | "user" | "staff";
+speakerName?: string;
   text: string;
   products?: ChatProduct[];
 };
@@ -28,8 +29,10 @@ type AssistantMessage = {
 type Props = {
   publicKey: string;
   assistantName: string;
+  greeting?: string;
   premium?: boolean;
   brandColor?: string;
+  desktopDocked?: boolean;
 };
 
 const CHAT_WELCOME =
@@ -43,8 +46,42 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeVoiceText(text: string) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[.?!。！？]+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function getOpenKey(publicKey: string) {
+  return `tz_assistant_open_${publicKey}`;
+}
+
 function getConversationKey(publicKey: string) {
   return `tz_starter_link_conversation_${publicKey}`;
+}
+
+const FREE_VOICE_DAILY_LIMIT = 5;
+
+function getVoiceKey(publicKey: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  return `tz_voice_${publicKey}_${today}`;
+}
+
+function getVoiceCount(publicKey: string) {
+  try {
+    return Number(localStorage.getItem(getVoiceKey(publicKey)) || "0");
+  } catch {
+    return 0;
+  }
+}
+
+function incrementVoiceCount(publicKey: string) {
+  try {
+    const next = getVoiceCount(publicKey) + 1;
+    localStorage.setItem(getVoiceKey(publicKey), String(next));
+  } catch {}
 }
 
 function getVisitorName(publicKey: string) {
@@ -63,17 +100,23 @@ function getVisitorName(publicKey: string) {
 export default function StarterLinkAssistant({
   publicKey,
   assistantName,
+  greeting,
   premium = false,
   brandColor = "#111827",
+  desktopDocked = false,
 }: Props) {
+  const welcomeText = greeting?.trim() || CHAT_WELCOME;
+
   const [open, setOpen] = useState(false);
+  
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "a-welcome",
       role: "assistant",
-      text: CHAT_WELCOME,
+      text: welcomeText,
     },
   ]);
+
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -87,7 +130,14 @@ const [orbOpen, setOrbOpen] = useState(false);
 const [liveTranscript, setLiveTranscript] = useState("");
 const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
- 
+const [voiceQuotaNotice, setVoiceQuotaNotice] = useState(""); 
+const [keyboardActive, setKeyboardActive] = useState(false);
+
+const hasOrbTranscript =
+  !!liveTranscript.trim() ||
+  !!assistantVoiceTranscript.trim() ||
+  voiceState === "error";
+
 const messagesRef = useRef<HTMLDivElement | null>(null);
 const endRef = useRef<HTMLDivElement | null>(null);
 const inputRef = useRef<HTMLInputElement | null>(null);
@@ -97,15 +147,27 @@ const pendingTextRef = useRef("");
 const recognitionRef = useRef<any>(null);
 const transcriptRef = useRef("");
 const orbOpenRef = useRef(false);
+const voiceCountedThisSessionRef = useRef(false);
+const lastUserVoiceSavePromiseRef = useRef<Promise<string | null> | null>(null);
+const lastUserVoiceMessageIdRef = useRef<string | null>(null);
+const voiceConversationIdRef = useRef<string | null>(null);
 
 const realtimeConnRef = useRef<RealtimeConnection | null>(null);
 const assistantTranscriptBufferRef = useRef("");
+const lastSavedUserVoiceRef = useRef("");
+const lastSavedAssistantVoiceRef = useRef("");
 
   function scrollToBottom(behavior: ScrollBehavior = "smooth") {
     requestAnimationFrame(() => {
       endRef.current?.scrollIntoView({ behavior, block: "end" });
     });
   }
+
+function dismissKeyboard() {
+  if (typeof document === "undefined") return;
+  const el = document.activeElement as HTMLElement | null;
+  el?.blur?.();
+}
 
   function startRevealPump() {
     if (revealTimerRef.current !== null) return;
@@ -138,6 +200,10 @@ const assistantTranscriptBufferRef = useRef("");
     }
   }
 
+useEffect(() => {
+  voiceConversationIdRef.current = conversationId;
+}, [conversationId]);
+
   useEffect(() => {
   orbOpenRef.current = orbOpen;
 }, [orbOpen]);
@@ -162,23 +228,104 @@ useEffect(() => {
   }
 }, [open]);
 
+useEffect(() => {
+  if (!voiceQuotaNotice) return;
+
+  const timer = window.setTimeout(() => {
+    setVoiceQuotaNotice("Today's free voice limit reached. Unlimited voice can be enabled by this store.");
+  }, 3200);
+
+  return () => window.clearTimeout(timer);
+}, [voiceQuotaNotice]);
+
   useEffect(() => {
     if (!open) return;
     scrollToBottom("auto");
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [open]);
 
+useEffect(() => {
+  try {
+    window.parent?.postMessage(
+      {
+        type: "TIKOZAP_WIDGET_STATE",
+        open,
+      },
+      "*"
+    );
+  } catch {}
+}, [open]);
+
   useEffect(() => {
-    if (!open) return;
+  if (!open) return;
+
+  const el = messagesRef.current;
+  if (!el) return;
+
+  const distanceFromBottom =
+    el.scrollHeight - el.scrollTop - el.clientHeight;
+
+  if (distanceFromBottom < 120) {
     scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
-  }, [messages, open]);
+  }
+}, [messages, open]);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(getConversationKey(publicKey));
-      if (stored) setConversationId(stored);
+
+if (stored && !stored.startsWith("conv_")) {
+  setConversationId(stored);
+} else if (stored?.startsWith("conv_")) {
+  localStorage.removeItem(getConversationKey(publicKey));
+  setConversationId(null);
+}
     } catch {}
   }, [publicKey]);
+
+  useEffect(() => {
+  if (!open || !conversationId) return;
+
+  let cancelled = false;
+
+  async function pollThread() {
+    try {
+      const res = await fetch(
+  `/api/widget/public/thread?key=${encodeURIComponent(publicKey)}&conversationId=${encodeURIComponent(conversationId || "")}&t=${Date.now()}`,
+  { cache: "no-store" }
+);
+
+      const data = await res.json().catch(() => null);
+      if (!data?.ok || !Array.isArray(data.messages) || cancelled) return;
+
+      setMessages(
+        data.messages.map((m: any) => ({
+          id: m.id,
+          role:
+            m.role === "customer"
+              ? "user"
+              : m.role === "staff"
+                ? "staff"
+                : "assistant",
+          text: m.content,
+          products: m.products || [],
+          speakerName: m.role === "staff" ? "Kevin" : undefined,
+        }))
+      );
+    } catch {}
+  }
+
+  void pollThread();
+ const timer = window.setInterval(() => {
+  if (document.hidden) return;
+  void pollThread();
+}, 10000);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(timer);
+  };
+}, [open, conversationId, publicKey]);
 
 useEffect(() => {
   if (typeof window === "undefined") return;
@@ -257,15 +404,26 @@ useEffect(() => {
   }
 
   const vv = window.visualViewport;
+if (!vv) return;
+
+function updateViewportOffset() {
   if (!vv) return;
 
-  function updateViewportOffset() {
-    const offset = Math.max(
-      0,
-      window.innerHeight - vv.height - vv.offsetTop
-    );
-    setKeyboardOffset(offset);
+  const offset = Math.max(
+    0,
+    window.innerHeight - vv.height - vv.offsetTop
+  );
+
+  const inputFocused = document.activeElement === inputRef.current;
+
+setKeyboardOffset((prev) => {
+  if (inputFocused) {
+    return Math.max(prev, offset);
   }
+
+  return offset;
+});
+}
 
   updateViewportOffset();
 
@@ -288,6 +446,46 @@ useEffect(() => {
 
   return () => window.removeEventListener("resize", updateIsMobile);
 }, []);
+
+useEffect(() => {
+  try {
+    const saved = localStorage.getItem(getOpenKey(publicKey));
+
+    if (saved === "1") {
+      setOpen(true);
+      return;
+    }
+
+    if (saved === "0") {
+      setOpen(false);
+      return;
+    }
+
+    if (desktopDocked && !isMobileView) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  } catch {
+    setOpen(desktopDocked && !isMobileView);
+  }
+}, [publicKey, desktopDocked, isMobileView]);
+
+useEffect(() => {
+  try {
+    localStorage.setItem(getOpenKey(publicKey), open ? "1" : "0");
+  } catch {}
+}, [publicKey, open]);
+
+useEffect(() => {
+  if (!desktopDocked) return;
+
+  if (!isMobileView) {
+    setOpen(true);   // desktop → open
+  } else {
+    setOpen(false);  // mobile → closed
+  }
+}, [desktopDocked, isMobileView]);
 
 useEffect(() => {
     if (!open) return;
@@ -372,7 +570,65 @@ function stopRealtimeVoiceSession(options?: { preserveAssistantText?: boolean })
   }
 }
 
+async function saveVoiceMessage(
+  role: "customer" | "assistant",
+  content: string,
+  existingMessageId?: string,
+  customerContent?: string
+) {
+  const text = content.trim();
+  if (!text) return null;
+
+  try {
+    const res = await fetch("/api/widget/public/voice-message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        publicKey,
+        conversationId: voiceConversationIdRef.current || conversationId,
+        messageId: existingMessageId,
+        role,
+        content: text,
+        customerContent,
+        channel: "starter-link-voice",
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (data?.ok && data?.conversationId && !conversationId) {
+      voiceConversationIdRef.current = data.conversationId;
+      setConversationId(data.conversationId);
+
+      try {
+        localStorage.setItem(
+          getConversationKey(publicKey),
+          data.conversationId
+        );
+      } catch {}
+    }
+
+    return data?.messageId || null;
+  } catch {
+    return null;
+  }
+}
+
 async function startRealtimeVoiceSession() {
+const used = getVoiceCount(publicKey);
+
+  if (used >= FREE_VOICE_DAILY_LIMIT) {
+  stopRealtimeVoiceSession({ preserveAssistantText: true });
+  setComposerMode("type");
+  setVoiceState("error");
+  setVoiceQuotaNotice(
+    "Today’s free voice limit reached. Unlimited voice can be enabled by this store."
+  );
+  return;
+}
+
+  voiceCountedThisSessionRef.current = false;
+
   if (
     realtimeConnRef.current ||
     voiceState === "permission" ||
@@ -398,8 +654,8 @@ async function startRealtimeVoiceSession() {
     return;
   }
 
-  setVoiceState("thinking");
-  setAssistantVoiceTranscript("Connecting voice...");
+  setVoiceState("permission");
+setAssistantVoiceTranscript("");
 
   try {
     const res = await fetch("/api/realtime/session", {
@@ -424,10 +680,40 @@ async function startRealtimeVoiceSession() {
 
     const conn = await connectRealtime(data.client_secret.value, {
       onUserTranscript: (text) => {
-        const trimmed = text.trim();
-        if (!trimmed) return;
-        setLiveTranscript(trimmed);
-      },
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  if (!voiceCountedThisSessionRef.current) {
+    const used = getVoiceCount(publicKey);
+
+    if (used >= FREE_VOICE_DAILY_LIMIT) {
+  stopRealtimeVoiceSession({ preserveAssistantText: true });
+  setComposerMode("type");
+  setVoiceState("error");
+  setVoiceQuotaNotice(
+    "Today’s free voice limit reached. Unlimited voice can be enabled by this store."
+  );
+  return;
+}
+
+    const next = used + 1;
+
+    if (next === 3) {
+  setVoiceQuotaNotice("Voice session note: 2 free voice questions remaining today.");
+} else if (next === 4) {
+  setVoiceQuotaNotice("Voice session note: 1 free voice question remaining today.");
+} else if (next === 5) {
+  setVoiceQuotaNotice("This is today’s final free voice question.");
+}
+
+    voiceCountedThisSessionRef.current = true;
+    incrementVoiceCount(publicKey);
+  }
+
+  setLiveTranscript(trimmed);
+  transcriptRef.current = trimmed;
+},
+
 
       onAssistantTranscript: (text) => {
         const trimmed = text.trim();
@@ -449,24 +735,55 @@ async function startRealtimeVoiceSession() {
 
         setAssistantVoiceTranscript(assistantTranscriptBufferRef.current);
       },
-
+      
       onUserSpeechStart: () => {
-        setVoiceState("listening");
-      },
+  voiceCountedThisSessionRef.current = false;
+  lastUserVoiceSavePromiseRef.current = null;
+  lastUserVoiceMessageIdRef.current = null;
+  lastSavedUserVoiceRef.current = "";
+  setLiveTranscript("");
+  setVoiceState("listening");
+},
 
-      onUserSpeechStop: () => {
-        setVoiceState("thinking");
-      },
+onUserSpeechStop: () => {
+  const finalText = transcriptRef.current.trim() || liveTranscript.trim();
 
-      onAssistantSpeechStart: () => {
-        assistantTranscriptBufferRef.current = "";
-        setAssistantVoiceTranscript("");
-        setVoiceState("speaking");
-      },
+  if (finalText) {
+    lastSavedUserVoiceRef.current = finalText;
+  }
 
-      onAssistantSpeechStop: () => {
-        setVoiceState("listening");
-      },
+  setVoiceState("thinking");
+},
+
+onAssistantSpeechStart: () => {
+  assistantTranscriptBufferRef.current = "";
+  setAssistantVoiceTranscript("");
+  setVoiceState("speaking");
+},
+
+onAssistantSpeechStop: async () => {
+  await sleep(500);
+
+  const assistantText = assistantTranscriptBufferRef.current.trim();
+  const userText = transcriptRef.current.trim() || liveTranscript.trim();
+
+  if (
+    userText &&
+    assistantText &&
+    assistantText !== lastSavedAssistantVoiceRef.current
+  ) {
+    lastSavedAssistantVoiceRef.current = assistantText;
+
+    await saveVoiceMessage(
+      "assistant",
+      assistantText,
+      undefined,
+      userText
+    );
+  }
+
+  setVoiceState("listening");
+},
 
       onInterrupted: () => {
         assistantTranscriptBufferRef.current = "";
@@ -538,8 +855,8 @@ setLiveTranscript("");
           message: trimmed,
           conversationId,
           publicKey,
-          channel: "starter-link",
-          tags: ["starter-link", "no-website"],
+          channel: desktopDocked ? "starter-link" : "web",
+tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
           visitor: {
             name: getVisitorName(publicKey),
           },
@@ -660,33 +977,31 @@ setLiveTranscript("");
       {!open ? (
   <button
     type="button"
-    className={`sl-assistantLauncher ${premium ? "sl-assistantLauncher--orb" : ""}`}
+    className={`sl-assistantLauncher ${desktopDocked ? "sl-assistantLauncher--docked" : ""} ${premium ? "sl-assistantLauncher--orb" : ""}`}
     aria-label="Open assistant"
     aria-expanded={false}
     onClick={() => setOpen(true)}
     style={{ ["--sl-brand" as any]: brandColor }}
   >
-    {premium ? (
-      <div className="sl-assistantOrbWrap">
-        <Orb state={orbState as any} />
-      </div>
-    ) : (
-      <span className="sl-assistantBubbleIcon">💬</span>
-    )}
+<div className="sl-assistantOrbWrap">
+  <Orb state={orbState as any} />
+</div>
   </button>
 ) : null}
 
-      {open ? (
-        <>
-          <button
-            type="button"
-            className="sl-assistantBackdrop"
-            aria-label="Close assistant"
-            onClick={() => setOpen(false)}
-          />
+{open ? (
+  <>
+    {!(desktopDocked && !isMobileView) ? (
+      <button
+        type="button"
+        className="sl-assistantBackdrop"
+        aria-label="Close assistant"
+        onClick={() => setOpen(false)}
+      />
+    ) : null}
 
           <section
-  className={`sl-assistantPanel ${premium ? "sl-assistantPanel--premium" : ""}`}
+  className={`sl-assistantPanel ${desktopDocked ? "sl-assistantPanel--docked" : ""} ${premium ? "sl-assistantPanel--premium" : ""} ${keyboardActive ? "is-keyboard-active" : ""}`}
   aria-label={assistantName}
   style={{ ["--sl-kb" as any]: `${keyboardOffset}px` }}
 >
@@ -723,9 +1038,8 @@ setLiveTranscript("");
         <Orb state={orbState as any} />
       </span>
     ) : null}
-    <span className="sl-assistantTitleText">Tiko</span>
+    <span className="sl-assistantTitleText">{assistantName}</span>
   </button>
-  <div className="sl-assistantSub">Online</div>
 </div>
 
   <button
@@ -746,48 +1060,46 @@ setLiveTranscript("");
       aria-label="Close history"
       onClick={() => setHistoryOpen(false)}
     />
-    <aside className="sl-assistantHistoryDrawer">
-      <div className="sl-assistantHistoryHead">Demo Boutique</div>
+<aside className="sl-assistantHistoryDrawer">
+  <div className="sl-assistantHistoryHead">Chat history</div>
 
-      <button
-        type="button"
-        className="sl-assistantHistoryNew"
-        onClick={() => {
-          setMessages([
-            {
-              id: "a-welcome",
-              role: "assistant",
-              text: CHAT_WELCOME,
-            },
-          ]);
-          setInput("");
-          setComposerMode("type");
-          setHistoryOpen(false);
-        }}
-      >
-        New chat
-      </button>
+  <button
+    type="button"
+    className="sl-assistantHistoryNew"
+    onClick={() => {
+  try {
+    localStorage.removeItem(getConversationKey(publicKey));
+  } catch {}
 
-      <div className="sl-assistantHistorySection">Search chats</div>
-      <div className="sl-assistantHistorySectionSub">Recents</div>
+  setConversationId(null);
+  setMessages([
+    {
+      id: "a-welcome",
+      role: "assistant",
+      text: welcomeText,
+    },
+  ]);
+  setInput("");
+  setLiveTranscript("");
+  setAssistantVoiceTranscript("");
+  setComposerMode("type");
+  setHistoryOpen(false);
+}}
+  >
+    New chat
+  </button>
 
-      <button type="button" className="sl-assistantHistoryItem">
-        Order help
-      </button>
-      <button type="button" className="sl-assistantHistoryItem">
-        Product questions
-      </button>
-      <button type="button" className="sl-assistantHistoryItem">
-        Shipping update
-      </button>
+  <div className="sl-assistantHistorySectionSub">Recents</div>
 
-      <div className="sl-assistantHistoryFooter">User Name</div>
-    </aside>
+  <button type="button" className="sl-assistantHistoryItem">
+    Current conversation
+  </button>
+</aside>
   </>
 ) : null}
 
 {orbOpen ? (
-  <div className="sl-orbMode">
+  <div className={`sl-orbMode ${hasOrbTranscript ? "has-transcript" : "is-ready"}`}>
     <button
       type="button"
       className="sl-orbModeOrbBtn"
@@ -802,6 +1114,11 @@ setLiveTranscript("");
       </div>
     </button>
 
+{voiceQuotaNotice ? (
+  <div className="sl-orbQuotaNotice">
+    {voiceQuotaNotice}
+  </div>
+) : null}
 <div className="sl-orbModeBody">
   {(liveTranscript && liveTranscript.trim()) ? (
     <div className="sl-orbModeTranscriptBlock">
@@ -813,16 +1130,13 @@ setLiveTranscript("");
   ) : null}
 
   {(assistantVoiceTranscript && assistantVoiceTranscript.trim()) ||
-  voiceState === "thinking" ||
-  voiceState === "permission" ||
   voiceState === "error" ? (
     <div className="sl-orbModeTranscriptBlock">
       <div className="sl-orbModeTranscriptLabel">Tiko</div>
       <div className="sl-orbModeTranscript sl-orbModeTranscript--assistant">
         {assistantVoiceTranscript?.trim() ? (
           assistantVoiceTranscript
-        ) : voiceState === "permission" ? (
-          <span className="sl-orbModePlaceholder">Checking microphone...</span>
+        
         ) : voiceState === "thinking" ? (
           <span className="sl-orbModePlaceholder">Thinking...</span>
         ) : null}
@@ -891,21 +1205,36 @@ setLiveTranscript("");
   </div>
 ) : (
   <>
-    <div ref={messagesRef} className="sl-assistantMessages">
+    <div
+  ref={messagesRef}
+  className="sl-assistantMessages"
+  onPointerDown={() => {
+  dismissKeyboard();
+  setKeyboardActive(false);
+}}
+>
       {messages.map((m) => (
         <div
           key={m.id}
           className={`sl-assistantRow ${
-            m.role === "user"
-              ? "sl-assistantRow--user"
-              : "sl-assistantRow--assistant"
-          }`}
+  m.role === "user"
+    ? "sl-assistantRow--user"
+    : "sl-assistantRow--assistant"
+}`}
         >
+
+          {m.role === "staff" ? (
+  <div className="sl-assistantSpeakerName">
+    👤 {m.speakerName || "Store team"}
+  </div>
+) : null}
           <div
             className={`sl-assistantMsg ${
               m.role === "user"
-                ? "sl-assistantMsg--user"
-                : "sl-assistantMsg--assistant"
+  ? "sl-assistantMsg--user"
+  : m.role === "staff"
+    ? "sl-assistantMsg--staff"
+    : "sl-assistantMsg--assistant"
             }`}
           >
             {m.text}
@@ -1064,10 +1393,16 @@ setLiveTranscript("");
             setInput(e.target.value);
           }}
           onFocus={() => {
-            setLastInputMethod("type");
-            setComposerMode("type");
-          }}
-          onKeyDown={(e) => {
+  setLastInputMethod("type");
+  setComposerMode("type");
+  setKeyboardActive(true);
+  setTimeout(() => window.scrollTo(0, 0), 0);
+}}
+onBlur={() => {
+  setKeyboardActive(false);
+  setKeyboardOffset(0);
+}}
+onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               if (!input.trim() || sending) return;
@@ -1123,31 +1458,31 @@ setLiveTranscript("");
       ) : null}
 
       <style jsx>{`
-        .sl-assistantLauncher{
-          position:fixed;
-          right:16px;
-          bottom:16px;
-          width:56px;
-          height:56px;
-          border-radius:999px;
-          border:1px solid rgba(0,0,0,.12);
-          background:var(--sl-brand, #111827);
-          color:#fff;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          cursor:pointer;
-          z-index:1000;
-          box-shadow:0 12px 30px rgba(0,0,0,.18);
-        }
+.sl-assistantLauncher{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  width:64px;
+  height:64px;
+  border-radius:999px;
+  border:none;
+  background:transparent;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:1000;
+  box-shadow:none;
+}
 
-        .sl-assistantLauncher--orb{
-          background:transparent;
-          border:none;
-          box-shadow:none;
-          width:64px;
-          height:64px;
-        }
+.sl-assistantLauncher--orb{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  width:64px;
+  height:64px;
+}
 
         .sl-assistantOrbWrap{
           width:64px;
@@ -1186,6 +1521,19 @@ setLiveTranscript("");
           flex-direction:column;
           box-shadow:0 20px 50px rgba(15,23,42,.16);
         }
+
+@media (max-width: 899px){
+  .sl-assistantPanel{
+    left:0;
+    right:0;
+    top:0;
+    bottom:var(--sl-kb, 0px);
+    width:100vw;
+    height:calc(100svh - var(--sl-kb, 0px));
+    border-radius:0;
+    border:none;
+  }
+}
 
         .sl-assistantHeader{
   display:grid;
@@ -1274,19 +1622,15 @@ setLiveTranscript("");
           justify-items:end;
         }
 
-        .sl-assistantRow--assistant{
-          justify-items:start;
-        }
-
         .sl-assistantMsg{
-          max-width:85%;
-          border-radius:18px;
-          padding:11px 13px;
-          font-size:14px;
-          line-height:1.5;
-          white-space:pre-wrap;
-          border:1px solid #e5e7eb;
-        }
+  max-width:85%;
+  border-radius:18px;
+  padding:11px 13px;
+  font-size:14px;
+  line-height:1.5;
+  white-space:pre-wrap;
+  border:1px solid #e5e7eb;
+}
 
 .sl-assistantMsg--user{
   background:#007AFF;
@@ -1298,6 +1642,18 @@ setLiveTranscript("");
           background:#fff;
           color:#111827;
         }
+
+        .sl-assistantMsg.sl-assistantMsg--staff{
+  background:#475569 !important;
+  color:#ffffff !important;
+  border-color:#475569 !important;
+}
+
+.sl-assistantMsg--staff{
+  background:#475569;
+  color:#ffffff;
+  border-color:#475569;
+}
 
         .sl-assistantThinking{
           display:flex;
@@ -1446,6 +1802,14 @@ setLiveTranscript("");
   background:#fff;
 }
 
+.sl-assistantSpeakerName{
+  font-size:11px;
+  font-weight:700;
+  color:#6b7280;
+  margin-left:4px;
+  margin-bottom:-4px;
+}
+
 @media (max-width: 899px){
   .sl-assistantComposer{
     position:sticky;
@@ -1574,19 +1938,44 @@ setLiveTranscript("");
 
 .sl-assistantHistoryDrawer{
   position:absolute;
-  top:56px;
-  left:12px;
-  bottom:76px;
-  width:180px;
+  top:0;
+  left:0;
+  bottom:0;
+  width:min(60vw, 280px);
   border:1px solid #9ca3af;
-  border-radius:8px;
+  border-radius:0;
   background:#fff;
   z-index:30;
-  padding:10px 8px;
+  padding:28px 22px;
   display:flex;
   flex-direction:column;
-  gap:10px;
-  align-items:flex-start;
+  gap:24px;
+  align-items:stretch;
+}
+
+  .sl-assistantHistoryHead{
+    font-size:17px;
+    text-align:left;
+  }
+
+  .sl-assistantHistoryNew{
+    font-size:17px;
+    text-align:left;
+  }
+
+  .sl-assistantHistorySectionSub{
+    font-size:15px;
+    text-align:left;
+  }
+
+  .sl-assistantHistoryItem{
+    font-size:16px;
+    text-align:left;
+  }
+
+  .sl-assistantHistoryScrim{
+    background:rgba(15,23,42,.35);
+  }
 }
 
 .sl-assistantHistoryHead{
@@ -1636,12 +2025,38 @@ setLiveTranscript("");
   text-align:left;
 }
 
+.sl-assistantHistoryNew,
+.sl-assistantHistoryItem{
+  display:block;
+  width:100%;
+  text-align:left !important;
+  justify-content:flex-start !important;
+}
+
 .sl-assistantHistoryHead,
 .sl-assistantHistorySection,
 .sl-assistantHistorySectionSub,
 .sl-assistantHistoryFooter{
   width:100%;
   text-align:left;
+}
+
+.sl-assistantHistoryHead{
+  font-size:18px !important;
+}
+
+.sl-assistantHistoryNew{
+  font-size:18px !important;
+  font-weight:800 !important;
+}
+
+.sl-assistantHistorySectionSub{
+  font-size:16px !important;
+}
+
+.sl-assistantHistoryItem{
+  font-size:17px !important;
+  font-weight:700 !important;
 }
 
 .sl-assistantHistoryFooter{
@@ -1679,6 +2094,20 @@ setLiveTranscript("");
   font-weight:800;
   line-height:1.2;
   white-space:nowrap;
+}
+
+.sl-assistantRow--user .sl-assistantSpeakerName{
+  text-align:right;
+  margin-right:4px;
+  margin-left:0;
+}
+
+.sl-assistantSpeakerName{
+  font-size:11px;
+  font-weight:700;
+  color:#6b7280;
+  margin-left:4px;
+  margin-bottom:-4px;
 }
 
 .sl-orbMode{
@@ -1772,6 +2201,23 @@ setLiveTranscript("");
   gap:18px;
 }
 
+.sl-orbMode.is-ready{
+  justify-content:center;
+}
+
+.sl-orbMode.is-ready .sl-orbModeBody{
+  flex:0 0 auto;
+  padding:14px 0 10px;
+}
+
+.sl-orbMode.is-ready .sl-orbModeFooter{
+  margin-top:6px;
+}
+
+.sl-orbMode.has-transcript{
+  justify-content:flex-start;
+}
+
 .sl-orbMiniBtn{
   width:28px;
   height:28px;
@@ -1832,6 +2278,22 @@ setLiveTranscript("");
   }
 }
 
+.sl-orbQuotaNotice{
+  margin-top:10px;
+  margin-bottom:6px;
+  text-align:center;
+  font-size:12px;
+  line-height:1.35;
+  color:#6b7280;
+  max-width:260px;
+  animation:slFadeIn .18s ease;
+}
+
+@keyframes slFadeIn{
+  from{opacity:0; transform:translateY(4px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
 @keyframes sl-hold-dot{
   0%, 80%, 100%{
     transform:scale(1);
@@ -1848,20 +2310,76 @@ setLiveTranscript("");
           40%{ transform:scale(1.25); opacity:1; }
         }
 
-@media (min-width: 900px){
-  .sl-assistantLauncher{
-    right:24px;
-    bottom:24px;
+/* Unified history drawer: desktop + mobile */
+.sl-assistantHistoryDrawer{
+  top:0;
+  left:0;
+  bottom:0;
+  width:min(52vw, 260px);
+  border-radius:0;
+  border-top:none;
+  border-left:none;
+  border-bottom:none;
+  padding:28px 22px;
+  gap:24px;
+  align-items:stretch;
+}
+
+.sl-assistantHistoryHead{
+  font-size:18px !important;
+  text-align:left !important;
+}
+
+.sl-assistantHistoryNew{
+  font-size:18px !important;
+  font-weight:800 !important;
+  text-align:left !important;
+}
+
+.sl-assistantHistorySectionSub{
+  font-size:16px !important;
+  text-align:left !important;
+}
+
+.sl-assistantHistoryItem{
+  font-size:17px !important;
+  font-weight:700 !important;
+  text-align:left !important;
+}
+
+@media (min-width: 760px){
+  .sl-assistantPanel.sl-assistantPanel--docked{
+    position:relative !important;
+    inset:auto !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+    border-radius:24px !important;
+  
+    @media (max-width: 899px){
+  .sl-assistantPanel.is-keyboard-active{
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:var(--sl-kb, 0px) !important;
+    height:calc(100svh - var(--sl-kb, 0px)) !important;
+    overflow:hidden !important;
   }
 
-  .sl-assistantPanel{
-    top:auto;
-    left:auto;
-    right:24px;
-    bottom:92px;
-    width:380px;
-    height:620px;
-    border-radius:22px;
+  .sl-assistantPanel.is-keyboard-active .sl-assistantHeader{
+    flex:0 0 auto !important;
+  }
+
+  .sl-assistantPanel.is-keyboard-active .sl-assistantMessages{
+    overflow:hidden !important;
+    touch-action:none !important;
+  }
+
+  .sl-assistantPanel.is-keyboard-active .sl-assistantComposer{
+    flex:0 0 auto !important;
+    position:relative !important;
+    bottom:auto !important;
   }
 }
       `}</style>

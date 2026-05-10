@@ -9,7 +9,7 @@ import { getAuthedUserAndTenant } from '@/lib/auth';
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const auth = await getAuthedUserAndTenant();
   if (!auth) {
-    redirect('/demo-login?autostart=1&next=/dashboard/conversations');
+    redirect('/login');
   }
 
   return (

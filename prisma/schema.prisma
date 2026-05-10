@@ -11,6 +11,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  passwordHash  String?
   createdAt DateTime @default(now())
 
   sessions     Session[]
@@ -39,6 +40,9 @@ model Tenant {
   starterLinkSlug           String?  @unique
   starterLinkEnabled        Boolean  @default(true)
   createdAt                 DateTime @default(now())
+  stripeCustomerId          String?
+  stripeSubscriptionId      String?
+  billingStatus             String?
   ownerId                   String
   owner                     User     @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   memberships               Membership[]
@@ -46,6 +50,7 @@ model Tenant {
   knowledgeDocs             KnowledgeDoc[]
   conversations             Conversation[]
   metricEvents              MetricEvent[]
+  starterLinkPage           StarterLinkPage?
   twilioVoiceEvents         TwilioVoiceEvent[]
   designPartnerRolloutItems DesignPartnerRolloutItem[]
   phoneAgentSettings        PhoneAgentSettings?
@@ -65,6 +70,27 @@ model Membership {
 
   @@unique([userId, tenantId])
   @@index([tenantId])
+}
+
+model StarterLinkPage {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  logoUrl         String?
+  tagline         String?
+  subheading      String?
+  footerLine      String?
+  contactEmail    String?
+  shippingNote    String?
+  returnNote      String?
+  bestSellerJson  String?
+  productsJson    String?
+  showProductsNav Boolean  @default(true)
+  showContactNav  Boolean  @default(true)
+  showFooterBrand Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model Widget {

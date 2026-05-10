@@ -1,148 +1,408 @@
 // src/app/dashboard/tikozap-link/page.tsx
 
-import Link from 'next/link';
-import MobilePageHeader from '../_components/MobilePageHeader';
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, type CSSProperties } from "react";
+import MobilePageHeader from "../_components/MobilePageHeader";
+
+const fieldLabel: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#111827",
+};
+
+const fieldWrap: CSSProperties = {
+  display: "grid",
+  gap: 6,
+};
+
+type ProductForm = {
+  title: string;
+  price: string;
+  image: string;
+};
+
+const emptyProduct = (): ProductForm => ({
+  title: "",
+  price: "",
+  image: "",
+});
+
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  try {
+    if (typeof value !== "string" || !value.trim()) return fallback;
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 export default function TikoZapLinkPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState("");
+
+  const [slug, setSlug] = useState("my-store");
+const [storeName, setStoreName] = useState("My Store");
+
+const [logoUrl, setLogoUrl] = useState("");
+const [tagline, setTagline] = useState("Tagline for store");
+const [subheading, setSubheading] = useState("Store’s subheading");
+
+const [assistantName, setAssistantName] = useState("Store Assistant");
+const [greeting, setGreeting] = useState(
+  "Hi! I can help with products, order tracking, shipping, and returns."
+);
+
+const [footerLine, setFooterLine] = useState("Powered by TikoZap");
+const [contactEmail, setContactEmail] = useState("");
+  const [shippingNote, setShippingNote] = useState("");
+  const [returnNote, setReturnNote] = useState("");
+
+  const [showProductsNav, setShowProductsNav] = useState(true);
+  const [showContactNav, setShowContactNav] = useState(true);
+  const [showFooterBrand, setShowFooterBrand] = useState(true);
+
+  const [bestSeller, setBestSeller] = useState<ProductForm>({
+    title: "Lush Active Skincare Set",
+    price: "$58",
+    image: "",
+  });
+
+  const [products, setProducts] = useState<ProductForm[]>(
+    Array.from({ length: 9 }, () => emptyProduct())
+  );
+
+  const previewHref = `/l/${slug || "my-store"}`;
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const res = await fetch("/api/starter-link", { cache: "no-store" });
+      const json = await res.json();
+
+      if (!json?.starterLink) return;
+
+      const data = json.starterLink;
+      const page = data.page || {};
+
+      setSlug(data.slug || "my-store");
+      setStoreName(data.storeName || "My Store");
+      setAssistantName(data.assistant?.assistantName || "Store Assistant");
+      setGreeting(
+        data.assistant?.greeting ||
+          "Hi! I can help with products, order tracking, shipping, and returns."
+      );
+
+      setLogoUrl(page.logoUrl || "");
+      setTagline(page.tagline || "Tagline for store");
+      setSubheading(page.subheading || "Store’s subheading");
+      setFooterLine(page.footerLine || "Powered by TikoZap");
+      setContactEmail(page.contactEmail || "");
+      setShippingNote(page.shippingNote || "");
+      setReturnNote(page.returnNote || "");
+
+      setShowProductsNav(page.showProductsNav ?? true);
+      setShowContactNav(page.showContactNav ?? true);
+      setShowFooterBrand(page.showFooterBrand ?? true);
+
+      setBestSeller(
+        safeJsonParse<ProductForm>(page.bestSellerJson, {
+          title: "Lush Active Skincare Set",
+          price: "$58",
+          image: "",
+        })
+      );
+
+      const parsedProducts = safeJsonParse<ProductForm[]>(page.productsJson, []);
+      setProducts([
+        ...parsedProducts,
+        ...Array.from({ length: Math.max(0, 9 - parsedProducts.length) }, () =>
+          emptyProduct()
+        ),
+      ].slice(0, 9));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveData() {
+    setSaving(true);
+    setSavedMsg("");
+
+    try {
+      const cleanProducts = products.filter(
+        (p) => p.title.trim() || p.price.trim() || p.image.trim()
+      );
+
+      const res = await fetch("/api/starter-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          storeName,
+          assistant: {
+            assistantName,
+            greeting,
+          },
+          page: {
+            logoUrl,
+            tagline,
+            subheading,
+            footerLine,
+            contactEmail,
+            shippingNote,
+            returnNote,
+            bestSellerJson: JSON.stringify(bestSeller),
+            productsJson: JSON.stringify(cleanProducts),
+            showProductsNav,
+            showContactNav,
+            showFooterBrand,
+          },
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Could not save Starter Link.");
+      }
+
+      setSavedMsg("Saved.");
+    } catch (e: any) {
+      setSavedMsg(e?.message || "Could not save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateProduct(index: number, patch: Partial<ProductForm>) {
+    setProducts((prev) =>
+      prev.map((product, idx) =>
+        idx === index ? { ...product, ...patch } : product
+      )
+    );
+  }
+
   return (
     <div className="db-container">
-      <MobilePageHeader title="TikoZap Link" />
+      <MobilePageHeader title="Starter Link" />
 
       <div className="db-pageStack">
-        <h1 className="db-title">TikoZap Link</h1>
-        <p className="db-sub">
-          Manage your Starter Link storefront for customers who shop and chat from one simple link.
-        </p>
+        <div className="db-top">
+          <div>
+            <h1 className="db-title">Starter Link</h1>
+            <p className="db-sub">
+              Manage your AI storefront page: branding, products, assistant, footer, and sharing.
+            </p>
+          </div>
 
-        <div className="db-card">
-          <div className="db-cardTitle">Starter Link setup</div>
-          <p className="db-cardText">
-            Set your public slug, preview your customer page, and open inbox conversations from one place.
-          </p>
-
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="db-btn primary" href="/onboarding/install">
-              Open Starter Link setup
-            </Link>
+          <div className="db-actions">
             <Link className="db-btn" href="/dashboard/conversations">
               Open inbox
             </Link>
-            <Link className="db-btn" href="/l/demo" target="_blank">
+            <Link className="db-btn primary" href={previewHref} target="_blank">
               Preview public page
             </Link>
           </div>
         </div>
 
+        {loading ? (
+          <div className="db-card">Loading Starter Link settings...</div>
+        ) : null}
+
+        <div className="db-card">
+          <div className="db-cardTitle">Starter Link setup</div>
+          <p className="db-cardText">Set your public link and preview the customer-facing page.</p>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Public slug</span>
+              <input className="db-btn" value={slug} onChange={(e) => setSlug(e.target.value)} />
+            </label>
+
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "10px 12px", background: "#f8fafc", fontSize: 14 }}>
+              /l/{slug || "demo"}
+            </div>
+          </div>
+        </div>
+
         <div className="db-card">
           <div className="db-cardTitle">Branding</div>
-          <p className="db-cardText">
-            Customers should feel this is your page, not a generic app page.
-          </p>
+          <p className="db-cardText">These fields control the left side of your Starter Link page.</p>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Store logo</span>
-              <input className="db-btn" type="text" placeholder="Logo URL or upload later" />
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Store logo URL</span>
+              <input className="db-btn" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
             </label>
 
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Store name</span>
-              <input className="db-btn" type="text" placeholder="Demo Boutique" />
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Store name</span>
+              <input className="db-btn" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
             </label>
 
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Tagline</span>
-              <input className="db-btn" type="text" placeholder="Shop smarter with AI assistance" />
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Tagline</span>
+              <input className="db-btn" value={tagline} onChange={(e) => setTagline(e.target.value)} />
             </label>
 
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Subheading</span>
-              <textarea
-                className="db-btn"
-                placeholder="Tell customers what makes your store special."
-                style={{ minHeight: 88, paddingTop: 10, paddingBottom: 10, resize: 'vertical' }}
-              />
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Subheading</span>
+              <textarea className="db-btn" value={subheading} onChange={(e) => setSubheading(e.target.value)} style={{ minHeight: 88, paddingTop: 10, resize: "vertical" }} />
             </label>
+          </div>
+        </div>
+
+        <div className="db-card">
+          <div className="db-cardTitle">Products</div>
+<p className="db-cardText">
+  Feature your best seller and show up to 9 products during your free trial.
+</p>
+
+<div
+  style={{
+    marginTop: 10,
+    border: "1px solid #e5e7eb",
+    background: "#f8fafc",
+    borderRadius: 14,
+    padding: "10px 12px",
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 1.45,
+  }}
+>
+  Need more products later? Starter supports up to 30 products. Growth supports up to 90.
+</div>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 18, padding: 14, background: "#f8fafc" }}>
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Best Seller</div>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                <label style={fieldWrap}>
+                  <span style={fieldLabel}>Title</span>
+                  <input className="db-btn" value={bestSeller.title} onChange={(e) => setBestSeller({ ...bestSeller, title: e.target.value })} />
+                </label>
+
+                <label style={fieldWrap}>
+                  <span style={fieldLabel}>Price</span>
+                  <input className="db-btn" value={bestSeller.price} onChange={(e) => setBestSeller({ ...bestSeller, price: e.target.value })} />
+                </label>
+
+                <label style={fieldWrap}>
+                  <span style={fieldLabel}>Image URL</span>
+                  <input className="db-btn" value={bestSeller.image} onChange={(e) => setBestSeller({ ...bestSeller, image: e.target.value })} />
+                </label>
+              </div>
+            </div>
+
+            {products.map((product, idx) => (
+              <div key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 18, padding: 14, background: "#fff" }}>
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>Product {idx + 1}</div>
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  <label style={fieldWrap}>
+                    <span style={fieldLabel}>Product title</span>
+                    <input className="db-btn" value={product.title} onChange={(e) => updateProduct(idx, { title: e.target.value })} />
+                  </label>
+
+                  <label style={fieldWrap}>
+                    <span style={fieldLabel}>Price</span>
+                    <input className="db-btn" value={product.price} onChange={(e) => updateProduct(idx, { price: e.target.value })} />
+                  </label>
+
+                  <label style={fieldWrap}>
+                    <span style={fieldLabel}>Image URL</span>
+                    <input className="db-btn" value={product.image} onChange={(e) => updateProduct(idx, { image: e.target.value })} />
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="db-card">
           <div className="db-cardTitle">Assistant</div>
-          <p className="db-cardText">
-            Give your storefront assistant a name that feels natural for your brand.
-          </p>
+          <p className="db-cardText">Control the right-side chat assistant.</p>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Assistant name</span>
-              <input className="db-btn" type="text" placeholder="Demo Boutique Assistant" />
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Assistant name</span>
+              <input className="db-btn" value={assistantName} onChange={(e) => setAssistantName(e.target.value)} />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Greeting message</span>
+              <textarea className="db-btn" value={greeting} onChange={(e) => setGreeting(e.target.value)} style={{ minHeight: 88, paddingTop: 10, resize: "vertical" }} />
             </label>
           </div>
         </div>
 
         <div className="db-card">
-          <div className="db-cardTitle">Footer</div>
-          <p className="db-cardText">
-            Keep the page customer-friendly while making your store identity clear.
-          </p>
+          <div className="db-cardTitle">Footer & contact</div>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Footer line</span>
-              <input className="db-btn" type="text" placeholder="Demo Boutique powered by TikoZap" />
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Footer line</span>
+              <input className="db-btn" value={footerLine} onChange={(e) => setFooterLine(e.target.value)} />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Contact email</span>
+              <input className="db-btn" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Shipping note</span>
+              <input className="db-btn" value={shippingNote} onChange={(e) => setShippingNote(e.target.value)} />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Return note</span>
+              <input className="db-btn" value={returnNote} onChange={(e) => setReturnNote(e.target.value)} />
             </label>
           </div>
         </div>
 
         <div className="db-card">
           <div className="db-cardTitle">Public page controls</div>
-          <p className="db-cardText">
-            Choose what customers see in the Starter Link page header and menu.
-          </p>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="checkbox" />
-              <span style={{ fontSize: 14, color: '#111827' }}>Show merchant login</span>
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="checkbox" checked={showProductsNav} onChange={(e) => setShowProductsNav(e.target.checked)} />
+              <span style={{ fontSize: 14 }}>Show Products menu link</span>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="checkbox" defaultChecked />
-              <span style={{ fontSize: 14, color: '#111827' }}>Show chat bubble</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="checkbox" checked={showContactNav} onChange={(e) => setShowContactNav(e.target.checked)} />
+              <span style={{ fontSize: 14 }}>Show Contact menu link</span>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="checkbox" defaultChecked />
-              <span style={{ fontSize: 14, color: '#111827' }}>Show footer branding</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="checkbox" checked={showFooterBrand} onChange={(e) => setShowFooterBrand(e.target.checked)} />
+              <span style={{ fontSize: 14 }}>Show footer branding</span>
             </label>
           </div>
         </div>
 
         <div className="db-card">
-          <div className="db-cardTitle">Share</div>
-          <p className="db-cardText">
-            Use your Starter Link in bio, DMs, QR codes, and message follow-ups.
-          </p>
+          <div className="db-cardTitle">Save changes</div>
+          <p className="db-cardText">Save your Starter Link settings, then preview the public page.</p>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
-            <div
-              style={{
-                border: '1px solid #e5e7eb',
-                borderRadius: 14,
-                padding: '10px 12px',
-                background: '#f8fafc',
-                fontSize: 14,
-                color: '#111827',
-              }}
-            >
-              tikozap.com/l/demo
-            </div>
+          <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button className="db-btn primary" type="button" onClick={saveData} disabled={saving}>
+              {saving ? "Saving..." : "Save Starter Link"}
+            </button>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="db-btn" type="button">Copy link</button>
-              <button className="db-btn" type="button">Copy bio text</button>
-              <button className="db-btn" type="button">Copy QR text</button>
-            </div>
+            <Link className="db-btn" href={previewHref} target="_blank">
+              Preview
+            </Link>
+
+            {savedMsg ? <span style={{ fontSize: 13, color: savedMsg === "Saved." ? "#047857" : "#b91c1c" }}>{savedMsg}</span> : null}
           </div>
         </div>
       </div>

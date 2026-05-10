@@ -1,26 +1,27 @@
+// src/app/onboarding/_components/OnboardingStepper.tsx
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const STEPS = [
-  { key: 'store', label: 'Store', href: '/onboarding/store' },
-  { key: 'plan', label: 'Plan', href: '/onboarding/plan' },
-  { key: 'billing', label: 'Billing', href: '/onboarding/billing' },
-  { key: 'knowledge', label: 'Knowledge', href: '/onboarding/knowledge' },
-  { key: 'widget', label: 'Website or Starter Link', href: '/onboarding/widget' },
-  { key: 'install', label: 'Install / Share', href: '/onboarding/install' },
-  { key: 'test', label: 'Test', href: '/onboarding/test' },
+  { key: 'store', label: 'Store Basic', href: '/onboarding/store' },
+  { key: 'assistant', label: 'Assistant', href: '/onboarding/assistant' },
+  { key: 'launch', label: 'Launch', href: '/onboarding/install' },
 ];
 
 export default function OnboardingStepper() {
   const pathname = usePathname() || '';
-  const activeIndex = Math.max(0, STEPS.findIndex((s) => pathname.startsWith(s.href)));
+  const activeIndex = Math.max(
+    0,
+    STEPS.findIndex((s) => pathname.startsWith(s.href))
+  );
 
   return (
     <nav aria-label="Onboarding steps" className="ob-stepper">
       <ol>
-        {STEPS.map((step, idx: any) => {
+        {STEPS.map((step, idx) => {
           const isDone = idx < activeIndex;
           const isActive = idx === activeIndex;
 

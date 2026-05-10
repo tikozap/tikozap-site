@@ -16,8 +16,19 @@ const LINKS = [
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const hideGlobalNav =
-  pathname?.startsWith('/dashboard') || pathname?.startsWith('/l/');
+const [host, setHost] = useState('');
+
+useEffect(() => {
+  setHost(window.location.hostname);
+}, []);
+
+const isStarterLinkHost =
+  host.endsWith('.link.tikozap.com') || host.endsWith('.link.localhost');
+
+const hideGlobalNav =
+  pathname?.startsWith('/dashboard') ||
+  pathname?.startsWith('/l/') ||
+  isStarterLinkHost;
 
   useEffect(() => {
     setOpen(false);

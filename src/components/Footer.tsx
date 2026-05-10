@@ -5,16 +5,26 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 export default function Footer() {
   const pathname = usePathname();
+const [host, setHost] = useState('');
 
-  // Hide footer on dashboard/demo routes to maximize workspace area.
+useEffect(() => {
+  setHost(window.location.hostname);
+}, []);
+
+const isStarterLinkHost =
+  host.endsWith('.link.tikozap.com') || host.endsWith('.link.localhost');
+
+// Hide footer on dashboard/demo/starter-link routes.
 if (
   pathname &&
   (pathname.startsWith('/demo') ||
     pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/l/'))
+    pathname.startsWith('/l/') ||
+    isStarterLinkHost)
 ) {
   return null;
 }

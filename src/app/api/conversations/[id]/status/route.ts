@@ -1,8 +1,8 @@
 // src/app/api/conversations/[id]/status/route.ts
 
 import { NextResponse } from "next/server";
-import { getDemoSession } from "@/lib/demoAuth";
-import { getDemoInboxConversation } from "@/lib/demoInboxStore";
+import { getAuthedUserAndTenant } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -10,48 +10,38 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const auth = await getDemoSession();
-    if (!auth) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+  const auth = await getAuthedUserAndTenant();
+  if (!auth) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
-    const body = await req.json().catch(() => ({}));
-    const status = typeof body.status === "string" ? body.status : "";
+  const body = await req.json().catch(() => ({}));
+  const status = typeof body.status === "string" ? body.status : "";
 
-    if (!["open", "waiting", "closed"].includes(status)) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid status" },
-        { status: 400 }
-      );
-    }
-
-    const convo = getDemoInboxConversation(params.id);
-    if (!convo) {
-      return NextResponse.json(
-        { ok: false, error: "Conversation not found" },
-        { status: 404 }
-      );
-    }
-
-    convo.status = status as "open" | "waiting" | "closed";
-    convo.needsHuman = false;
-
-    return NextResponse.json({
-      ok: true,
-      conversation: convo,
-    });
-  } catch (error) {
-    console.error("POST /api/conversations/[id]/status failed:", error);
+  if (!["open", "waiting", "closed"].includes(status)) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
-      { status: 500 }
+      { ok: false, error: "Invalid status" },
+      { status: 400 }
     );
   }
+
+  const convo = await prisma.conversation.updateMany({
+    where: {
+      id: params.id,
+      tenantId: auth.tenant.id,
+    },
+    data: {
+      status,
+      needsHuman: false,
+    },
+  });
+
+  if (convo.count === 0) {
+    return NextResponse.json(
+      { ok: false, error: "Conversation not found" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }

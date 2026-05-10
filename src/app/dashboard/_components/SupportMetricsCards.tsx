@@ -233,147 +233,71 @@ export default function SupportMetricsCards() {
         </label>
       </div>
 
-      <div className="db-card db-tile">
-        <h3>Needs-human fallback</h3>
-        <p>{metrics ? `${metrics.counters.needsHumanFallback} conversations` : 'Loading…'}</p>
-      </div>
+<div className="db-metricsGrid">
+  <div className="db-metricCard">
+    <div className="db-metricLabel">Human attention</div>
+    <div className="db-metricValue">
+      {metrics ? metrics.counters.needsHumanFallback : '…'}
+    </div>
+    <div className="db-metricSub">conversations</div>
+  </div>
 
-      <div className="db-card db-tile">
-        <h3>Auto-answered</h3>
-        <p>{metrics ? `${metrics.counters.answered} conversations` : 'Loading…'}</p>
-      </div>
+  <div className="db-metricCard">
+    <div className="db-metricLabel">AI resolved</div>
+    <div className="db-metricValue">
+      {metrics ? metrics.counters.answered : '…'}
+    </div>
+    <div className="db-metricSub">conversations</div>
+  </div>
 
-      <div className="db-card db-tile">
-        <h3>Rate-limit events</h3>
-        <p>{metrics ? `${metrics.counters.rateLimited} events` : 'Loading…'}</p>
-      </div>
+  <div className="db-metricCard">
+    <div className="db-metricLabel">System limits</div>
+    <div className="db-metricValue">
+      {metrics ? metrics.counters.rateLimited : '…'}
+    </div>
+    <div className="db-metricSub">events</div>
+  </div>
 
-      <div className="db-card db-tile">
-        <h3>Twilio voice quality</h3>
-        <p>{voiceError ? voiceError : voiceHealth}</p>
-      </div>
+  <div className="db-metricCard">
+    <div className="db-metricLabel">Call quality</div>
+    <div className="db-metricValue">
+      {voiceError ? '—' : voiceHealth}
+    </div>
+    <div className="db-metricSub">Twilio health</div>
+  </div>
+</div>
 
-      <div className="db-card db-tile">
-        <h3>Degraded voice signals</h3>
-        <p>
-          {!voiceSummary
-            ? 'Loading…'
-            : `${voiceSummary.degraded.lowMos + voiceSummary.degraded.highJitter + voiceSummary.degraded.highPacketLoss + voiceSummary.degraded.highRoundTrip} events`}
-        </p>
-      </div>
+  <div className="db-funnelCard">
+  <h3>Setup progress</h3>
 
-      <div className="db-card db-tile">
-        <h3>Voice alerts</h3>
-        {!voiceSummary ? (
-          <p>Loading…</p>
-        ) : activeVoiceAlerts.length === 0 ? (
-          <p>No active threshold alerts.</p>
-        ) : (
-          <p>
-            {activeVoiceAlerts[0].severity.toUpperCase()}: {activeVoiceAlerts[0].message}
-          </p>
-        )}
-      </div>
-
-      <div className="db-card db-tile">
-        <h3>Onboarding activation</h3>
-        <p>
-          {!activationData?.status
-            ? 'Loading…'
-            : `${activationData.status.completedCount}/${activationData.status.totalCount} (${activationData.status.completionPct}%)`}
-        </p>
-      </div>
-
-      <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
-        <h3>Activation funnel</h3>
-        {!activationData ? (
-          <p>Loading…</p>
-        ) : activationFunnelSteps.length === 0 ? (
-          <p>No activation data yet. Go through onboarding steps to populate this.</p>
-        ) : (
-          <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
-            {activationFunnelSteps.map((step: any) => (
-              <div key={step.id}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: 12,
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>{step.label}</span>
-                  <span>
-                    {step.count} events ({step.conversionPct}%)
-                  </span>
-                </div>
-                <div
-                  style={{
-                    width: '100%',
-                    height: 8,
-                    borderRadius: 999,
-                    background: '#e5e7eb',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'block',
-                      height: '100%',
-                      width: `${step.conversionPct}%`,
-                      background: '#111827',
-                      borderRadius: 999,
-                      transition: 'width 180ms ease',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            <p style={{ marginTop: 4, fontSize: 12, opacity: 0.75 }}>
-              Window: {windowKey}. Baseline events: {activationData.funnel.baselineCount}.
-            </p>
+  {!activationData ? (
+    <p>Loading…</p>
+  ) : activationFunnelSteps.length === 0 ? (
+    <p>No setup progress yet. Complete onboarding steps to populate this.</p>
+  ) : (
+    <div className="db-funnelList">
+      {activationFunnelSteps.map((step: any) => (
+        <div key={step.id} className="db-funnelRow">
+          <div className="db-funnelLabel">
+            <span>{step.label}</span>
+            <span>{step.conversionPct}%</span>
           </div>
-        )}
-      </div>
 
-      <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
-        <h3>Reply intent mix</h3>
-        {error ? (
-          <p>{error}</p>
-        ) : !metrics ? (
-          <p>Loading…</p>
-        ) : intentRows.length === 0 ? (
-          <p>No intent data yet. Send a few test messages to populate this.</p>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            {intentRows.map(([intent, count]: any) => (
-              <span key={intent} className="db-pill">
-                {prettyIntent(intent)}: {count}
-              </span>
-            ))}
+          <div className="db-funnelBar">
+            <div
+              className="db-funnelFill"
+              style={{ width: `${step.conversionPct}%` }}
+            />
           </div>
-        )}
-      </div>
+        </div>
+      ))}
 
-      <div className="db-card db-tile" style={{ gridColumn: '1 / -1' }}>
-        <h3>Voice transport snapshot</h3>
-        {voiceError ? (
-          <p>{voiceError}</p>
-        ) : !voiceSummary ? (
-          <p>Loading…</p>
-        ) : !voiceSummary.withQualityMetrics ? (
-          <p>No Twilio voice quality metrics yet. Send webhook events to populate this.</p>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            <span className="db-pill">MOS: {voiceSummary.averages.mos?.toFixed(2) ?? '—'}</span>
-            <span className="db-pill">Jitter: {voiceSummary.averages.jitterMs?.toFixed(1) ?? '—'}ms</span>
-            <span className="db-pill">Packet loss: {voiceSummary.averages.packetLossPct?.toFixed(2) ?? '—'}%</span>
-            <span className="db-pill">Round trip: {voiceSummary.averages.roundTripMs?.toFixed(0) ?? '—'}ms</span>
-            <span className="db-pill">MOS threshold: &lt; {voiceSummary.thresholds.mosWarning}</span>
-            <span className="db-pill">Jitter threshold: &gt; {voiceSummary.thresholds.jitterMsMax}ms</span>
-          </div>
-        )}
-      </div>
+      <p className="db-funnelSub">
+        Time range: {windowKey}. Baseline events: {activationData.funnel.baselineCount}.
+      </p>
+    </div>
+  )}
+</div>
     </>
   );
 }

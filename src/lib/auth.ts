@@ -1,5 +1,7 @@
 // src/lib/auth.ts
+
 import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
 
 type AuthedUserAndTenant = {
   user: {
@@ -19,35 +21,71 @@ type AuthedUserAndTenant = {
 
 export async function getUserId(): Promise<string | null> {
   const cookieStore = await cookies();
-  const session = cookieStore.get('tz_session')?.value;
-  if (!session) return null;
-  return 'demo-user';
+  const token = cookieStore.get('tz_session')?.value;
+  if (!token) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { token },
+    select: {
+      userId: true,
+      expiresAt: true,
+    },
+  });
+
+  if (!session || session.expiresAt < new Date()) return null;
+  return session.userId;
 }
 
 export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | null> {
   const cookieStore = await cookies();
 
-  const session = cookieStore.get('tz_session')?.value;
-  const tenantId = cookieStore.get('tz_tenant')?.value;
-  const userEmail = cookieStore.get('tz_user_email')?.value || 'owner@demo-boutique.demo';
-  const userName = cookieStore.get('tz_user_name')?.value || 'Demo Owner';
-  const storeName = cookieStore.get('tz_store_name')?.value || 'Demo Boutique';
+  const token = cookieStore.get('tz_session')?.value;
+  const tenantCookie = cookieStore.get('tz_tenant')?.value;
 
-  if (!session || !tenantId) return null;
+  if (!token) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: {
+      user: {
+        include: {
+          ownedTenants: true,
+          memberships: {
+            include: {
+              tenant: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session || session.expiresAt < new Date()) return null;
+
+  const ownedTenants = session.user.ownedTenants || [];
+  const memberTenants = session.user.memberships.map((m) => m.tenant);
+  const allTenants = [...ownedTenants, ...memberTenants];
+
+  const tenant =
+    allTenants.find((t) => t.id === tenantCookie) ||
+    ownedTenants[0] ||
+    memberTenants[0];
+
+  if (!tenant) return null;
 
   return {
     user: {
-      id: 'demo-user',
-      email: userEmail,
-      name: userName,
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
     },
     tenant: {
-      id: tenantId,
-      slug: 'demo-boutique',
-      storeName,
-      billingPlan: 'pro',
-      starterLinkSlug: 'demo-boutique',
-      starterLinkEnabled: true,
+      id: tenant.id,
+      slug: tenant.slug,
+      storeName: tenant.storeName,
+      billingPlan: tenant.billingPlan,
+      starterLinkSlug: tenant.starterLinkSlug,
+      starterLinkEnabled: tenant.starterLinkEnabled,
     },
   };
 }

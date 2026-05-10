@@ -1,11 +1,8 @@
 // src/app/api/widget/public/message/route.ts
 
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
-import {
-  appendDemoInboxMessage,
-  findOrCreateDemoInboxConversation,
-} from "@/lib/demoInboxStore";
 
 export const runtime = "nodejs";
 
@@ -71,62 +68,164 @@ function wantsHuman(text: string) {
 const HUMAN_HANDOFF_REPLY =
   "Understood — I’m flagging this conversation for human follow-up now. A team member can take over from here.";
 
+function tagsForChannel(channel: string) {
+  return channel === "starter-link" ? "starter-link,no-website" : "widget";
+}
+
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
+  try {
+    const body = await req.json().catch(() => ({}));
 
-  const key = normalizeText(body?.key);
-  const text = normalizeText(body?.text);
-  const clientConversationId = normalizeText(body?.conversationId) || "";
-  const channel = normalizeText(body?.channel) || "web";
-  const subject = normalizeText(body?.subject) || "Website chat";
-  const history = extractHistory(body?.history);
-  const customerName =
-    normalizeText(body?.visitor?.name) || "Website visitor";
+    const key = normalizeText(body?.key);
+    const text = normalizeText(body?.text);
+    const clientConversationId = normalizeText(body?.conversationId) || "";
+    const channel = normalizeText(body?.channel) || "web";
+    const subject = normalizeText(body?.subject) || "Website chat";
+    const history = extractHistory(body?.history);
+    const customerName =
+      normalizeText(body?.visitor?.name) || "Website visitor";
 
-  if (!key) {
-    return NextResponse.json(
-      { ok: false, error: "Missing key" },
-      {
-        status: 400,
-        headers: { ...corsHeaders, "cache-control": "no-store" },
-      }
-    );
-  }
+    if (!key) {
+      return NextResponse.json(
+        { ok: false, error: "Missing key" },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
 
-  if (!text) {
-    return NextResponse.json(
-      { ok: false, error: "Missing text" },
-      {
-        status: 400,
-        headers: { ...corsHeaders, "cache-control": "no-store" },
-      }
-    );
-  }
+    if (!text) {
+      return NextResponse.json(
+        { ok: false, error: "Missing text" },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
 
-  const conversation = findOrCreateDemoInboxConversation({
-    tenantId: "demo-tenant",
-    conversationId: clientConversationId || undefined,
-    customerName,
-    subject,
-    channel,
-    tags:
-      channel === "starter-link"
-        ? ["starter-link", "no-website"]
-        : ["widget"],
-  });
+    const widget = await prisma.widget.findFirst({
+      where: {
+        publicKey: key,
+        enabled: true,
+      },
+      select: {
+        tenantId: true,
+      },
+    });
 
-  appendDemoInboxMessage(conversation.id, "customer", text);
+    if (!widget) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid widget key" },
+        {
+          status: 404,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
 
-  if (wantsHuman(text)) {
-    conversation.needsHuman = true;
-    conversation.status = "waiting";
-    conversation.aiEnabled = false;
+    let conversation =
+      clientConversationId
+        ? await prisma.conversation.findFirst({
+            where: {
+              id: clientConversationId,
+              tenantId: widget.tenantId,
+            },
+            select: {
+              id: true,
+              aiEnabled: true,
+              status: true,
+            },
+          })
+        : null;
 
-    appendDemoInboxMessage(
-      conversation.id,
-      "assistant",
-      HUMAN_HANDOFF_REPLY
-    );
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          tenantId: widget.tenantId,
+          customerName,
+          subject,
+          channel,
+          aiEnabled: true,
+          status: "open",
+          tags: tagsForChannel(channel),
+          needsHuman: false,
+        },
+        select: {
+          id: true,
+          aiEnabled: true,
+          status: true,
+        },
+      });
+    }
+
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "customer",
+        content: text,
+      },
+    });
+
+    if (wantsHuman(text)) {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          role: "assistant",
+          content: HUMAN_HANDOFF_REPLY,
+        },
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          needsHuman: true,
+          status: "waiting",
+          aiEnabled: false,
+          lastMessageAt: new Date(),
+        },
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          conversationId: conversation.id,
+          channel,
+          subject,
+          messages: [
+            { role: "customer", content: text },
+            { role: "assistant", content: HUMAN_HANDOFF_REPLY },
+          ],
+          products: [],
+        },
+        {
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
+
+    const result = await runTikoBrain({
+      message: text,
+      history,
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "assistant",
+        content: result.reply,
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        needsHuman: false,
+        status: conversation.aiEnabled ? "open" : "waiting",
+        lastMessageAt: new Date(),
+      },
+    });
 
     return NextResponse.json(
       {
@@ -136,47 +235,23 @@ export async function POST(req: Request) {
         subject,
         messages: [
           { role: "customer", content: text },
-          { role: "assistant", content: HUMAN_HANDOFF_REPLY },
+          { role: "assistant", content: result.reply },
         ],
-        products: [],
+        products: result.products,
       },
       {
         headers: { ...corsHeaders, "cache-control": "no-store" },
       }
     );
+  } catch (error: any) {
+    console.error("PUBLIC_WIDGET_MESSAGE_FATAL", error);
+
+    return NextResponse.json(
+      { ok: false, error: error?.message || "Server error" },
+      {
+        status: 500,
+        headers: { ...corsHeaders, "cache-control": "no-store" },
+      }
+    );
   }
-
-  const result = await runTikoBrain({
-    message: text,
-    history,
-  });
-
-  appendDemoInboxMessage(
-    conversation.id,
-    "assistant",
-    result.reply,
-    result.products
-  );
-
-  conversation.needsHuman = false;
-  if (conversation.status !== "closed") {
-    conversation.status = conversation.aiEnabled ? "open" : "waiting";
-  }
-
-  return NextResponse.json(
-    {
-      ok: true,
-      conversationId: conversation.id,
-      channel,
-      subject,
-      messages: [
-        { role: "customer", content: text },
-        { role: "assistant", content: result.reply },
-      ],
-      products: result.products,
-    },
-    {
-      headers: { ...corsHeaders, "cache-control": "no-store" },
-    }
-  );
 }

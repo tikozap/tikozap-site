@@ -8,10 +8,11 @@ import SupportMetricsCards from './_components/SupportMetricsCards';
 import DesignPartnerRolloutCard from './_components/DesignPartnerRolloutCard';
 import CaseStudyExportCard from './_components/CaseStudyExportCard';
 import MobilePageHeader from './_components/MobilePageHeader';
+import OverviewVisualDashboard from './_components/OverviewVisualDashboard';
 
 export default async function MerchantOverview() {
   const authed = await getAuthedUserAndTenant();
-  if (!authed?.tenant?.id) redirect('/demo-login?autostart=1&next=/dashboard');
+  if (!authed?.tenant?.id) redirect('/login');
 
   const tenantId = authed.tenant.id;
 
@@ -32,6 +33,10 @@ export default async function MerchantOverview() {
   </div>
 </header>
 
+      <section className="db-section">
+        <OverviewVisualDashboard />
+      </section>
+
       {/* Metrics – keep Cursor's card, but make full-width */}
       <section className="db-section db-metrics">
         <SupportMetricsCards />
@@ -45,30 +50,6 @@ export default async function MerchantOverview() {
       {/* Export – keep Cursor's card, full-width */}
       <section className="db-section db-export">
         <CaseStudyExportCard />
-      </section>
-
-      {/* Quick tiles – restore old simple tiles, but in 2-column grid on desktop */}
-      <section className="db-section db-quick-tiles">
-        <div className="db-tile">
-          <h3>Conversations</h3>
-          <p>See customer questions and how the assistant answered.</p>
-          <Link href="/dashboard/conversations" className="db-link">Go to Inbox →</Link>
-        </div>
-        <div className="db-tile">
-          <h3>Knowledge</h3>
-          <p>Returns, shipping, sizing, FAQs — your assistant’s brain.</p>
-          <Link href="/onboarding/knowledge" className="db-link">Edit →</Link>
-        </div>
-        <div className="db-tile">
-          <h3>Widget & Links</h3>
-          <p>Customize and install on your site or use Starter Link.</p>
-          <Link href="/dashboard/widget" className="db-link">Manage →</Link>
-        </div>
-        <div className="db-tile">
-          <h3>Billing</h3>
-          <p>Plan, usage, and payment settings.</p>
-          <Link href="/dashboard/billing" className="db-link">View →</Link>
-        </div>
       </section>
 
       <style>{`

@@ -1,3 +1,5 @@
+// src/app/onboarding/store/page.tsx
+
 import OnboardingNav from '../_components/OnboardingNav';
 
 export default function StoreStep() {
@@ -45,7 +47,7 @@ export default function StoreStep() {
         </div>
       </div>
 
-      <OnboardingNav nextHref="/onboarding/plan" />
+      <OnboardingNav backHref="/onboarding/install" nextHref="/onboarding/assistant" />
     </div>
   );
 }

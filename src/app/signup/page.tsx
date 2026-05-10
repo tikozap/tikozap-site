@@ -1,3 +1,5 @@
+// src/app/signup/page.tsx
+
 'use client';
 
 import Link from 'next/link';
@@ -5,12 +7,37 @@ import { useState } from 'react';
 
 export default function SignupPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [hasWebsite, setHasWebsite] = useState<'yes' | 'no'>('yes');
 
-  const handleSubmit = (e: any) => {
-    e.preventDefault();
-    // Real signup will be wired later.
-    setSubmitted(true);
+const handleSubmit = async (e: any) => {
+  e.preventDefault();
+
+  const form = new FormData(e.currentTarget);
+
+  const payload = {
+    name: form.get('name'),
+    email: form.get('email'),
+    password: form.get('password'),
+    storeUrl: form.get('storeUrl'),
+    hasWebsite,
+    storeName: form.get('name'),
   };
+
+  const res = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Signup failed');
+    return;
+  }
+
+  window.location.href = data.redirectTo || '/onboarding/install';
+};
 
   return (
     <main id="main" className="auth-main">
@@ -55,18 +82,52 @@ export default function SignupPage() {
               </div>
 
               <div className="field">
-                <label htmlFor="signup-store">Store URL</label>
-                <input
-                  id="signup-store"
-                  name="storeUrl"
-                  type="url"
-                  placeholder="https://yourstore.com"
-                  required
-                />
-                <p className="tiny field-hint">
-                  Use your main storefront. You can connect more sites later.
-                </p>
-              </div>
+  <label>Do you have a website?</label>
+
+  <div className="radio-row">
+    <label className="radio-option">
+      <input
+        type="radio"
+        name="hasWebsite"
+        value="yes"
+        checked={hasWebsite === 'yes'}
+        onChange={() => setHasWebsite('yes')}
+      />
+      <span>Yes</span>
+    </label>
+
+    <label className="radio-option">
+      <input
+        type="radio"
+        name="hasWebsite"
+        value="no"
+        checked={hasWebsite === 'no'}
+        onChange={() => setHasWebsite('no')}
+      />
+      <span>No</span>
+    </label>
+  </div>
+</div>
+
+{hasWebsite === 'yes' ? (
+  <div className="field">
+    <label htmlFor="signup-store">Store URL</label>
+    <input
+      id="signup-store"
+      name="storeUrl"
+      type="url"
+      placeholder="https://yourstore.com"
+      required
+    />
+    <p className="tiny field-hint">
+      Use your main storefront. You can connect more sites later.
+    </p>
+  </div>
+) : (
+  <div className="field-note">
+    No website yet? No problem — you can launch with a Starter Link.
+  </div>
+)}
 
               <div className="field-row">
                 <div className="field">
@@ -97,16 +158,9 @@ export default function SignupPage() {
                 Create account
               </button>
 
-              {submitted ? (
-                <p className="small auth-footnote">
-                  ✅ Thanks! Signup isn&apos;t wired yet — for now, use <b>/demo-login</b> to test the
-                  merchant dashboard.
-                </p>
-              ) : (
-                <p className="small auth-footnote">
-                  You&apos;ll get full Pro features for 14 days. We&apos;ll remind you before your trial ends.
-                </p>
-              )}
+<p className="small auth-footnote">
+  You’ll get full Pro features for 14 days. No credit card required.
+</p>
             </form>
 
             <ul className="auth-perks small">
@@ -201,6 +255,34 @@ export default function SignupPage() {
         .auth-alt-link a {
           text-decoration: underline;
         }
+
+.radio-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  color: #374151;
+  background: #ffffff;
+}
+
+.field-note {
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: #374151;
+}
+
         .tiny {
           font-size: 0.8rem;
         }

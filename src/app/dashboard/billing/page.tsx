@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import MobilePageHeader from '../_components/MobilePageHeader';
+import { PRICING_PLANS } from '@/lib/pricingPlans';
 
 type BillingPlan = 'starter' | 'pro' | 'business';
 
@@ -18,12 +19,26 @@ type BillingUsage = {
   isOverLimit: boolean;
   windowStart: string;
   windowEnd: string;
+  voiceUsed?: number;
+  voiceLimit?: number;
 };
 
-const PLAN_OPTIONS: Array<{ plan: BillingPlan; label: string; price: string }> = [
-  { plan: 'starter', label: 'Starter', price: '$15/mo' },
-  { plan: 'pro', label: 'Pro', price: '$35/mo' },
-  { plan: 'business', label: 'Business', price: '$69/mo' },
+const PLAN_OPTIONS = [
+  {
+    plan: 'starter',
+    label: PRICING_PLANS.starter.name,
+    price: `$${PRICING_PLANS.starter.monthly}/mo`,
+  },
+  {
+    plan: 'pro',
+    label: PRICING_PLANS.pro.name,
+    price: `$${PRICING_PLANS.pro.monthly}/mo`,
+  },
+  {
+    plan: 'business',
+    label: PRICING_PLANS.business.name,
+    price: `$${PRICING_PLANS.business.monthly}/mo`,
+  },
 ];
 
 function prettyPlan(plan: BillingPlan): string {
@@ -42,6 +57,27 @@ export default function BillingPage() {
   const [error, setError] = useState('');
   const [savingPlan, setSavingPlan] = useState<BillingPlan | null>(null);
   const [notice, setNotice] = useState('');
+  const [banner, setBanner] = useState('');
+
+  const openCustomerPortal = async () => {
+  setNotice('');
+
+  try {
+    const res = await fetch('/api/stripe/portal', {
+      method: 'POST',
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || 'Could not open billing portal.');
+    }
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    setNotice(err?.message || 'Could not open billing portal.');
+  }
+};
 
   const loadUsage = async () => {
     try {
@@ -62,6 +98,18 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get('success') === '1') {
+    setBanner('Subscription updated successfully.');
+  }
+
+  if (params.get('canceled') === '1') {
+    setBanner('Checkout canceled.');
+  }
+}, []);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(''), 2600);
     return () => window.clearTimeout(timer);
@@ -75,28 +123,31 @@ export default function BillingPage() {
     return '#111827';
   }, [usage]);
 
-  const changePlan = async (plan: BillingPlan) => {
-    if (!usage || plan === usage.plan || savingPlan) return;
-    setSavingPlan(plan);
-    setNotice('');
-    try {
-      const res = await fetch('/api/billing/plan', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok || !data?.usage) {
-        throw new Error(data?.error || 'Could not update plan.');
-      }
-      setUsage(data.usage as BillingUsage);
-      setNotice(`Plan updated to ${prettyPlan(plan)}.`);
-    } catch (err: any) {
-      setNotice(err?.message || 'Could not update plan.');
-    } finally {
-      setSavingPlan(null);
+const changePlan = async (plan: BillingPlan) => {
+  if (plan === selectedPlan || savingPlan) return;
+
+  setSavingPlan(plan);
+  setNotice('');
+
+  try {
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ plan }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || 'Could not start checkout.');
     }
-  };
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    setNotice(err?.message || 'Could not start checkout.');
+    setSavingPlan(null);
+  }
+};
 
   return (
     <div className="db-container">
@@ -105,8 +156,23 @@ export default function BillingPage() {
       <div className="db-pageStack">
         <h1 className="db-title">Billing</h1>
         <p className="db-sub">
-          Usage limits are enforced monthly by plan. Payment wiring can be added later.
+          Usage limits are enforced monthly by plan. Manage your subscription and usage here.
         </p>
+
+{banner ? (
+  <div className="db-card">
+    <p
+      className="db-cardText"
+      style={{
+        color: banner.toLowerCase().includes('canceled')
+          ? '#b45309'
+          : '#065f46',
+      }}
+    >
+      {banner}
+    </p>
+  </div>
+) : null}   
 
         {/* Current plan */}
         <div className="db-card">
@@ -165,11 +231,32 @@ export default function BillingPage() {
           )}
         </div>
 
+{/* Voice Concierge */}
+<div className="db-card">
+  <div className="db-cardTitle">Voice Concierge</div>
+
+  <p className="db-cardText">
+    {usage?.voiceUsed ?? 0} / {usage?.voiceLimit ?? 5} free voice questions used today
+  </p>
+
+  <div style={{ marginTop: 8 }}>
+    {(usage?.voiceUsed ?? 0) >= (usage?.voiceLimit ?? 5) ? (
+      <div style={{ fontSize: 12, color: '#b91c1c' }}>
+        Daily limit reached. Upgrade for unlimited voice support.
+      </div>
+    ) : (usage?.voiceUsed ?? 0) >= 3 ? (
+      <div style={{ fontSize: 12, color: '#b45309' }}>
+        Voice usage is increasing. Consider enabling full voice support.
+      </div>
+    ) : null}
+  </div>
+</div>
+
         {/* Change plan */}
         <div className="db-card">
           <div className="db-cardTitle">Change plan</div>
           <p className="db-cardText">
-            MVP plan switcher (no Stripe checkout yet).
+            Secure checkout powered by Stripe (test mode).
           </p>
 
           <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -184,12 +271,22 @@ export default function BillingPage() {
                   disabled={savingPlan !== null}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  <span>{option.label}</span>
+                  <span>{active ? `${option.label} (Current)` : option.label}</span>
                   <span style={{ opacity: 0.8, fontSize: 12 }}>{option.price}</span>
                 </button>
               );
             })}
           </div>
+
+        <div style={{ marginTop: 12 }}>
+  <button
+    type="button"
+    className="db-btn"
+    onClick={openCustomerPortal}
+  >
+    Manage subscription
+  </button>
+</div>
 
           {notice ? (
             <p

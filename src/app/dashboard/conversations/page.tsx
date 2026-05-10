@@ -9,6 +9,6 @@ import MobilePageHeader from '../_components/MobilePageHeader';
 
 export default async function Page() {
   const auth = await getAuthedUserAndTenant();
-  if (!auth) redirect('/demo-login');
+  if (!auth) redirect('/login');
   return <ConversationsClient />;
 }

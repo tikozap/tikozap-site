@@ -17,6 +17,21 @@ function safeSlug(s: string) {
     .slice(0, 80);
 }
 
+function parseJson<T>(value: string | null | undefined, fallback: T): T {
+  try {
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const DEMO_BEST_SELLER = {
+  id: "best-1",
+  title: "Lush Active Skincare Set",
+  price: "$58",
+  image:
+    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80",
+};
 const DEMO_FEATURED = [
   {
     id: "feat-1",
@@ -58,23 +73,34 @@ export default async function StarterLinkPage({
   const isDemoSlug = slug === "demo" || slug === "demo-boutique";
 
   const tenant = await prisma.tenant.findFirst({
-    where: {
-      starterLinkEnabled: true,
-      OR: [{ starterLinkSlug: slug }, { slug }],
-    },
-    select: {
-      id: true,
-      slug: true,
-      storeName: true,
-      widget: {
-        select: {
-          publicKey: true,
-          installedAt: true,
-          assistantName: true,
-          brandColor: true,
+    where: isDemoSlug
+      ? {
+          OR: [
+            { slug: "demo-boutique" },
+            { starterLinkSlug: "demo" },
+            { starterLinkSlug: "demo-boutique" },
+            { storeName: "Demo Boutique" },
+          ],
+        }
+      : {
+          starterLinkEnabled: true,
+          OR: [{ starterLinkSlug: slug }, { slug }],
         },
-      },
-    },
+ select: {
+  id: true,
+  slug: true,
+  storeName: true,
+  starterLinkPage: true,
+  widget: {
+    select: {
+  publicKey: true,
+  installedAt: true,
+  assistantName: true,
+  brandColor: true,
+  greeting: true,
+}
+  },
+},
   });
 
   if (!tenant && !isDemoSlug) {
@@ -86,16 +112,30 @@ export default async function StarterLinkPage({
     );
   }
 
-  let storeName = "Demo Boutique";
-  let tagline = "Shop smarter with AI assistance.";
-  let subheading = "Featured products and instant answers in one simple link.";
-  let assistantName = `${storeName} Assistant`;
-  let footerLine = `${storeName} powered by TikoZap`;
-  let widgetPublicKey = "tz_demo_demo";
-  let brandColor = "#111827";
+let storeName = "Demo Boutique";
+let tagline = "Tagline for store";
+let subheading = "Store’s subheading";
+let assistantName = "Demo Boutique Assistant";
+let greeting =
+  "Hi! I can help with products, order tracking, shipping, and returns.";
+let footerLine = "Demo Boutique powered by TikoZap";
 
-  const storeLogoUrl = "";
-  const showMerchantLogin = false;
+let widgetPublicKey = "tz_demo_demo";
+let brandColor = "#111827";
+
+let storeLogoUrl = "";
+let contactEmail = "";
+let shippingNote = "";
+let returnNote = "";
+
+let showProductsNav = true;
+let showContactNav = true;
+let showFooterBrand = true;
+
+let bestSeller = DEMO_BEST_SELLER;
+let featuredProducts = DEMO_FEATURED;
+
+const showMerchantLogin = false;
 
   if (tenant) {
     const widgetRow = tenant.widget
@@ -107,11 +147,12 @@ export default async function StarterLinkPage({
             enabled: true,
           },
           select: {
-            publicKey: true,
-            installedAt: true,
-            assistantName: true,
-            brandColor: true,
-          },
+  publicKey: true,
+  installedAt: true,
+  assistantName: true,
+  brandColor: true,
+  greeting: true,
+}
         });
 
     widgetPublicKey = widgetRow.publicKey;
@@ -130,16 +171,44 @@ export default async function StarterLinkPage({
     }
 
     storeName = tenant.storeName;
-    assistantName =
-      widgetRow.assistantName?.trim() || `${storeName} Assistant`;
-    footerLine = `${storeName} powered by TikoZap`;
-    brandColor = widgetRow.brandColor?.trim() || "#111827";
+const page = tenant.starterLinkPage;
+
+if (page) {
+  storeLogoUrl = page.logoUrl || "";
+  tagline = page.tagline || tagline;
+  subheading = page.subheading || subheading;
+  footerLine = page.footerLine || footerLine;
+
+  contactEmail = page.contactEmail || "";
+  shippingNote = page.shippingNote || "";
+  returnNote = page.returnNote || "";
+
+  showProductsNav = page.showProductsNav;
+  showContactNav = page.showContactNav;
+  showFooterBrand = page.showFooterBrand;
+
+  bestSeller = parseJson(page.bestSellerJson, DEMO_BEST_SELLER);
+  featuredProducts = parseJson(page.productsJson, DEMO_FEATURED);
+}
+
+assistantName =
+  widgetRow.assistantName?.trim() || `${storeName} Assistant`;
+
+greeting =
+  widgetRow.greeting?.trim() ||
+  "Hi! I can help with products, order tracking, shipping, and returns.";
+
+if (!page?.footerLine) {
+  footerLine = `${storeName} powered by TikoZap`;
+}
+
+brandColor = widgetRow.brandColor?.trim() || "#111827";
   }
 
-  return (
-    <div className="sl-page">
-      <div className="sl-shell">
-        <header className="sl-nav">
+return (
+  <div className="sl-page">
+    <div className="sl-shell">
+      <header className="sl-nav">
   <div className="sl-brand">
     {storeLogoUrl ? (
       <img src={storeLogoUrl} alt={storeName} className="sl-brandLogo" />
@@ -150,87 +219,89 @@ export default async function StarterLinkPage({
 
   <div className="sl-navRight">
     <nav className="sl-desktopNav" aria-label="Store">
-      <a href="#products" className="sl-navLink">Products</a>
-      <a href="#footer" className="sl-navLink">Contact</a>
-      {showMerchantLogin ? (
-        <a href="/login" className="sl-navLink">Log in</a>
+      {showProductsNav ? (
+        <a href="#products" className="sl-navLink">Products</a>
+      ) : null}
+
+      {showContactNav ? (
+        <a href="#footer" className="sl-navLink">Contact</a>
       ) : null}
     </nav>
-
-    <button type="button" className="sl-menuBtn" aria-label="Menu">
-      ☰
-    </button>
   </div>
 </header>
-        <section className="sl-hero">
-          <h1 className="sl-title">{storeName}</h1>
-          <p className="sl-tagline">{tagline}</p>
-          <p className="sl-subheading">{subheading}</p>
+        <div className="sl-desktopLayout">
+        <main className="sl-mainCol">
+<section className="sl-hero">
+  <h1 className="sl-title">{tagline}</h1>
+<p className="sl-subheading">{subheading}</p>
+</section>
 
-          <div className="sl-ctaRow">
-            <a href="#products" className="sl-cta sl-ctaPrimary">
-              Browse products
-            </a>
-            <button type="button" className="sl-cta sl-ctaSecondary">
-              Ask assistant
-            </button>
-          </div>
-        </section>
+<section className="sl-bestSeller">
+  <div className="sl-sectionTitle">Best Seller</div>
 
-        <section className="sl-assistantCard">
-          <div className="sl-assistantName">{assistantName}</div>
-          <p className="sl-assistantCopy">
-            Hi! I can help with products, order tracking, shipping, and returns.
-          </p>
+  <article className="sl-bestCard">
+    <img
+      src={bestSeller.image}
+      alt={bestSeller.title}
+      className="sl-bestImage"
+    />
 
-          <div className="sl-prompts">
-            {DEMO_PROMPTS.map((prompt) => (
-              <button key={prompt} type="button" className="sl-promptBtn">
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </section>
+    <div className="sl-bestMeta">
+      <div>
+        <div className="sl-bestBadge">Customer favorite</div>
+        <div className="sl-bestTitle">{bestSeller.title}</div>
+        <div className="sl-bestPrice">{bestSeller.price}</div>
+      </div>
 
-        <section className="sl-trust">
-          {TRUST_PILLS.map((item) => (
-            <div key={item} className="sl-trustItem">
-              {item}
-            </div>
-          ))}
-        </section>
+      <button type="button" className="sl-bestBtn">
+        Ask about this
+      </button>
+    </div>
+  </article>
+</section>
 
-        <section id="products" className="sl-products">
-          <div className="sl-sectionTitle">Featured products</div>
+<section id="products" className="sl-products">
+  <div className="sl-sectionTitle">In Stock</div>
 
-          <div className="sl-productGrid">
-            {DEMO_FEATURED.map((item) => (
-              <article key={item.id} className="sl-productCard">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="sl-productImage"
-                />
-                <div className="sl-productMeta">
-                  <div className="sl-productTitle">{item.title}</div>
-                  <div className="sl-productPrice">{item.price}</div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+  <div className="sl-productGrid">
+    {featuredProducts.slice(0, 9).map((item) => (
+      <article key={item.id} className="sl-productCard">
+        <img
+          src={item.image}
+          alt={item.title}
+          className="sl-productImage"
+        />
+        <div className="sl-productMeta">
+          <div className="sl-productTitle">{item.title}</div>
+          <div className="sl-productPrice">{item.price}</div>
+        </div>
+      </article>
+    ))}
+  </div>
+</section>
 
         <footer id="footer" className="sl-footer">
           <div className="sl-footerLine">{footerLine}</div>
+<div className="sl-poweredLine">Powered by TikoZap</div>
+{contactEmail ? <div className="sl-footerLine">{contactEmail}</div> : null}
+{shippingNote ? <div className="sl-footerLine">{shippingNote}</div> : null}
+{returnNote ? <div className="sl-footerLine">{returnNote}</div> : null}
         </footer>
-      </div>
 
-<StarterLinkAssistant
+    </main>
+
+    <aside className="sl-assistantRail">
+      <StarterLinkAssistant
   publicKey={widgetPublicKey}
   assistantName={assistantName}
+  greeting={greeting}
   premium={false}
   brandColor={brandColor}
+  desktopDocked
 />
+    </aside>
+  </div>
+</div>
 
       <style>{`
         .sl-page{
@@ -260,7 +331,7 @@ export default async function StarterLinkPage({
 }
 
 .sl-navLink{
-  font-size:14px;
+  font-size:16px;
   color:#6b7280;
   text-decoration:none;
 }
@@ -377,7 +448,7 @@ export default async function StarterLinkPage({
           background:#fff;
           color:#111827;
         }
-
+        
         .sl-assistantCard{
           margin-top:18px;
           border:1px solid #e5e7eb;
@@ -431,6 +502,108 @@ export default async function StarterLinkPage({
           font-size:13px;
           color:#4b5563;
         }
+
+.sl-logoRow{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+}
+
+.sl-storeLogoLarge{
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  object-fit:cover;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  flex:0 0 52px;
+}
+
+.sl-storeLogoFallback{
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  font-weight:900;
+  color:#111827;
+  flex:0 0 52px;
+}
+
+.sl-storeEyebrow{
+  font-size:14px;
+  font-weight:800;
+  color:#111827;
+  margin-bottom:10px;
+}
+
+.sl-bestSeller{
+  margin-top:26px;
+}
+
+.sl-bestCard{
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+
+.sl-bestImage{
+  width:100%;
+  aspect-ratio:16 / 9;
+  object-fit:cover;
+  display:block;
+  background:#f3f4f6;
+}
+
+.sl-bestMeta{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  padding:16px;
+}
+
+.sl-bestBadge{
+  width:max-content;
+  border:1px solid #e5e7eb;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:700;
+  color:#6b7280;
+  margin-bottom:10px;
+}
+
+.sl-bestTitle{
+  font-size:18px;
+  font-weight:900;
+  line-height:1.25;
+  color:#111827;
+}
+
+.sl-bestPrice{
+  margin-top:6px;
+  font-size:14px;
+  font-weight:800;
+  color:#6b7280;
+}
+
+.sl-bestBtn{
+  border:1px solid #111827;
+  background:#111827;
+  color:#fff;
+  border-radius:999px;
+  padding:12px 14px;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
 
         .sl-products{
           margin-top:26px;
@@ -494,10 +667,56 @@ export default async function StarterLinkPage({
           color:#6b7280;
         }
 
-        @media (min-width: 900px){
-          .sl-shell{
-            padding:24px;
-          }
+.sl-desktopLayout{
+  display:block;
+}
+
+.sl-assistantRail{
+  display:block;
+}
+
+@media (min-width: 760px){
+  .sl-shell{
+    max-width:1320px;
+    padding:24px;
+  }
+
+  .sl-nav{
+    margin-bottom:22px;
+  }
+
+  .sl-desktopLayout{
+  display:block;
+  position:relative;
+  padding-right:0;
+  transition:padding-right 300ms ease;
+}
+
+.sl-desktopLayout:has(.sl-assistantPanel){
+  padding-right:448px;
+}
+
+.sl-mainCol{
+  min-width:0;
+  transition:max-width 300ms ease;
+}
+
+.sl-assistantRail{
+  display:block;
+  min-width:0;
+  position:fixed;
+  right:max(24px, calc((100vw - 1320px) / 2 + 24px));
+  top:96px;
+  bottom:32px;
+  width:min(420px, calc(100vw - 48px));
+  height:auto;
+  z-index:20;
+}
+
+.sl-assistantRail :global(.sl-assistantLauncher--docked){
+  right:max(32px, calc((100vw - 1320px) / 2 + 32px));
+  bottom:32px;
+}
 
   .sl-desktopNav{
     display:flex;
@@ -507,21 +726,16 @@ export default async function StarterLinkPage({
     display:none;
   }
 
-          .sl-title{
-            font-size:44px;
-          }
-
-          .sl-tagline{
-            font-size:20px;
-          }
-
-          .sl-subheading{
-            font-size:15px;
-          }
-
-          .sl-productGrid{
-            grid-template-columns:repeat(3, minmax(0, 1fr));
+  .sl-productGrid{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
   }
+
+  .sl-poweredLine{
+  margin-top:8px;
+  font-size:12px;
+  font-weight:700;
+  color:#9ca3af;
+}
 }
       `}</style>
     </div>

@@ -1,4 +1,5 @@
 // src/app/dashboard/conversations/_components/ConversationsClient.tsx
+
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,7 +14,7 @@ const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
 
 // ===== Naming =====
 const STAFF_NAME = 'Kevin';
-const STORE_ASSISTANT_NAME = 'Demo Boutique Assistant';
+const STORE_ASSISTANT_NAME = 'Store Assistant';
 const DRAFT_PREFIX = 'Suggested reply (draft — not sent):';
 
 
@@ -46,12 +47,66 @@ type Thread = {
   tags: string[];
   lastMessageAt: string;
   archivedAt?: string | null;
+  needsHuman: boolean;
   messages: ThreadMessage[];
 };
+
+function orderedThreadMessages(messages: ThreadMessage[], channel?: string) {
+  const sorted = [...messages].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (ta !== tb) return ta - tb;
+    return a.id.localeCompare(b.id);
+  });
+
+  if (!String(channel || "").includes("voice")) return sorted;
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+
+    if (
+      a.role === "assistant" &&
+      b.role === "customer" &&
+      Math.abs(bTime - aTime) < 15000
+    ) {
+      sorted[i] = b;
+      sorted[i + 1] = a;
+      i++;
+    }
+  }
+
+  return sorted;
+}
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function getAvatarStyle(name: string) {
+  const palettes = [
+    { bg: "#E0F2FE", text: "#0369A1" }, // blue
+    { bg: "#FCE7F3", text: "#BE185D" }, // pink
+    { bg: "#FEF3C7", text: "#92400E" }, // yellow
+    { bg: "#DCFCE7", text: "#166534" }, // green
+    { bg: "#EDE9FE", text: "#5B21B6" }, // purple
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const idx = Math.abs(hash) % palettes.length;
+  return {
+    background: palettes[idx].bg,
+    color: palettes[idx].text,
+    border: "none",
+  };
 }
 
 function roleLabel(role: string) {
@@ -133,16 +188,21 @@ export default function ConversationsClient() {
 
   const [draft, setDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
+  const [suggestedDraft, setSuggestedDraft] = useState('');
 
 const [aiDefault, setAiDefault] = useState(true);
 const [previewProduct, setPreviewProduct] = useState<any | null>(null);
 const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 const [productPickerOpen, setProductPickerOpen] = useState(false);
+
 const replyRef = useRef<HTMLTextAreaElement | null>(null);
 const messagesRef = useRef<HTMLDivElement | null>(null);
 
 const lastSeenTopIdRef = useRef<string>('');
 const pollingRef = useRef<number | null>(null);
+const desktopListRef = useRef<HTMLDivElement | null>(null);
+const mobileListRef = useRef<HTMLDivElement | null>(null);
+const lastTopTimestampRef = useRef<number>(0);
 
 const swipeRef = useRef<HTMLDivElement | null>(null);
 const startXRef = useRef(0);
@@ -152,11 +212,27 @@ const deltaYRef = useRef(0);
 
 const autoTakeoverTriggeredRef = useRef(false);
 const [showMobileNeedsHumanDot, setShowMobileNeedsHumanDot] = useState(false);
+const [welcomeTestOpen, setWelcomeTestOpen] = useState(false);
+const [welcomeTestText, setWelcomeTestText] = useState('');
+const [welcomeTestBusy, setWelcomeTestBusy] = useState(false);
+const [welcomeTestMsg, setWelcomeTestMsg] = useState('');
+const [welcomeTestMinimized, setWelcomeTestMinimized] = useState(false);
+const [welcomePanelPos, setWelcomePanelPos] = useState({ x: 28, y: 96 });
+const [welcomeTestConversationId, setWelcomeTestConversationId] = useState('');
+
+const welcomeDragRef = useRef({
+  dragging: false,
+  startX: 0,
+  startY: 0,
+  startPanelX: 28,
+  startPanelY: 96,
+});
 
 // mobile split view
 const [isMobile, setIsMobile] = useState(false);
 const [pane, setPane] = useState<'list' | 'thread'>('list');
 const [threadMenuOpen, setThreadMenuOpen] = useState(false);
+const [desktopThreadMenuOpen, setDesktopThreadMenuOpen] = useState(false);
 const [dragX, setDragX] = useState(0);
 const [isClosingThread, setIsClosingThread] = useState(false);
 const revealPct = Math.max(0, Math.min(dragX / 320, 1));
@@ -172,7 +248,7 @@ useEffect(() => {
     return;
   }
 
-  const needsHuman = !!thread.needsHuman || thread.status === "waiting";
+  const needsHuman = !!thread.needsHuman;
   setShowMobileNeedsHumanDot(needsHuman);
 }, [isMobile, pane, thread?.id, thread?.needsHuman, thread?.status]);
 
@@ -239,6 +315,35 @@ useEffect(() => {
 }, [refreshList, refreshThread, searchParams]);
 
 useEffect(() => {
+  if (
+    searchParams?.get('welcome') === '1' ||
+    searchParams?.get('testAssistant') === '1'
+  ) {
+    setWelcomeTestOpen(true);
+    setWelcomeTestMinimized(false);
+  }
+}, [searchParams]);
+
+const scrollInboxToTop = () => {
+  requestAnimationFrame(() => {
+    desktopListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    mobileListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const mobileScreen = document.querySelector('.cx-mobileScreen');
+    if (mobileScreen instanceof HTMLElement) {
+      mobileScreen.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    const mobileStage = document.querySelector('.cx-mobileStage');
+    if (mobileStage instanceof HTMLElement) {
+      mobileStage.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+};
+
+useEffect(() => {
   if (pollingRef.current) window.clearInterval(pollingRef.current);
 
   pollingRef.current = window.setInterval(async () => {
@@ -246,7 +351,23 @@ useEffect(() => {
       if (document.visibilityState !== "visible") return;
 
       const convos = await refreshList();
+      const top = convos?.[0];
+const topTs = top?.lastMessageAt
+  ? new Date(top.lastMessageAt).getTime()
+  : 0;
+
+if (topTs > lastTopTimestampRef.current) {
+      scrollInboxToTop();
+}
+
+if (topTs) {
+  lastTopTimestampRef.current = topTs;
+}
+      setList(convos);
       const topId = convos?.[0]?.id || "";
+      if (topId && topId !== lastSeenTopIdRef.current) {
+       scrollInboxToTop();
+}
 
       // remember the last top id we saw (optional, for future indicators)
       if (topId) lastSeenTopIdRef.current = topId;
@@ -260,9 +381,21 @@ useEffect(() => {
       }
 
       // Refresh the currently open thread so new widget messages appear
-      if (selectedId) {
-        await refreshThread(selectedId);
-      }
+const newestId = convos?.[0]?.id || "";
+
+// Keep the currently open thread stable.
+// Only auto-select if nothing is selected yet.
+if (!selectedId && newestId) {
+  setSelectedId(newestId);
+  api(`/api/conversations/${newestId}/seen`, { method: "POST" }).catch(() => {});
+  await refreshThread(newestId);
+  return;
+}
+
+// Otherwise, just refresh the currently selected thread.
+if (selectedId) {
+  await refreshThread(selectedId);
+}
     } catch {
       // ignore transient errors
     }
@@ -397,6 +530,77 @@ const selectConversation = async (id: string) => {
     await refreshThread(res.id);
     if (isMobile) setPane('thread');
   };
+
+const sendWelcomeTest = async (customText?: string) => {
+  const text = (customText || welcomeTestText).trim();
+  if (!text || welcomeTestBusy) return;
+
+  setWelcomeTestBusy(true);
+  setWelcomeTestMsg('');
+
+  try {
+const res = await api<{ ok: true; id: string }>(
+  '/api/conversations/test-assistant',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+  text,
+  conversationId: welcomeTestConversationId || undefined,
+}),
+  }
+);
+
+await refreshList();
+
+setWelcomeTestConversationId(res.id);
+
+if (!isMobile) {
+  setSelectedId(res.id);
+  await refreshThread(res.id);
+} else {
+  setPane('list');
+}
+
+setWelcomeTestText('');
+setWelcomeTestMsg('Test sent. The new conversation is now visible in Inbox.');
+  } catch (err: any) {
+    setWelcomeTestMsg(err?.message || 'Could not send test message.');
+  } finally {
+    setWelcomeTestBusy(false);
+  }
+};
+
+const startWelcomeDrag = (e: React.MouseEvent) => {
+  welcomeDragRef.current = {
+    dragging: true,
+    startX: e.clientX,
+    startY: e.clientY,
+    startPanelX: welcomePanelPos.x,
+    startPanelY: welcomePanelPos.y,
+  };
+
+  window.addEventListener('mousemove', moveWelcomeDrag);
+  window.addEventListener('mouseup', stopWelcomeDrag);
+};
+
+const moveWelcomeDrag = (e: MouseEvent) => {
+  const drag = welcomeDragRef.current;
+  if (!drag.dragging) return;
+
+  const nextX = drag.startPanelX + (e.clientX - drag.startX);
+  const nextY = drag.startPanelY + (e.clientY - drag.startY);
+
+  setWelcomePanelPos({
+    x: Math.max(12, Math.min(nextX, window.innerWidth - 380)),
+    y: Math.max(72, Math.min(nextY, window.innerHeight - 180)),
+  });
+};
+
+const stopWelcomeDrag = () => {
+  welcomeDragRef.current.dragging = false;
+  window.removeEventListener('mousemove', moveWelcomeDrag);
+  window.removeEventListener('mouseup', stopWelcomeDrag);
+};
 
   const setConvStatus = async (s: 'open' | 'waiting' | 'closed') => {
     if (!thread) return;
@@ -581,6 +785,7 @@ const sendStaffReply = async () => {
 
   setDraft('');
   setSelectedProducts([]);
+  setSuggestedDraft('');
 
   await api(`/api/conversations/${thread.id}/message`, {
     method: 'POST',
@@ -608,23 +813,17 @@ const sendStaffReply = async () => {
   };
 
   const generateDraft = async () => {
-    if (!thread) return;
-    const lastCustomer = [...thread.messages].reverse().find((m: any) => m.role === 'customer');
-    const customerText = lastCustomer?.content?.trim() || '';
-    const suggestion = buildSupportReply(customerText || 'Customer needs help.').reply;
+  if (!thread) return;
 
-    const note =
-      `${DRAFT_PREFIX}\n` +
-      `${suggestion}\n\n` +
-      `Context: last customer message → "${customerText || '(none)'}"`;
+  const lastCustomer = [...thread.messages]
+    .reverse()
+    .find((m: any) => m.role === 'customer');
 
-    await api(`/api/conversations/${thread.id}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ role: 'note', content: note }),
-    });
-    await refreshThread(thread.id);
-    await refreshList();
-  };
+  const customerText = lastCustomer?.content?.trim() || '';
+  const suggestion = buildSupportReply(customerText || 'Customer needs help.').reply;
+
+  setSuggestedDraft(suggestion);
+};
 
   const insertDraftIntoReply = (noteText: string) => {
     const suggestion = extractDraftSuggestion(noteText);
@@ -958,7 +1157,12 @@ const renderConversationList = () => (
           ].filter(Boolean).join(' ')}
         >
  <div className="cx-row">
-  <div className="cx-avatar">{getInitials(c.customerName)}</div>
+  <div
+  className="cx-avatar"
+  style={getAvatarStyle(c.customerName)}
+>
+  <span className="cx-avatarIcon" />
+</div>
 
   <div className="cx-main">
     <div className="cx-top">
@@ -969,7 +1173,9 @@ const renderConversationList = () => (
     <div className="cx-meta">
       <div className="cx-subjectLine">
         {archived && <span className="cx-inlineLabel">Archived</span>}
-        <span className="cx-inlineLabel">{channelLabel(chKey)}</span>
+        <span className={`cx-inlineLabel cx-inlineLabel--${chKey}`}>
+  {channelLabel(chKey)}
+</span>
         <span className="cx-subjectText">{c.subject || '(no subject)'}</span>
       </div>
 
@@ -990,7 +1196,7 @@ const renderConversationList = () => (
 
     {!filtered.length && (
       <div style={{ padding: 12, fontSize: 13, opacity: 0.7 }}>
-        No conversations yet. Click &ldquo;Reset inbox&rdquo; to load the Demo Boutique test set.
+        No conversations yet. Send a test message from your widget or Starter Link.
       </div>
     )}
   </>
@@ -1003,7 +1209,7 @@ const renderThreadBody = () => {
 
   const primaryAiAction = thread.aiEnabled ? (
     <button className="db-btn" onClick={takeOverThisChat}>
-      Take over this call
+      Take over
     </button>
   ) : (
     <button className="db-btn" onClick={resumeAiThisChat}>
@@ -1024,7 +1230,7 @@ const visibleTags = (thread.tags || []).filter(
 
   return (
     <div className="cx-threadFrame">
-      <div className="cx-threadHead">
+      <div className="cx-threadHead"> 
         {isMobile ? (
 <div className="cx-mobileThreadTop">
 <div className="cx-mobileThreadLeft">
@@ -1098,7 +1304,9 @@ const visibleTags = (thread.tags || []).filter(
               <div className="cx-threadHeadMain">
                 <div className="cx-threadNameRow">
                   <div className="cx-threadName">{thread.customerName}</div>
-                  <span className="cx-inlineLabel">{currentChannel}</span>
+                  <span className="cx-inlineLabel">
+  {currentChannel} · {thread.status === 'open' ? 'Active' : thread.status}
+</span>
                 </div>
 
                 <div className="cx-threadSubject">{thread.subject}</div>
@@ -1137,22 +1345,24 @@ const visibleTags = (thread.tags || []).filter(
                   Mark waiting
                 </button>
 
-                <input
-                  className="cx-tagInput"
-                  value={tagDraft}
-                  onChange={(e) => setTagDraft(e.target.value)}
-                  placeholder="Add tag..."
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag();
-                    }
-                  }}
-                />
+                                <div className="cx-addTagCombo">
+  <input
+    className="cx-addTagInput"
+    value={tagDraft}
+    onChange={(e) => setTagDraft(e.target.value)}
+    placeholder="Add tag..."
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTag();
+      }
+    }}
+  />
 
-                <button className="db-btn" onClick={addTag}>
-                  Add
-                </button>
+  <button className="cx-addTagButton" onClick={addTag} aria-label="Add tag">
+    →
+  </button>
+</div>
               </div>
             </div>
           </>
@@ -1161,7 +1371,7 @@ const visibleTags = (thread.tags || []).filter(
 
       <div ref={messagesRef} className="cx-threadMessages">
         <div className="cx-msgList">
-          {thread.messages.map((m: any) => {
+          {orderedThreadMessages(thread.messages, thread.channel).map((m: any) => {
             const showInsert = m.role === 'note' && isDraftNote(m.content);
 
             return (
@@ -1172,10 +1382,11 @@ const visibleTags = (thread.tags || []).filter(
 
                 <div
                   className={[
-                    'cx-bubble',
-                    m.role === 'staff' ? 'agent' : '',
-                    m.role === 'note' ? 'note' : '',
-                  ].filter(Boolean).join(' ')}
+  'cx-bubble',
+  m.role === 'assistant' ? 'assistant' : '',
+  m.role === 'staff' ? 'agent' : '',
+  m.role === 'note' ? 'note' : '',
+].filter(Boolean).join(' ')}
                 >
                   <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
 
@@ -1248,6 +1459,77 @@ const visibleTags = (thread.tags || []).filter(
       </div>
 
 <div className="cx-replyDock">
+  {suggestedDraft ? (
+  <div
+    style={{
+      marginBottom: 6,
+      border: '1px solid #e5e7eb',
+      borderRadius: 16,
+      background: '#f8fafc',
+      padding: 8,
+      display: 'grid',
+      gap: 1,
+    }}
+  >
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+      <strong style={{ fontSize: 11 }}>Suggested draft. Click to insert.</strong>
+      <button
+  type="button"
+  onClick={() => setSuggestedDraft('')}
+  style={{
+    border: 'none',
+    background: 'transparent',
+    padding: 2,
+    minHeight: 22,
+    minWidth: 22,
+    borderRadius: 999,
+    cursor: 'pointer',
+    fontSize: 16,
+    lineHeight: 1,
+    color: '#64748b',
+  }}
+  aria-label="Close suggested draft"
+>
+  ×
+</button>
+    </div>
+
+    <div
+  role="button"
+  tabIndex={0}
+  onClick={() => {
+    setDraft(suggestedDraft);
+    setSuggestedDraft('');
+    setTimeout(() => replyRef.current?.focus(), 0);
+  }}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter') {
+      setDraft(suggestedDraft);
+      setSuggestedDraft('');
+      setTimeout(() => replyRef.current?.focus(), 0);
+    }
+  }}
+  style={{
+  minHeight: 36,
+  textAlign: 'left',
+  border: '1px solid #e5e7eb',
+  borderRadius: 12,
+  background: '#ffffff',
+  color: '#3a3e46ff',
+  padding: 10,
+  fontSize: 12,
+  lineHeight: 1.2,
+  cursor: 'pointer',
+  whiteSpace: 'pre-wrap',
+}}
+  title="Click to insert into reply"
+>
+  {suggestedDraft || 'Draft is empty. Try Generate draft again.'}
+</div>
+
+
+  </div>
+) : null}
   <div className="cx-replyModeBar">
     <div>
   {!thread.aiEnabled && <span className="cx-replyModeHint">AI paused</span>}
@@ -1396,7 +1678,7 @@ const renderMobileInboxScreen = () => (
       />
     </div>
 
-    <div className="cx-mobileList">
+    <div className="cx-mobileList" ref={mobileListRef}>
       {renderConversationList()}
     </div>
   </div>
@@ -1404,57 +1686,95 @@ const renderMobileInboxScreen = () => (
 
 const renderDesktopLayout = () => (
   <>
-    <div className="db-top">
-      <div>
-        <h1 className="db-title">Conversations</h1>
-        <div className="cx-quickLinks">
-          <Link className="cx-quickLink db-pill" href="/dashboard/widget/test">
-            Chat test bubble
-          </Link>
-          <Link className="cx-quickLink db-pill" href="/dashboard/widget">
-            Website bubble
-          </Link>
-          <Link className="cx-quickLink db-pill" href="/dashboard/tikozap-link">
-            Starter Link bubble
-          </Link>
-          <Link className="cx-quickLink db-pill" href="/dashboard/phone-agent?surface=caller">
-            Caller link
-          </Link>
-          <Link className="cx-quickLink db-pill" href="/dashboard/phone-agent?surface=answer-machine">
-            AnswerMachine link
-          </Link>
-        </div>
-      </div>
+<div className="db-topSplit">
+  <div className="db-topLeft">
+    <h1 className="db-title">Inbox</h1>
 
-      <div className="db-actions">
-        <button className="db-btn" onClick={resetInbox}>Reset inbox</button>
-        <button className="db-btn primary" onClick={newTestChat}>New test chat</button>
-        <button className={aiDefault ? 'db-btn primary' : 'db-btn'} onClick={toggleAiDefault}>
-          New chats AI: {aiDefault ? 'ON' : 'OFF'}
-        </button>
-        <button className={showArchived ? 'db-btn primary' : 'db-btn'} onClick={() => setShowArchived((v) => !v)}>
-          Showing: {showArchived ? 'All' : 'Active'}
-        </button>
+    <div className="db-row">
+      <button className={aiDefault ? 'db-btn primary' : 'db-btn'} onClick={toggleAiDefault}>
+        AI: {aiDefault ? 'On' : 'Off'}
+      </button>
 
-        <select className="db-btn" value={status} onChange={(e) => setStatus(e.target.value as any)}>
-          <option value="all">All</option>
-          <option value="open">Open</option>
-          <option value="waiting">Waiting</option>
-          <option value="closed">Closed</option>
-        </select>
+      <button className={showArchived ? 'db-btn primary' : 'db-btn'} onClick={() => setShowArchived((v) => !v)}>
+        Inbox: {showArchived ? 'All' : 'Active'}
+      </button>
 
-        <input
-          className="db-btn"
-          style={{ minWidth: 220 }}
-          placeholder="Search (name, subject, tag)…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
+      <select className="db-btn" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+        <option value="all">All</option>
+        <option value="open">Open</option>
+        <option value="waiting">Waiting</option>
+        <option value="closed">Closed</option>
+      </select>
     </div>
 
+    <input
+      className="db-search"
+      placeholder="Search conversations…"
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+    />
+  </div>
+
+  <div className="db-topRight">
+    {thread ? (
+      <div className="cx-topThreadHead">
+        <div className="cx-topThreadMain">
+          <div className="cx-threadName">
+            {thread.customerName || thread.subject || 'Conversation'}
+          </div>
+
+          <div className="cx-threadMeta">
+            <span className="cx-inlineLabel">
+              {currentChannel} · {thread.status === 'open' ? 'Active' : thread.status}
+            </span>
+          </div>
+        </div>
+
+        <div className="cx-topThreadActions">
+          <button className="db-btn" onClick={addInternalNote}>
+            Add note
+          </button>
+
+          {thread.status !== 'closed' ? (
+            <button className="db-btn" onClick={() => setConvStatus('closed')}>
+              Close
+            </button>
+          ) : (
+            <button className="db-btn" onClick={() => setConvStatus('open')}>
+              Open
+            </button>
+          )}
+
+          <button className="db-btn" onClick={() => setConvStatus('waiting')}>
+            Mark waiting
+          </button>
+
+          <div className="cx-addTagCombo">
+            <input
+              className="cx-addTagInput"
+              value={tagDraft}
+              onChange={(e) => setTagDraft(e.target.value)}
+              placeholder="Add tag..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addTag();
+                }
+              }}
+            />
+
+            <button className="cx-addTagButton" onClick={addTag} aria-label="Add tag">
+              →
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+  </div>
+</div>
+
     <div className="cx-split">
-  <div className="cx-listPane">
+  <div className="cx-listPane" ref={desktopListRef}>
     {renderConversationList()}
   </div>
 
@@ -1518,6 +1838,162 @@ const renderMobileLayout = () => {
   );
 };
 
+const renderWelcomeTestModal = () => {
+  if (!welcomeTestOpen) return null;
+
+  const prompts = [
+    'Where is my order?',
+    'What is your return policy?',
+    'Do you have this in another size?',
+  ];
+
+  if (welcomeTestMinimized) {
+    return (
+      <button
+        type="button"
+        onClick={() => setWelcomeTestMinimized(false)}
+        style={{
+          position: 'fixed',
+          right: 24,
+          bottom: 24,
+          zIndex: 9999,
+          border: '1px solid rgba(255,255,255,.18)',
+          borderRadius: 999,
+          padding: '12px 16px',
+          background: '#111827',
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 800,
+          boxShadow: '0 16px 40px rgba(15, 23, 42, 0.28)',
+          cursor: 'pointer',
+        }}
+      >
+        Test Assistant
+      </button>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: welcomePanelPos.x,
+        top: welcomePanelPos.y,
+        zIndex: 9999,
+        width: 360,
+        maxWidth: 'calc(100vw - 32px)',
+        borderRadius: 22,
+        border: '1px solid #e5e7eb',
+        background: '#fff',
+        boxShadow: '0 24px 70px rgba(15, 23, 42, 0.22)',
+        padding: 18,
+      }}
+    >
+      <div
+        onMouseDown={startWelcomeDrag}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 12,
+          cursor: 'grab',
+          userSelect: 'none',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800 }}>Test your assistant</div>
+          <p style={{ marginTop: 8, fontSize: 13, color: '#64748b', lineHeight: 1.55 }}>
+            Send a shopper-style message. The new conversation will appear in the inbox.
+          </p>
+        </div>
+
+        <button
+  type="button"
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={() => {
+    setWelcomeTestOpen(false);
+    setWelcomeTestMinimized(false);
+  }}
+  style={{
+    border: 'none',
+    background: 'transparent',
+    color: '#64748b',
+    fontSize: 20,
+    cursor: 'pointer',
+    padding: 4,
+    lineHeight: 1,
+  }}
+  aria-label="Close"
+  title="Close"
+>
+  ×
+</button>
+      </div>
+
+      <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {prompts.map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            className="db-btn"
+            disabled={welcomeTestBusy}
+            onClick={() => sendWelcomeTest(prompt)}
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      <textarea
+        value={welcomeTestText}
+        onChange={(e) => setWelcomeTestText(e.target.value)}
+        onKeyDown={(e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    void sendWelcomeTest();
+  }
+}}
+        placeholder="Type as a customer…"
+        rows={4}
+        style={{
+          marginTop: 14,
+          width: '100%',
+          border: '1px solid #d1d5db',
+          borderRadius: 16,
+          padding: 12,
+          fontSize: 14,
+          resize: 'vertical',
+        }}
+      />
+
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => setWelcomeTestMinimized(true)}
+        >
+          Minimize
+        </button>
+
+        <button
+          type="button"
+          className="db-btn primary"
+          disabled={welcomeTestBusy || !welcomeTestText.trim()}
+          onClick={() => sendWelcomeTest()}
+        >
+          {welcomeTestBusy ? 'Sending…' : 'Send test'}
+        </button>
+      </div>
+
+      {welcomeTestMsg ? (
+        <p style={{ marginTop: 12, fontSize: 13, color: '#065f46' }}>
+          {welcomeTestMsg}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
   return (
   <div className="cx-mobileRoot">
     {isMobile ? renderMobileLayout() : renderDesktopLayout()}
@@ -1525,6 +2001,7 @@ const renderMobileLayout = () => {
     {renderProductModal()}
 {renderProductPicker()}
 {renderThreadMenuSheet()}
+{renderWelcomeTestModal()}
   </div>
 );
 }

@@ -117,9 +117,9 @@ useEffect(() => {
 
           <ul className="db-nav">
             <NavItem href="/dashboard" label="Overview" />
-            <NavItem href="/dashboard/conversations" label="Conversations" pill="Inbox" />
+            <NavItem href="/dashboard/conversations" label="Inbox" />
             <NavItem href="/dashboard/phone-agent" label="Phone Agent" />
-            <NavItem href="/dashboard/tikozap-link" label="TikoZap Link" />
+            <NavItem href="/dashboard/tikozap-link" label="Starter Link" />
             <NavItem href="/dashboard/knowledge" label="Knowledge" />
             <NavItem href="/dashboard/widget" label="Widget" />
             <NavItem href="/dashboard/billing" label="Billing" />
