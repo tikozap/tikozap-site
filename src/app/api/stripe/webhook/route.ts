@@ -12,6 +12,9 @@ function planFromPrice(priceId: string | null | undefined) {
   if (priceId === process.env.STRIPE_PRICE_STARTER) return 'starter';
   if (priceId === process.env.STRIPE_PRICE_PRO) return 'pro';
   if (priceId === process.env.STRIPE_PRICE_BUSINESS) return 'business';
+  if (priceId === process.env.STRIPE_PRICE_STARTER_YEARLY) return 'starter';
+  if (priceId === process.env.STRIPE_PRICE_PRO_YEARLY) return 'pro';
+  if (priceId === process.env.STRIPE_PRICE_BUSINESS_YEARLY) return 'business';
   return null;
 }
 
@@ -44,22 +47,42 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
 
       const tenantId = session.metadata?.tenantId;
-      const plan = session.metadata?.plan;
+      const kind = session.metadata?.kind;
 
-      if (tenantId && plan) {
+      if (tenantId && kind === 'voice') {
+        const voicePack = session.metadata?.voicePack || null;
+        const voiceMinutesLimit = Number(session.metadata?.voiceMinutesLimit || 0);
+
         await prisma.tenant.update({
           where: { id: tenantId },
           data: {
-            billingPlan: plan,
-            billingStatus: 'active',
+            voiceEnabled: true,
+            voicePack,
+            voiceMinutesLimit,
+            voiceMinutesUsed: 0,
+            voiceUsagePeriodStart: new Date(),
             stripeCustomerId:
               typeof session.customer === 'string' ? session.customer : undefined,
-            stripeSubscriptionId:
-              typeof session.subscription === 'string'
-                ? session.subscription
-                : undefined,
           },
         });
+      } else {
+        const plan = session.metadata?.plan;
+
+        if (tenantId && plan) {
+          await prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+              billingPlan: plan,
+              billingStatus: 'active',
+              stripeCustomerId:
+                typeof session.customer === 'string' ? session.customer : undefined,
+              stripeSubscriptionId:
+                typeof session.subscription === 'string'
+                  ? session.subscription
+                  : undefined,
+            },
+          });
+        }
       }
     }
 

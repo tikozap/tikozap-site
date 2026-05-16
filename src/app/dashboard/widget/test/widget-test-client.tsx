@@ -8,10 +8,15 @@ import MobilePageHeader from '../../_components/MobilePageHeader';
 
 export default function WidgetTestClient({
   widgetPublicKey,
+  allowedDomains,
 }: {
   widgetPublicKey: string;
+  allowedDomains: string[];
 }) {
   const [origin, setOrigin] = useState('');
+  const [domainsText, setDomainsText] = useState((allowedDomains || []).join('\n'));
+  const [savingDomains, setSavingDomains] = useState(false);
+  const [domainsMsg, setDomainsMsg] = useState('');
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -32,6 +37,38 @@ export default function WidgetTestClient({
       alert('Install script copied.');
     } catch {
       alert('Could not copy install script.');
+    }
+  }
+
+  async function saveAllowedDomains() {
+    setSavingDomains(true);
+    setDomainsMsg('');
+
+    try {
+      const res = await fetch('/api/widget/settings', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          allowedDomainsText: domainsText,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Could not save allowed domains.');
+      }
+
+      const nextDomains = Array.isArray(data?.widget?.allowedDomains)
+        ? data.widget.allowedDomains
+        : [];
+
+      setDomainsText(nextDomains.join('\n'));
+      setDomainsMsg('Allowed domains saved.');
+    } catch (err: any) {
+      setDomainsMsg(err?.message || 'Could not save allowed domains.');
+    } finally {
+      setSavingDomains(false);
     }
   }
 
@@ -91,6 +128,51 @@ export default function WidgetTestClient({
         <p style={{ marginTop: 14, fontSize: 12, color: '#64748b' }}>
           Widget key: <span style={{ fontFamily: 'monospace' }}>{widgetPublicKey}</span>
         </p>
+      </div>
+
+      <div className="db-card" style={{ maxWidth: 820, padding: 18, marginTop: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 900 }}>
+          Allowed domains
+        </div>
+
+        <p style={{ marginTop: 8, fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+          Add the websites where this widget is allowed to run. Use one domain per line.
+          Leave blank while testing locally.
+        </p>
+
+        <textarea
+          value={domainsText}
+          onChange={(e) => setDomainsText(e.target.value)}
+          rows={4}
+          placeholder={`yourstore.com\nwww.yourstore.com`}
+          style={{
+            marginTop: 14,
+            width: '100%',
+            border: '1px solid #d1d5db',
+            borderRadius: 16,
+            padding: 14,
+            fontSize: 14,
+            lineHeight: 1.5,
+            resize: 'vertical',
+          }}
+        />
+
+        <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="db-btn primary"
+            onClick={saveAllowedDomains}
+            disabled={savingDomains}
+          >
+            {savingDomains ? 'Saving…' : 'Save domains'}
+          </button>
+        </div>
+
+        {domainsMsg ? (
+          <p style={{ marginTop: 10, fontSize: 13, color: '#065f46' }}>
+            {domainsMsg}
+          </p>
+        ) : null}
       </div>
 
       <div className="db-card" style={{ maxWidth: 820, padding: 18, marginTop: 16 }}>

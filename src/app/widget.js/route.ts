@@ -18,7 +18,19 @@ export async function GET() {
   var base = apiBase || window.location.origin;
   var iframe = document.createElement("iframe");
 
-  iframe.src = base + "/widget/embed?key=" + encodeURIComponent(key);
+var channel = currentScript && currentScript.getAttribute("data-tikozap-channel");
+var subject = currentScript && currentScript.getAttribute("data-tikozap-subject");
+var customerName = currentScript && currentScript.getAttribute("data-tikozap-customer-name");
+var tags = currentScript && currentScript.getAttribute("data-tikozap-tags");
+
+var params = new URLSearchParams();
+params.set("key", key);
+if (channel) params.set("channel", channel);
+if (subject) params.set("subject", subject);
+if (customerName) params.set("customerName", customerName);
+if (tags) params.set("tags", tags);
+
+iframe.src = base + "/widget/embed?" + params.toString();
   iframe.title = "TikoZap Assistant";
   iframe.setAttribute("aria-label", "TikoZap Assistant");
   iframe.setAttribute("allow", "microphone *; camera *; autoplay *");

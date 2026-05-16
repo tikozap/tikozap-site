@@ -2,6 +2,10 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rateLimit";
+import { canCreateConversationForTenant } from "@/lib/billingUsage";
+import { incrementVoiceUsage } from "@/lib/voiceUsage";
 
 export const runtime = "nodejs";
 
@@ -27,6 +31,26 @@ function clean(input: unknown) {
 }
 
 export async function POST(req: Request) {
+
+  const rl = checkRateLimit(req, {
+    namespace: "widget-public-voice-message",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Too many voice updates. Please try again shortly." },
+      {
+        status: 429,
+        headers: {
+          ...rateLimitHeaders(rl),
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
 
   const publicKey = clean(body.publicKey);
@@ -45,13 +69,25 @@ export async function POST(req: Request) {
 
   const widget = await prisma.widget.findUnique({
     where: { publicKey },
-    select: { tenantId: true },
+    select: {
+  tenantId: true,
+  allowedDomains: true,
+},
   });
 
   if (!widget) {
     return NextResponse.json(
       { ok: false, error: "Widget not found." },
       { status: 404 }
+    );
+  }
+
+  const requestHost = extractRequestHost(req);
+
+  if (!isAllowedDomain(requestHost, widget.allowedDomains || [])) {
+    return NextResponse.json(
+      { ok: false, error: "Widget is not allowed on this domain" },
+      { status: 403 }
     );
   }
 
@@ -66,7 +102,20 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (!convo) {
+    if (!convo) {
+    const billing = await canCreateConversationForTenant(widget.tenantId);
+
+    if (!billing.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "This store has reached its monthly conversation limit.",
+          usage: billing.usage,
+        },
+        { status: 402 }
+      );
+    }
+
     convo = await prisma.conversation.create({
       data: {
         tenantId: widget.tenantId,
@@ -129,6 +178,17 @@ export async function POST(req: Request) {
         needsHuman: false,
       },
     });
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: widget.tenantId },
+      select: {
+        voiceEnabled: true,
+      },
+    });
+
+    if (tenant?.voiceEnabled) {
+      await incrementVoiceUsage(widget.tenantId, 1);
+    }
 
     return NextResponse.json({
       ok: true,

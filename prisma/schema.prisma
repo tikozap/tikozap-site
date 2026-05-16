@@ -39,12 +39,30 @@ model Tenant {
   billingPlan               String   @default("starter")
   starterLinkSlug           String?  @unique
   starterLinkEnabled        Boolean  @default(true)
-  createdAt                 DateTime @default(now())
+  
   stripeCustomerId          String?
   stripeSubscriptionId      String?
   billingStatus             String?
+
+  voiceEnabled              Boolean  @default(false)
+
+  voicePack                 String?
+  voiceMinutesLimit         Int      @default(0)
+  voiceMinutesUsed          Int      @default(0)
+
+  voiceUsagePeriodStart     DateTime?
+
+  websiteUrl                String?
+
   ownerId                   String
   owner                     User     @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  isDeleted                 Boolean  @default(false)
+  archivedAt                DateTime?
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
   memberships               Membership[]
   widget                    Widget?
   knowledgeDocs             KnowledgeDoc[]
@@ -54,8 +72,8 @@ model Tenant {
   twilioVoiceEvents         TwilioVoiceEvent[]
   designPartnerRolloutItems DesignPartnerRolloutItem[]
   phoneAgentSettings        PhoneAgentSettings?
-  callSessions              CallSession[]           // ← NEW
-  answerMachineItems        AnswerMachineItem[]     // ← NEW
+  callSessions              CallSession[]
+  answerMachineItems        AnswerMachineItem[]
 }
 
 model Membership {

@@ -14,6 +14,7 @@ type AuthedUserAndTenant = {
     slug: string | null;
     storeName: string | null;
     billingPlan: string | null;
+    billingStatus: string | null;
     starterLinkSlug: string | null;
     starterLinkEnabled: boolean | null;
   };
@@ -62,8 +63,14 @@ export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | nu
 
   if (!session || session.expiresAt < new Date()) return null;
 
-  const ownedTenants = session.user.ownedTenants || [];
-  const memberTenants = session.user.memberships.map((m) => m.tenant);
+  const ownedTenants =
+  (session.user.ownedTenants || []).filter(
+    (t) => !t.isDeleted
+  );
+  const memberTenants =
+  session.user.memberships
+    .map((m) => m.tenant)
+    .filter((t) => !t.isDeleted);
   const allTenants = [...ownedTenants, ...memberTenants];
 
   const tenant =
@@ -84,6 +91,7 @@ export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | nu
       slug: tenant.slug,
       storeName: tenant.storeName,
       billingPlan: tenant.billingPlan,
+      billingStatus: tenant.billingStatus,
       starterLinkSlug: tenant.starterLinkSlug,
       starterLinkEnabled: tenant.starterLinkEnabled,
     },

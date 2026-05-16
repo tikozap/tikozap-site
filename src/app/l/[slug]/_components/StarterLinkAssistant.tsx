@@ -26,6 +26,16 @@ speakerName?: string;
   products?: ChatProduct[];
 };
 
+type WidgetVoiceSettings = {
+  enabled: boolean;
+  pack: string | null;
+  usedMinutes: number;
+  limitMinutes: number;
+  remainingMinutes: number;
+  utilizationPct: number;
+  periodStart: string | null;
+};
+
 type Props = {
   publicKey: string;
   assistantName: string;
@@ -132,6 +142,7 @@ const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
 const [voiceQuotaNotice, setVoiceQuotaNotice] = useState(""); 
 const [keyboardActive, setKeyboardActive] = useState(false);
+const [widgetVoice, setWidgetVoice] = useState<WidgetVoiceSettings | null>(null);
 
 const hasOrbTranscript =
   !!liveTranscript.trim() ||
@@ -199,6 +210,35 @@ function dismissKeyboard() {
       revealTimerRef.current = null;
     }
   }
+
+useEffect(() => {
+  if (!publicKey) return;
+
+  let cancelled = false;
+
+  async function loadWidgetSettings() {
+    try {
+      const res = await fetch(
+        `/api/widget/public/settings?key=${encodeURIComponent(publicKey)}`,
+        { cache: "no-store" }
+      );
+
+      const data = await res.json().catch(() => null);
+
+      if (cancelled || !data?.ok) return;
+
+      if (data.widget?.voice) {
+        setWidgetVoice(data.widget.voice);
+      }
+    } catch {}
+  }
+
+  void loadWidgetSettings();
+
+  return () => {
+    cancelled = true;
+  };
+}, [publicKey]);
 
 useEffect(() => {
   voiceConversationIdRef.current = conversationId;
@@ -615,17 +655,32 @@ async function saveVoiceMessage(
 }
 
 async function startRealtimeVoiceSession() {
-const used = getVoiceCount(publicKey);
+  const voiceEnabled = widgetVoice?.enabled === true;
+  const remainingPaidMinutes = widgetVoice?.remainingMinutes ?? 0;
 
-  if (used >= FREE_VOICE_DAILY_LIMIT) {
-  stopRealtimeVoiceSession({ preserveAssistantText: true });
-  setComposerMode("type");
-  setVoiceState("error");
-  setVoiceQuotaNotice(
-    "Today’s free voice limit reached. Unlimited voice can be enabled by this store."
-  );
-  return;
-}
+  if (voiceEnabled && remainingPaidMinutes <= 0) {
+    stopRealtimeVoiceSession({ preserveAssistantText: true });
+    setComposerMode("type");
+    setVoiceState("error");
+    setVoiceQuotaNotice(
+      "Realtime Voice Concierge minutes are used up for this month. Please continue in text chat."
+    );
+    return;
+  }
+
+  if (!voiceEnabled) {
+    const used = getVoiceCount(publicKey);
+
+    if (used >= FREE_VOICE_DAILY_LIMIT) {
+      stopRealtimeVoiceSession({ preserveAssistantText: true });
+      setComposerMode("type");
+      setVoiceState("error");
+      setVoiceQuotaNotice(
+        "Today’s free voice limit reached. Please continue in text chat."
+      );
+      return;
+    }
+  }
 
   voiceCountedThisSessionRef.current = false;
 
@@ -684,30 +739,33 @@ setAssistantVoiceTranscript("");
   if (!trimmed) return;
 
   if (!voiceCountedThisSessionRef.current) {
-    const used = getVoiceCount(publicKey);
+    if (!widgetVoice?.enabled) {
+      const used = getVoiceCount(publicKey);
 
-    if (used >= FREE_VOICE_DAILY_LIMIT) {
-  stopRealtimeVoiceSession({ preserveAssistantText: true });
-  setComposerMode("type");
-  setVoiceState("error");
-  setVoiceQuotaNotice(
-    "Today’s free voice limit reached. Unlimited voice can be enabled by this store."
-  );
-  return;
-}
+      if (used >= FREE_VOICE_DAILY_LIMIT) {
+        stopRealtimeVoiceSession({ preserveAssistantText: true });
+        setComposerMode("type");
+        setVoiceState("error");
+        setVoiceQuotaNotice(
+          "Today’s free voice limit reached. Please continue in text chat."
+        );
+        return;
+      }
 
-    const next = used + 1;
+      const next = used + 1;
 
-    if (next === 3) {
-  setVoiceQuotaNotice("Voice session note: 2 free voice questions remaining today.");
-} else if (next === 4) {
-  setVoiceQuotaNotice("Voice session note: 1 free voice question remaining today.");
-} else if (next === 5) {
-  setVoiceQuotaNotice("This is today’s final free voice question.");
-}
+      if (next === 3) {
+        setVoiceQuotaNotice("Voice session note: 2 free voice questions remaining today.");
+      } else if (next === 4) {
+        setVoiceQuotaNotice("Voice session note: 1 free voice question remaining today.");
+      } else if (next === 5) {
+        setVoiceQuotaNotice("This is today’s final free voice question.");
+      }
+
+      incrementVoiceCount(publicKey);
+    }
 
     voiceCountedThisSessionRef.current = true;
-    incrementVoiceCount(publicKey);
   }
 
   setLiveTranscript(trimmed);

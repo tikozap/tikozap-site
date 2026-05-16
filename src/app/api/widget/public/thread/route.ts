@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
 
 export const runtime = "nodejs";
 
@@ -80,8 +81,9 @@ export async function GET(req: Request) {
         enabled: true,
       },
       select: {
-        tenantId: true,
-      },
+  tenantId: true,
+  allowedDomains: true,
+},
     });
 
     if (!widget) {
@@ -89,6 +91,18 @@ export async function GET(req: Request) {
         { ok: false, error: "Invalid widget key" },
         {
           status: 404,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
+
+    const requestHost = extractRequestHost(req);
+
+    if (!isAllowedDomain(requestHost, widget.allowedDomains || [])) {
+      return NextResponse.json(
+        { ok: false, error: "Widget is not allowed on this domain" },
+        {
+          status: 403,
           headers: { ...corsHeaders, "cache-control": "no-store" },
         }
       );

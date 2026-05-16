@@ -3,6 +3,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
+import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rateLimit";
+import { canCreateConversationForTenant } from "@/lib/billingUsage";
 
 export const runtime = "nodejs";
 
@@ -74,6 +77,27 @@ function tagsForChannel(channel: string) {
 
 export async function POST(req: Request) {
   try {
+
+    const rl = checkRateLimit(req, {
+      namespace: "widget-public-message",
+      limit: 20,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json(
+        { ok: false, error: "Too many messages. Please try again shortly." },
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            ...rateLimitHeaders(rl),
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
 
     const key = normalizeText(body?.key);
@@ -110,9 +134,10 @@ export async function POST(req: Request) {
         publicKey: key,
         enabled: true,
       },
-      select: {
-        tenantId: true,
-      },
+select: {
+  tenantId: true,
+  allowedDomains: true,
+},
     });
 
     if (!widget) {
@@ -120,6 +145,18 @@ export async function POST(req: Request) {
         { ok: false, error: "Invalid widget key" },
         {
           status: 404,
+          headers: { ...corsHeaders, "cache-control": "no-store" },
+        }
+      );
+    }
+
+    const requestHost = extractRequestHost(req);
+
+    if (!isAllowedDomain(requestHost, widget.allowedDomains || [])) {
+      return NextResponse.json(
+        { ok: false, error: "Widget is not allowed on this domain" },
+        {
+          status: 403,
           headers: { ...corsHeaders, "cache-control": "no-store" },
         }
       );
@@ -140,7 +177,23 @@ export async function POST(req: Request) {
           })
         : null;
 
-    if (!conversation) {
+        if (!conversation) {
+      const billing = await canCreateConversationForTenant(widget.tenantId);
+
+      if (!billing.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "This store has reached its monthly conversation limit.",
+            usage: billing.usage,
+          },
+          {
+            status: 402,
+            headers: { ...corsHeaders, "cache-control": "no-store" },
+          }
+        );
+      }
+
       conversation = await prisma.conversation.create({
         data: {
           tenantId: widget.tenantId,

@@ -10,6 +10,10 @@ const PRICE_MAP: Record<string, string | undefined> = {
   starter: process.env.STRIPE_PRICE_STARTER,
   pro: process.env.STRIPE_PRICE_PRO,
   business: process.env.STRIPE_PRICE_BUSINESS,
+
+  "starter-yearly": process.env.STRIPE_PRICE_STARTER_YEARLY,
+  "pro-yearly": process.env.STRIPE_PRICE_PRO_YEARLY,
+  "business-yearly": process.env.STRIPE_PRICE_BUSINESS_YEARLY,
 };
 
 export async function POST(req: Request) {
@@ -25,6 +29,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const plan = String(body.plan || '').toLowerCase();
+    const billingInterval = plan.endsWith('-yearly') ? 'yearly' : 'monthly';
+    const basePlan = plan.replace('-yearly', '');
 
     const priceId = PRICE_MAP[plan];
 
@@ -50,10 +56,11 @@ export async function POST(req: Request) {
         },
       ],
 
-      metadata: {
-        tenantId: auth.tenant.id,
-        plan,
-      },
+metadata: {
+  tenantId: auth.tenant.id,
+  plan: basePlan,
+  billingInterval,
+},
 
       success_url: `${origin}/dashboard/billing?success=1`,
       cancel_url: `${origin}/dashboard/billing?canceled=1`,

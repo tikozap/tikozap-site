@@ -20,11 +20,12 @@ export default async function WidgetTestPage() {
           storeName: true,
           slug: true,
           widget: {
-            select: {
-              publicKey: true,
-              installedAt: true,
-            },
-          },
+  select: {
+    publicKey: true,
+    installedAt: true,
+    allowedDomains: true,
+  },
+},
         },
       })
     : null;
@@ -32,7 +33,7 @@ export default async function WidgetTestPage() {
   if (!tenant) {
     return (
       <div className="db-container">
-        <WidgetTestClient widgetPublicKey="tz_demo_demo" />
+        <WidgetTestClient widgetPublicKey="tz_demo_demo" allowedDomains={[]} />
       </div>
     );
   }
@@ -45,10 +46,11 @@ export default async function WidgetTestPage() {
           publicKey: newWidgetPublicKey(),
           enabled: true,
         },
-        select: {
-          publicKey: true,
-          installedAt: true,
-        },
+ select: {
+  publicKey: true,
+  installedAt: true,
+  allowedDomains: true,
+},
       });
 
   let widgetPublicKey = widgetRow.publicKey;
@@ -67,7 +69,10 @@ export default async function WidgetTestPage() {
 
   return (
     <div className="db-container">
-      <WidgetTestClient widgetPublicKey={widgetPublicKey} />
+      <WidgetTestClient
+  widgetPublicKey={widgetPublicKey}
+  allowedDomains={widgetRow.allowedDomains || []}
+/>
     </div>
   );
 }

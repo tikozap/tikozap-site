@@ -84,6 +84,7 @@ export async function POST(req: Request) {
             slug,
             storeName,
             billingPlan: 'pro',
+            billingStatus: 'trialing',
 
             // Website stores use widget only.
             // No-website stores use Starter Link.
