@@ -31,12 +31,22 @@ export default function WidgetTestClient({
 ></script>`;
   }, [origin, widgetPublicKey]);
 
-  async function copyInstallScript() {
+  const starterLink = origin ? `${origin}/l/demo` : 'https://link.tikozap.com/l/your-store';
+
+  const designerInstructions = `Please install TikoZap on our website.
+
+Add this script before the closing </body> tag:
+
+${installScript}
+
+After publishing, please confirm the chat bubble appears on the website.`;
+
+  async function copyText(text: string, msg: string) {
     try {
-      await navigator.clipboard.writeText(installScript);
-      alert('Install script copied.');
+      await navigator.clipboard.writeText(text);
+      alert(msg);
     } catch {
-      alert('Could not copy install script.');
+      alert('Could not copy.');
     }
   }
 
@@ -48,16 +58,11 @@ export default function WidgetTestClient({
       const res = await fetch('/api/widget/settings', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          allowedDomainsText: domainsText,
-        }),
+        body: JSON.stringify({ allowedDomainsText: domainsText }),
       });
 
       const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || 'Could not save allowed domains.');
-      }
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not save allowed domains.');
 
       const nextDomains = Array.isArray(data?.widget?.allowedDomains)
         ? data.widget.allowedDomains
@@ -78,124 +83,104 @@ export default function WidgetTestClient({
 
       <div className="db-top">
         <div>
-          <h1 className="db-title">Widget</h1>
+          <h1 className="db-title">Add widget</h1>
           <p className="db-sub">
-            Install your chat assistant on your website, then test messages in Inbox.
+            Choose the setup that fits your business best.
           </p>
         </div>
       </div>
 
-      <div className="db-card" style={{ maxWidth: 820, padding: 18 }}>
-        <div style={{ fontSize: 18, fontWeight: 900 }}>
-          Install TikoZap on your website
-        </div>
+      <div className="db-pageStack">
+        <section className="db-card">
+          <div className="db-cardTitle">Option 1 - Add widget to your website by yourself</div>
+          <p className="db-cardText">
+            Copy this script and paste it before the closing body tag on your website.
+          </p>
 
-        <p style={{ marginTop: 8, fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
-          Copy this script and add it to your website before the closing body tag. If someone
-          manages your website for you, send them this script.
-        </p>
+          <pre style={{ marginTop: 14, overflow: 'auto', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: 12, fontSize: 12, whiteSpace: 'pre-wrap' }}>
+            {installScript}
+          </pre>
 
-        <pre
-          style={{
-            marginTop: 16,
-            overflow: 'auto',
-            border: '1px solid #e5e7eb',
-            borderRadius: 16,
-            background: '#f8fafc',
-            padding: 14,
-            fontSize: 12,
-            lineHeight: 1.6,
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {installScript}
-        </pre>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="db-btn primary" onClick={() => copyText(installScript, 'Install script copied.')}>
+              Copy install script
+            </button>
+            <Link className="db-btn" href="/dashboard/conversations?testAssistant=1">
+              Open Test Assistant
+            </Link>
+          </div>
 
-        <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button type="button" className="db-btn primary" onClick={copyInstallScript}>
-            Copy install script
+          <p className="db-cardText" style={{ marginTop: 12 }}>
+            Your web designer can usually install this in under 2 minutes.
+          </p>
+        </section>
+
+        <section className="db-card">
+          <div className="db-cardTitle">Option 2 - Send to my web designer</div>
+          <p className="db-cardText">
+            Copy simple instructions you can forward to the person who manages your website.
+          </p>
+          <button
+            className="db-btn primary"
+            style={{ marginTop: 14 }}
+            onClick={() => copyText(designerInstructions, 'Instructions copied.')}
+          >
+            Copy instructions
           </button>
+        </section>
 
-          <Link className="db-btn" href="/dashboard/conversations?testAssistant=1">
-            Open Test Assistant
-          </Link>
+        <section className="db-card">
+          <div className="db-cardTitle">Option 3 - No website needed</div>
+          <p className="db-cardText">
+            Use Starter Link to share on Instagram, Facebook, TikTok, Google, or anywhere customers contact you.
+          </p>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="db-btn primary" onClick={() => copyText(starterLink, 'TikoZap Link copied.')}>
+              Copy my TikoZap Link
+            </button>
+            <Link className="db-btn" href="/dashboard/tikozap-link">
+              Open Starter Link
+            </Link>
+          </div>
+        </section>
 
-          <Link className="db-btn" href="/dashboard/conversations">
-            Go to Inbox
-          </Link>
-        </div>
 
-        <p style={{ marginTop: 14, fontSize: 12, color: '#64748b' }}>
-          Widget key: <span style={{ fontFamily: 'monospace' }}>{widgetPublicKey}</span>
-        </p>
-      </div>
+        <section className="db-card">
+          <div className="db-cardTitle">Option 4 - Shopify installation</div>
+          <p className="db-cardText">
+            One-click Shopify installation is coming soon.
+          </p>
+          <button className="db-btn" style={{ marginTop: 14 }}>
+            Join waitlist
+          </button>
+        </section>
 
-      <div className="db-card" style={{ maxWidth: 820, padding: 18, marginTop: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 900 }}>
-          Allowed domains
-        </div>
+        <section className="db-card">
+          <div className="db-cardTitle">Allowed domains</div>
+          <p className="db-cardText">
+            Add the websites where this widget is allowed to run. Use one domain per line.
+          </p>
 
-        <p style={{ marginTop: 8, fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
-          Add the websites where this widget is allowed to run. Use one domain per line.
-          Leave blank while testing locally.
-        </p>
+          <textarea
+            value={domainsText}
+            onChange={(e) => setDomainsText(e.target.value)}
+            rows={4}
+            placeholder={`yourstore.com\nwww.yourstore.com`}
+            style={{ marginTop: 14, width: '100%' }}
+          />
 
-        <textarea
-          value={domainsText}
-          onChange={(e) => setDomainsText(e.target.value)}
-          rows={4}
-          placeholder={`yourstore.com\nwww.yourstore.com`}
-          style={{
-            marginTop: 14,
-            width: '100%',
-            border: '1px solid #d1d5db',
-            borderRadius: 16,
-            padding: 14,
-            fontSize: 14,
-            lineHeight: 1.5,
-            resize: 'vertical',
-          }}
-        />
-
-        <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             type="button"
             className="db-btn primary"
             onClick={saveAllowedDomains}
             disabled={savingDomains}
+            style={{ marginTop: 12 }}
           >
             {savingDomains ? 'Saving…' : 'Save domains'}
           </button>
-        </div>
 
-        {domainsMsg ? (
-          <p style={{ marginTop: 10, fontSize: 13, color: '#065f46' }}>
-            {domainsMsg}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="db-card" style={{ maxWidth: 820, padding: 18, marginTop: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 900 }}>
-          Test your assistant from Inbox
-        </div>
-
-        <p style={{ marginTop: 8, fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
-          The fastest internal test is inside Conversations. Send a shopper-style message and
-          confirm the assistant reply appears in the actual thread.
-        </p>
-
-        <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
-          <div className="db-card" style={{ padding: 14, background: '#f8fafc' }}>
-            1. Open the Test Assistant panel.
-          </div>
-          <div className="db-card" style={{ padding: 14, background: '#f8fafc' }}>
-            2. Send a test shopper message.
-          </div>
-          <div className="db-card" style={{ padding: 14, background: '#f8fafc' }}>
-            3. Confirm the message and assistant reply appear in Inbox.
-          </div>
-        </div>
+          {domainsMsg ? <p className="db-cardText">{domainsMsg}</p> : null}
+        </section>
       </div>
     </div>
   );

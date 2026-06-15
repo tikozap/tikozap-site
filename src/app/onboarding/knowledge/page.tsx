@@ -1,3 +1,5 @@
+// src/app/onboarding/knowledge/page.tsx
+
 import OnboardingNav from '../_components/OnboardingNav';
 
 export default function KnowledgeStep() {

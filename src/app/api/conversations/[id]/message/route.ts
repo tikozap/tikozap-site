@@ -40,7 +40,11 @@ export async function POST(
         id: params.id,
         tenantId: auth.tenant.id,
       },
-      select: { id: true },
+      select: {
+  id: true,
+  aiEnabled: true,
+  status: true,
+},
     });
 
     if (!convo) {
@@ -55,12 +59,16 @@ export async function POST(
         ? role
         : "staff";
 
-    const message = await prisma.message.create({
-      data: {
-        conversationId: convo.id,
-        role: finalRole,
-        content,
-      },
+const message = await prisma.message.create({
+  data: {
+    conversationId: convo.id,
+    role: finalRole,
+    content,
+    productsJson:
+      products.length > 0
+        ? JSON.stringify(products)
+        : null,
+  },
       select: {
         id: true,
         role: true,
@@ -69,14 +77,19 @@ export async function POST(
       },
     });
 
-    await prisma.conversation.update({
-      where: { id: convo.id },
-      data: {
-        lastMessageAt: new Date(),
-        lastSeenAt: new Date(),
-        needsHuman: finalRole === "staff" ? false : undefined,
-      },
-    });
+await prisma.conversation.update({
+  where: { id: convo.id },
+  data: {
+    lastMessageAt: new Date(),
+    lastSeenAt: new Date(),
+    needsHuman: finalRole === "staff" ? false : undefined,
+
+    // Staff is actively handling the conversation.
+    // Keep AI paused while staff replies.
+    aiEnabled: finalRole === "staff" ? false : undefined,
+    status: finalRole === "staff" && convo.status !== "closed" ? "waiting" : undefined,
+  },
+});
 
     return NextResponse.json({
       ok: true,

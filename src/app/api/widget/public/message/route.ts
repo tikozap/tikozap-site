@@ -1,5 +1,6 @@
 // src/app/api/widget/public/message/route.ts
 
+import { wantsHuman } from "@/lib/handoffIntent";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
@@ -22,6 +23,23 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type, Cache-Control",
   "Access-Control-Max-Age": "86400",
 };
+
+async function getStoreKnowledge(tenantId: string) {
+  const docs = await prisma.knowledgeDoc.findMany({
+    where: { tenantId },
+    orderBy: { updatedAt: "desc" },
+    take: 12,
+    select: {
+      title: true,
+      content: true,
+    },
+  });
+
+  return docs
+    .filter((d) => d.content.trim())
+    .map((d) => `## ${d.title}\n${d.content.trim()}`)
+    .join("\n\n");
+}
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders });
@@ -49,27 +67,11 @@ function extractHistory(messages: unknown): ChatMessage[] {
     }));
 }
 
-function wantsHuman(text: string) {
-  const s = text.toLowerCase();
-
-  return [
-    "talk to a human",
-    "speak to a human",
-    "talk to a person",
-    "speak to a person",
-    "real person",
-    "human agent",
-    "human",
-    "agent",
-    "representative",
-    "customer service",
-    "someone help",
-    "call me",
-  ].some((term) => s.includes(term));
-}
-
 const HUMAN_HANDOFF_REPLY =
   "Understood — I’m flagging this conversation for human follow-up now. A team member can take over from here.";
+
+const HUMAN_STILL_WAITING_REPLY =
+  "I understand you're still waiting. The team may be occupied right now, but I’m here and I’ll continue helping as best I can while you wait.";
 
 function tagsForChannel(channel: string) {
   return channel === "starter-link" ? "starter-link,no-website" : "widget";
@@ -169,11 +171,13 @@ select: {
               id: clientConversationId,
               tenantId: widget.tenantId,
             },
-            select: {
-              id: true,
-              aiEnabled: true,
-              status: true,
-            },
+select: {
+  id: true,
+  aiEnabled: true,
+  status: true,
+  needsHuman: true,
+  lastMessageAt: true,
+},
           })
         : null;
 
@@ -205,11 +209,13 @@ select: {
           tags: tagsForChannel(channel),
           needsHuman: false,
         },
-        select: {
-          id: true,
-          aiEnabled: true,
-          status: true,
-        },
+select: {
+  id: true,
+  aiEnabled: true,
+  status: true,
+  needsHuman: true,
+  lastMessageAt: true,
+},
       });
     }
 
@@ -221,55 +227,105 @@ select: {
       },
     });
 
-    if (wantsHuman(text)) {
-      await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          role: "assistant",
-          content: HUMAN_HANDOFF_REPLY,
-        },
-      });
+console.log("[TikoZap wantsHuman]", text, wantsHuman(text));
+if (wantsHuman(text)) {
 
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: {
-          needsHuman: true,
-          status: "waiting",
-          aiEnabled: false,
-          lastMessageAt: new Date(),
-        },
-      });
-
-      return NextResponse.json(
-        {
-          ok: true,
-          conversationId: conversation.id,
-          channel,
-          subject,
-          messages: [
-            { role: "customer", content: text },
-            { role: "assistant", content: HUMAN_HANDOFF_REPLY },
-          ],
-          products: [],
-        },
-        {
-          headers: { ...corsHeaders, "cache-control": "no-store" },
-        }
-      );
-    }
-
-    const result = await runTikoBrain({
-      message: text,
-      history,
-    });
+  // Customer already waiting for human earlier.
+  // AI may have auto-resumed after staff inactivity.
+  if (conversation.needsHuman) {
 
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: "assistant",
-        content: result.reply,
+        content: HUMAN_STILL_WAITING_REPLY,
       },
     });
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        needsHuman: true,
+        status: "waiting",
+        aiEnabled: false,
+        lastMessageAt: new Date(),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        conversationId: conversation.id,
+        channel,
+        subject,
+        messages: [
+          { role: "customer", content: text },
+          { role: "assistant", content: HUMAN_STILL_WAITING_REPLY },
+        ],
+        products: [],
+      },
+      {
+        headers: { ...corsHeaders, "cache-control": "no-store" },
+      }
+    );
+  }
+
+  // First-time human request
+  await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      role: "assistant",
+      content: HUMAN_HANDOFF_REPLY,
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: {
+      needsHuman: true,
+      status: "waiting",
+      aiEnabled: false,
+      lastMessageAt: new Date(),
+    },
+  });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      conversationId: conversation.id,
+      channel,
+      subject,
+      messages: [
+        { role: "customer", content: text },
+        { role: "assistant", content: HUMAN_HANDOFF_REPLY },
+      ],
+      products: [],
+    },
+    {
+      headers: { ...corsHeaders, "cache-control": "no-store" },
+    }
+  );
+}
+
+const storeKnowledge = await getStoreKnowledge(widget.tenantId);
+
+const result = await runTikoBrain({
+  message: text,
+  history,
+  storeKnowledge,
+});
+
+await prisma.message.create({
+  data: {
+    conversationId: conversation.id,
+    role: "assistant",
+    content: result.reply,
+    productsJson:
+      result.products && result.products.length > 0
+        ? JSON.stringify(result.products)
+        : null,
+  },
+});
 
     await prisma.conversation.update({
       where: { id: conversation.id },

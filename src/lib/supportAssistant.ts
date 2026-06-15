@@ -99,9 +99,117 @@ export function detectSupportIntent(customerText: string): SupportIntent {
   return 'unknown';
 }
 
+function looksLikeConversationContext(text: string): boolean {
+  return (
+    text.includes('customer:') ||
+    text.includes('store assistant:') ||
+    text.includes('staff ')
+  );
+}
+
+function latestCustomerLine(rawText: string): string {
+  const lines = (rawText || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+
+    if (line.toLowerCase().startsWith('customer:')) {
+      return line.replace(/^customer:\s*/i, '').trim();
+    }
+  }
+
+  return rawText;
+}
+
+function buildContextAwareDraft(rawText: string): SupportReplyResult | null {
+  if (!looksLikeConversationContext(rawText.toLowerCase())) return null;
+
+  const latestCustomer = latestCustomerLine(rawText);
+  const intent = detectSupportIntent(latestCustomer);
+
+  if (intent === 'human') {
+    return {
+      intent,
+      needsHuman: true,
+      reply:
+        'I understand. I’m here now and I’ll help you directly. Could you please share the best contact email and any order number or details related to this issue?',
+    };
+  }
+
+const context = normalize(rawText);
+const latest = normalize(latestCustomer);
+
+if (
+  context.includes('order number') &&
+  (
+    latest.includes('email') ||
+    latest.includes('it') ||
+    latest.includes('where') ||
+    latest.includes('look') ||
+    latest.includes('find') ||
+    latest.includes('recent')
+  )
+) {
+  return {
+    intent: 'order_status',
+    needsHuman: false,
+    reply:
+      'Yes — check the confirmation email or text message you received after placing the order. The order number is usually labeled “Order #” or “Order number.” If you can’t find that message, send us the email or phone number used at checkout and we can help look it up.',
+  };
+}
+
+  if (intent === 'order_status') {
+    return {
+      intent,
+      needsHuman: false,
+      reply:
+        'I can help check on that. Please send the order number and the email used at checkout, and I’ll look into the status for you.',
+    };
+  }
+
+  if (intent === 'returns') {
+    return {
+      intent,
+      needsHuman: false,
+      reply:
+        'I can help with that return. Please send your order number and let me know whether you prefer a refund or an exchange, and I’ll guide you through the next step.',
+    };
+  }
+
+  if (intent === 'shipping') {
+    return {
+      intent,
+      needsHuman: false,
+      reply:
+        'I can help with the shipping question. Please send your order number or tracking number, and I’ll check the most likely next step for you.',
+    };
+  }
+
+  if (intent === 'sizing') {
+    return {
+      intent,
+      needsHuman: false,
+      reply:
+        'I can help with sizing. Please tell me the product name and the size you usually wear, and I’ll help you choose the best fit.',
+    };
+  }
+
+  return {
+    intent: 'unknown',
+    needsHuman: false,
+    reply:
+      'Thanks for the details. I’m reviewing this now and will help you with the next step. Could you share any order number, product name, or screenshot that relates to this issue?',
+  };
+}
+
 export function buildSupportReply(customerText: string): SupportReplyResult {
   const text = normalize(customerText);
   const intent = detectSupportIntent(text);
+  const contextDraft = buildContextAwareDraft(customerText);
+if (contextDraft) return contextDraft;
 
   // Small “tone” variations to prevent repetition
   const hello = pick([

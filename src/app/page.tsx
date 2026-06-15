@@ -2,28 +2,16 @@
 
 "use client";
 
-import { useState } from "react";
-import HowItWorksGraphic from "../components/HowItWorksGraphic";
 import SafetyShields from "@/components/SafetyShields";
 import Image from "next/image";
-import HeroOrbPreview from "@/components/HeroOrbPreview";
-import HeroDemoModal from "@/components/HeroDemoModal";
-
-type DemoMode = "chat" | "voice";
+import HeroDemoPanel from "@/components/HeroDemoPanel";
+import StarterLinkShowcase from "@/components/StarterLinkShowcase";
 
 export default function Page() {
-  const [demoOpen, setDemoOpen] = useState(false);
-  const [demoMode, setDemoMode] = useState<DemoMode>("voice");
-
-  function openDemo(mode: DemoMode) {
-    setDemoMode(mode);
-    setDemoOpen(true);
-  }
-
   return (
     <main id="main" className="has-sticky">
       <section className="section-band-gray hero-new">
-        <div className="container hero-grid">
+        <div className="container-xl hero-grid">
           <div className="hero-left">
             <h1 className="hero-title">
               Instant AI support
@@ -35,67 +23,70 @@ export default function Page() {
               Easy setup. Affordable pricing. 24/7 on-call.
             </p>
 
-            <div className="hero-cta">
+            <div className="hero-ctaBlock">
               <a className="button" href="/signup?plan=pro">
                 Free Pro 14-day trial
               </a>
-            </div>
 
-            <p className="hero-trust">No credit card required.</p>
+              <p className="hero-trust">No credit card required.</p>
+
+              <div className="hero-paths">
+                <p>✓ Have a website? Add the TikoZap widget.</p>
+                <p>✓ Don&apos;t have one? Launch with Starter Link.</p>
+              </div>
+            </div>
           </div>
 
-          <HeroOrbPreview
-            onPenClick={() => openDemo("chat")}
-            onMicClick={() => openDemo("voice")}
+          <HeroDemoPanel />
+        </div>
+      </section>
+
+      <StarterLinkShowcase />
+
+      <section className="section-band-white">
+        <div className="container-xl stay-control">
+<h2 className="stay-control-title">
+  Stay in control
+</h2>
+
+<p className="stay-control-sub">
+  One inbox for AI conversation monitoring and human takeovers.
+</p>
+
+<Image
+  src="/art/stay-in-control-desktop-mobile.png"
+            alt="Manage customer conversations from desktop and mobile with human takeover and AI assistance."
+            width={6525}
+            height={4597}
+            className="stay-control-image"
+            priority={false}
           />
         </div>
       </section>
 
-      <HeroDemoModal
-        open={demoOpen}
-        mode={demoMode}
-        onClose={() => setDemoOpen(false)}
-      />
-
-      <section className="section-band-lilac">
-        <div className="container-wide">
-          <HowItWorksGraphic />
-        </div>
-      </section>
-
       <section className="section-band-white">
-        <div className="container stack">
-          <SafetyShields />
-        </div>
+<div className="container-xl stack">
+  <SafetyShields />
+</div>
       </section>
 
-      <section className="section-band-gray">
-        <div className="container testimonials stack">
-          <header className="testimonials-head stack">
-            <p className="small testimonials-eyebrow">What teams say</p>
-            <h2 className="testimonials-title">
-              “It feels like we hired a 24/7 support rep.”
-            </h2>
-          </header>
-
-          <div className="testimonials-art-wrap">
-            <Image
-              src="/art/threebubbles.svg"
-              alt="Conversations showing teams using TikoZap"
-              className="testimonials-art"
-              width={543}
-              height={453}
-              loading="lazy"
-            />
-          </div>
-        </div>
-      </section>
+<section className="section-band-white rating-strip">
+  <div className="container-xl">
+<div className="rating-row">
+  <span className="rating-stars" aria-label="4.6 out of 5 stars">
+    ★★★★<span className="star-half">★</span>
+  </span>
+  <span className="rating-score">4.6</span>
+  <span className="rating-text">(398+ reviews)</span>
+</div>
+  </div>
+</section>
 
       <section
         className="section-band-white home-cta-band"
         aria-labelledby="home-pricing-cta"
       >
-        <div className="container stack home-cta">
+       <div className="container-xl stack home-cta">
           <h2 id="home-pricing-cta" className="sr-only">
             View TikoZap pricing
           </h2>
@@ -111,6 +102,47 @@ export default function Page() {
       </section>
 
       <style jsx>{`
+        .hero-paths {
+          margin-top: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+        }
+
+        .hero-paths p {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #475569;
+        }
+
+        .stay-control {
+          padding: 3rem 0 4rem;
+        }
+
+        .stay-control-title {
+          margin: 0 0 1.5rem;
+          font-size: clamp(36px, 4vw, 56px);
+          font-weight: 800;
+          line-height: 1.02;
+          letter-spacing: -0.045em;
+          color: #111827;
+        }
+
+.stay-control-sub {
+  max-width: 680px;
+  margin: 0 0 2rem;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+        .stay-control-image {
+          display: block;
+          width: 100%;
+          height: auto;
+          border-radius: 16px;
+        }
+
         .testimonials {
           padding: 2.8rem 0 3rem;
         }
@@ -143,8 +175,15 @@ export default function Page() {
           height: auto;
         }
 
+.home-cta .button {
+  min-width: 170px;
+  padding: 0.9rem 1.35rem;
+  font-size: 1.25rem;
+  border-radius: 0.8rem;
+}
+
         .home-cta-band {
-          padding: 1rem 0 0rem;
+          padding: 1.75rem 0 0rem;
         }
 
         .home-cta {
@@ -155,6 +194,44 @@ export default function Page() {
         .home-cta .small {
           margin-top: 0.6rem;
         }
+
+        .rating-strip {
+  padding: 1.50rem 0 2.5rem;
+}
+
+.rating-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.rating-stars {
+  color: #22c55e;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-right: 0.35rem;
+}
+
+.star-half {
+  display: inline-block;
+  width: 0.55em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.rating-score {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rating-text {
+  font-size: 1.25rem;
+  color: #64748b;
+}
       `}</style>
     </main>
   );

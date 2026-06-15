@@ -38,6 +38,17 @@ function orderMessages(messages: any[]) {
   return sorted;
 }
 
+function parseProductsJson(input: string | null | undefined) {
+  if (!input) return [];
+
+  try {
+    const parsed = JSON.parse(input);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 const Query = z.object({
   key: z.string().min(2).max(200),
   conversationId: z.string().min(2).max(200),
@@ -130,6 +141,7 @@ export async function GET(req: Request) {
             role: true,
             content: true,
             createdAt: true,
+            productsJson: true,
           },
         },
       },
@@ -145,12 +157,12 @@ export async function GET(req: Request) {
       );
     }
 
-    const messages = orderMessages(conversation.messages).map((m) => ({
+const messages = orderMessages(conversation.messages).map((m) => ({
   id: m.id,
   role: m.role,
   content: m.content,
   createdAt: m.createdAt,
-  products: [],
+  products: parseProductsJson(m.productsJson),
 }));
 
 return NextResponse.json(

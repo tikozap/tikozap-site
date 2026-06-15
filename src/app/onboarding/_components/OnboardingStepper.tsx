@@ -32,7 +32,6 @@ export default function OnboardingStepper() {
           return (
             <li key={step.key}>
               <Link href={step.href} className={cls}>
-                <span className="ob-badge">{idx + 1}</span>
                 <span className="ob-label">{step.label}</span>
               </Link>
             </li>

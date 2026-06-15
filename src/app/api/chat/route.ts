@@ -2,6 +2,7 @@
 
 export const runtime = "nodejs";
 
+import { wantsHuman } from "@/lib/handoffIntent";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
@@ -21,6 +22,23 @@ type ChatBody = {
     name?: string | null;
   } | null;
 };
+
+async function getStoreKnowledge(tenantId: string) {
+  const docs = await prisma.knowledgeDoc.findMany({
+    where: { tenantId },
+    orderBy: { updatedAt: "desc" },
+    take: 12,
+    select: {
+      title: true,
+      content: true,
+    },
+  });
+
+  return docs
+    .filter((d) => d.content.trim())
+    .map((d) => `## ${d.title}\n${d.content.trim()}`)
+    .join("\n\n");
+}
 
 function streamSSE(payload: unknown) {
   return `data: ${JSON.stringify(payload)}\n\n`;
@@ -46,28 +64,22 @@ function normalizeTags(tags: unknown) {
     .join(",");
 }
 
-function wantsHuman(text: string) {
-  const s = text.toLowerCase();
-
-  return [
-    "human",
-    "human agent",
-    "human assistant",
-    "manager",
-    "representative",
-    "real person",
-    "live agent",
-    "talk to someone",
-    "speak to someone",
-    "call me",
-    "phone number",
-  ].some((x) => s.includes(x));
-}
-
 const HUMAN_HANDOFF_REPLY =
   "I’ve notified the store team and left a message for them.\n\n" +
   "They’ll review this conversation and get back to you as soon as possible.\n\n" +
   "While you wait, I’m still here if you’d like help with order status, shipping, returns, or product questions.";
+
+const HUMAN_FOLLOWUP_REPLIES = [
+  "I understand this is urgent. The store team has already been notified, and I’ll keep helping while we wait.\n\nCan you tell me what happened so I can try to help right now?",
+  "I hear you. The team has already been alerted, and I won’t ignore your request for a person.\n\nWhile we’re waiting, tell me what you need help with and I’ll do my best.",
+  "I understand you want human help. The store team has already been notified.\n\nIn the meantime, I’m still here with you — what’s the main issue we should work on first?",
+];
+
+function pickHumanFollowupReply() {
+  return HUMAN_FOLLOWUP_REPLIES[
+    Math.floor(Math.random() * HUMAN_FOLLOWUP_REPLIES.length)
+  ];
+}
 
 export async function POST(req: Request) {
   try {
@@ -115,10 +127,27 @@ let products: any[] = [];
   answer = HUMAN_HANDOFF_REPLY;
   products = [];
 } else {
-  const brain = await runTikoBrain({
-    message,
-    history: [],
-  });
+const recentMessages = await prisma.message.findMany({
+  where: {
+    conversationId: conversation.id,
+  },
+  orderBy: {
+    createdAt: "asc",
+  },
+  take: 12,
+  select: {
+    role: true,
+    content: true,
+  },
+});
+
+const brain = await runTikoBrain({
+  message,
+  history: recentMessages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  })),
+});
 
   answer = brain.reply;
   products = brain.products;
@@ -293,33 +322,58 @@ if (!conversation.aiEnabled && !shouldAlertHuman) {
 }
 
 if (shouldAlertHuman) {
-  answer = HUMAN_HANDOFF_REPLY;
+  answer = conversation.needsHuman
+    ? pickHumanFollowupReply()
+    : HUMAN_HANDOFF_REPLY;
   products = [];
 } else {
-  const brain = await runTikoBrain({
-    message,
-    history: [],
-  });
+const recentMessages = await prisma.message.findMany({
+  where: {
+    conversationId: conversation.id,
+  },
+  orderBy: {
+    createdAt: "asc",
+  },
+  take: 12,
+  select: {
+    role: true,
+    content: true,
+  },
+});
+
+const storeKnowledge = await getStoreKnowledge(resolvedWidget.tenantId);
+
+const brain = await runTikoBrain({
+  message,
+  history: recentMessages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  })),
+  storeKnowledge,
+});
 
   answer = brain.reply;
   products = brain.products;
 }
 
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: "assistant",
-        content: answer,
-      },
-    });
+await prisma.message.create({
+  data: {
+    conversationId: conversation.id,
+    role: "assistant",
+    content: answer,
+    productsJson:
+      products && products.length > 0
+        ? JSON.stringify(products)
+        : null,
+  },
+});
 
-    await prisma.conversation.update({
+await prisma.conversation.update({
   where: { id: conversation.id },
   data: {
     lastMessageAt: new Date(),
     needsHuman: shouldAlertHuman ? true : undefined,
     status: shouldAlertHuman ? "waiting" : "open",
-    aiEnabled: shouldAlertHuman ? false : undefined,
   },
 });
 

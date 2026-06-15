@@ -90,7 +90,7 @@ export default function Pricing() {
   const [yearly, setYearly] = useState(true);
 
   return (
-    <section className="container">
+    <section className="pricing-shell">
       {/* Header row: text on left, toggle on right */}
       <div className="pricing-head">
         <div className="pricing-hero stack">
@@ -241,9 +241,24 @@ export default function Pricing() {
           padding: 0.2rem 0 0.2rem;
         }
 
+.pricing-hero h2 {
+  margin: 0;
+  font-size: clamp(34px, 3.2vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: #111827;
+}
+
         .pricing-hero .small {
           max-width: 28rem;
         }
+
+.pricing-shell {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
 
         /* Single billing toggle */
         .billing-toggle {
@@ -289,7 +304,7 @@ export default function Pricing() {
           background: #ffffff;
           padding: 1.5rem 1.5rem 1.8rem;
           box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
-          min-height: 30rem;
+          min-height: 42rem;
         }
 
         .plan--focus {
@@ -447,9 +462,11 @@ export default function Pricing() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .pricing-grid {
-            gap: 1.75rem;
-          }
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
         }
       `}</style>
     </section>

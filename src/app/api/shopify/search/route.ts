@@ -26,6 +26,10 @@ type ShopifySearchResponse = {
           id: string;
           title: string;
           handle: string;
+          description?: string | null;
+          productType?: string | null;
+          tags?: string[];
+          vendor?: string | null;
           totalInventory?: number | null;
           images?: {
             edges?: Array<{
@@ -63,43 +67,24 @@ type ShopifySearchResponse = {
 type ProductCard = {
   id: string;
   title: string;
+  description?: string;
+  productType?: string;
+  tags?: string[];
+  vendor?: string;
   price?: number;
   image?: string;
   available?: boolean;
   url?: string;
 };
 
-const STOPWORDS = new Set([
-  "show",
-  "me",
-  "find",
-  "search",
-  "for",
-  "a",
-  "an",
-  "the",
-  "some",
-  "any",
-  "pictures",
-  "picture",
-  "photos",
-  "photo",
-  "recommend",
-  "product",
-  "products",
-  "please",
-  "like",
-  "this",
-  "that",
-  "over",
-  "under",
-  "between",
-  "more",
-  "than",
-  "less",
-  "with",
-  "and",
-]);
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  dress: ["dress", "dresses", "gown", "gowns"],
+  jacket: ["jacket", "jackets", "denim jacket", "denim jackets"],
+  bag: ["bag", "bags", "handbag", "handbags", "purse", "purses", "leather bag", "leather bags"],
+  sneaker: ["sneaker", "sneakers", "shoe", "shoes", "trainer", "trainers"],
+  snowboard: ["snowboard", "snowboards"],
+  bike: ["bike", "bikes", "bicycle", "bicycles", "mountain bike", "mountain bikes"],
+};
 
 const CATEGORY_KEYWORDS = [
   "dress",
@@ -185,13 +170,47 @@ function extractPriceFilters(text: string) {
 
 function detectCategory(text: string): string | undefined {
   const lower = text.toLowerCase();
-  const found = CATEGORY_KEYWORDS.find((k) => lower.includes(k));
-  if (!found) return undefined;
-  if (found === "dresses") return "dress";
-  if (found === "jackets") return "jacket";
-  if (found === "snowboards") return "snowboard";
-  return found;
+
+  for (const [category, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => lower.includes(alias))) {
+      return category;
+    }
+  }
+
+  return undefined;
 }
+
+const STOPWORDS = new Set([
+  "show",
+  "me",
+  "find",
+  "search",
+  "for",
+  "a",
+  "an",
+  "the",
+  "some",
+  "any",
+  "pictures",
+  "picture",
+  "photos",
+  "photo",
+  "recommend",
+  "product",
+  "products",
+  "please",
+  "like",
+  "this",
+  "that",
+  "over",
+  "under",
+  "between",
+  "more",
+  "than",
+  "less",
+  "with",
+  "and",
+]);
 
 function normalizeKeywords(text: string): string[] {
   return Array.from(
@@ -255,9 +274,11 @@ function deriveSearchBody(body: SearchBody) {
 function buildShopifyQuery(input: ReturnType<typeof deriveSearchBody>) {
   const parts: string[] = [];
 
-  if (input.query) {
-    parts.push(input.query);
-  } else {
+if (input.filters.categories?.length) {
+  parts.push(input.filters.categories[0]);
+} else if (input.query) {
+  parts.push(input.query);
+} else {
     for (const keyword of input.keywords) {
       if (keyword) parts.push(keyword);
     }
@@ -275,10 +296,14 @@ const PRODUCTS_QUERY = `
     products(first: $first, query: $query) {
       edges {
         node {
-          id
-          title
-          handle
-          totalInventory
+  id
+  title
+  handle
+  description
+  productType
+  tags
+  vendor
+  totalInventory
           images(first: 1) {
             edges {
               node {
@@ -337,6 +362,10 @@ function normalizeProducts(json: ShopifySearchResponse): ProductCard[] {
       price: firstVariant?.price ? Number(firstVariant.price) : undefined,
       image,
       available,
+      description: node.description || "",
+      productType: node.productType || "",
+      tags: node.tags || [],
+      vendor: node.vendor || "",
       url: `https://${process.env.SHOPIFY_STORE_DOMAIN}/products/${node.handle}`,
     };
   });
@@ -376,15 +405,54 @@ function scoreProducts(
       let score = 0;
       const title = p.title.toLowerCase();
 
+const description = (p.description || "").toLowerCase();
+
+const tags = Array.isArray(p.tags)
+  ? p.tags.join(" ").toLowerCase()
+  : "";
+
+const productType = (p.productType || "").toLowerCase();
+
+const searchable = [
+  title,
+  description,
+  tags,
+  productType,
+].join(" ");
+
       if (queryLower && title.includes(queryLower)) score += 10;
 
       for (const keyword of input.keywords) {
-        if (title.includes(keyword.toLowerCase())) score += 4;
-      }
+  const k = keyword.toLowerCase();
 
-      for (const category of input.filters.categories ?? []) {
-        if (title.includes(category.toLowerCase())) score += 6;
-      }
+  if (title.includes(k)) score += 10;
+
+  if (tags.includes(k)) score += 12;
+
+  if (productType.includes(k)) score += 8;
+
+  if (description.includes(k)) score += 4;
+}
+
+for (const category of input.filters.categories ?? []) {
+  const c = category.toLowerCase();
+
+  if (title.includes(c)) score += 12;
+
+  if (tags.includes(c)) score += 14;
+
+  if (productType.includes(c)) score += 10;
+}
+
+const matchedKeywords = input.keywords.filter((k) =>
+  searchable.includes(k.toLowerCase())
+).length;
+
+score += matchedKeywords * 5;
+
+if (input.keywords.length >= 2 && matchedKeywords < 2) {
+  score -= 20;
+}
 
       if (p.available) score += 2;
       if (typeof p.price === "number") score += 1;
@@ -392,7 +460,7 @@ function scoreProducts(
       return { ...p, _score: score };
     })
     .sort((a, b) => b._score - a._score)
-    .slice(0, input.limit)
+    .slice(0, input.keywords.length >= 2 ? Math.min(input.limit, 3) : input.limit)
     .map(({ _score, ...p }) => p);
 }
 

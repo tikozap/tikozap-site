@@ -9,12 +9,17 @@ type SupportMetricsPayload = {
   metrics: {
     startedAt: string;
     totalEvents: number;
-    counters: {
-      answered: number;
-      needsHumanFallback: number;
-      rateLimited: number;
-      intents: Record<string, number>;
-    };
+counters: {
+  answered: number;
+  needsHumanFallback: number;
+  rateLimited: number;
+
+  openNow: number;
+  waitingHuman: number;
+  aiPaused: number;
+
+  intents: Record<string, number>;
+};
   };
 };
 
@@ -235,35 +240,63 @@ export default function SupportMetricsCards() {
 
 <div className="db-metricsGrid">
   <div className="db-metricCard">
-    <div className="db-metricLabel">Human attention</div>
+    <div className="db-metricLabel">Open now</div>
+
     <div className="db-metricValue">
-      {metrics ? metrics.counters.needsHumanFallback : '…'}
+      {metrics ? metrics.counters.openNow : '…'}
     </div>
-    <div className="db-metricSub">conversations</div>
+
+    <div className="db-metricSub">
+      active conversations
+    </div>
+  </div>
+
+  <div className="db-metricCard">
+    <div className="db-metricLabel">Waiting human</div>
+
+    <div className="db-metricValue">
+      {metrics ? metrics.counters.waitingHuman : '…'}
+    </div>
+
+    <div className="db-metricSub">
+      needs attention
+    </div>
   </div>
 
   <div className="db-metricCard">
     <div className="db-metricLabel">AI resolved</div>
+
     <div className="db-metricValue">
       {metrics ? metrics.counters.answered : '…'}
     </div>
-    <div className="db-metricSub">conversations</div>
+
+    <div className="db-metricSub">
+      closed by AI
+    </div>
   </div>
 
   <div className="db-metricCard">
-    <div className="db-metricLabel">System limits</div>
+    <div className="db-metricLabel">AI paused</div>
+
     <div className="db-metricValue">
-      {metrics ? metrics.counters.rateLimited : '…'}
+      {metrics ? metrics.counters.aiPaused : '…'}
     </div>
-    <div className="db-metricSub">events</div>
+
+    <div className="db-metricSub">
+      manual takeover
+    </div>
   </div>
 
   <div className="db-metricCard">
     <div className="db-metricLabel">Call quality</div>
+
     <div className="db-metricValue">
       {voiceError ? '—' : voiceHealth}
     </div>
-    <div className="db-metricSub">Twilio health</div>
+
+    <div className="db-metricSub">
+      Twilio health
+    </div>
   </div>
 </div>
 

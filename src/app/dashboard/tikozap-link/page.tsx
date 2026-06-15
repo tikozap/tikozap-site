@@ -196,17 +196,8 @@ const [contactEmail, setContactEmail] = useState("");
           <div>
             <h1 className="db-title">Starter Link</h1>
             <p className="db-sub">
-              Manage your AI storefront page: branding, products, assistant, footer, and sharing.
+              Manage your storefront page with AI assistant for your customers.
             </p>
-          </div>
-
-          <div className="db-actions">
-            <Link className="db-btn" href="/dashboard/conversations">
-              Open inbox
-            </Link>
-            <Link className="db-btn primary" href={previewHref} target="_blank">
-              Preview public page
-            </Link>
           </div>
         </div>
 
@@ -216,7 +207,7 @@ const [contactEmail, setContactEmail] = useState("");
 
         <div className="db-card">
           <div className="db-cardTitle">Starter Link setup</div>
-          <p className="db-cardText">Set your public link and preview the customer-facing page.</p>
+          <p className="db-cardText">Set up your public link of your storefront page.</p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
@@ -232,13 +223,63 @@ const [contactEmail, setContactEmail] = useState("");
 
         <div className="db-card">
           <div className="db-cardTitle">Branding</div>
-          <p className="db-cardText">These fields control the left side of your Starter Link page.</p>
+          <p className="db-cardText">These fields control your Starter Link page.</p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
-              <span style={fieldLabel}>Store logo URL</span>
-              <input className="db-btn" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
-            </label>
+  <span style={fieldLabel}>Store logo</span>
+
+{logoUrl ? (
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <img
+      src={logoUrl}
+      alt="Store logo preview"
+      style={{
+        width: 72,
+        height: 72,
+        objectFit: "cover",
+        borderRadius: 14,
+        border: "1px solid #e5e7eb",
+        background: "#f8fafc",
+      }}
+    />
+
+    <button
+      type="button"
+      className="db-btn"
+      onClick={() => setLogoUrl("")}
+    >
+      Remove
+    </button>
+  </div>
+) : null}
+
+<label className="db-btn" style={{ width: "fit-content" }}>
+  Choose logo image
+  <input
+    type="file"
+    accept="image/*"
+    style={{ display: "none" }}
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        setLogoUrl(String(reader.result || ""));
+      };
+      reader.readAsDataURL(file);
+    }}
+  />
+</label>
+
+  <input
+    className="db-btn"
+    placeholder="Or paste logo image URL"
+    value={logoUrl}
+    onChange={(e) => setLogoUrl(e.target.value)}
+  />
+</label>
 
             <label style={fieldWrap}>
               <span style={fieldLabel}>Store name</span>
@@ -398,9 +439,9 @@ const [contactEmail, setContactEmail] = useState("");
               {saving ? "Saving..." : "Save Starter Link"}
             </button>
 
-            <Link className="db-btn" href={previewHref} target="_blank">
-              Preview
-            </Link>
+<Link className="db-btn" href={previewHref} target="_blank">
+  Preview public page
+</Link>
 
             {savedMsg ? <span style={{ fontSize: 13, color: savedMsg === "Saved." ? "#047857" : "#b91c1c" }}>{savedMsg}</span> : null}
           </div>

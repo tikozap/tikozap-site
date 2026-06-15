@@ -137,7 +137,7 @@ useEffect(() => {
 </button>
 
             <div className="db-sidebar-note">
-              Merchant-only area. (Platform admin comes later under <code>/admin</code>.)
+              Merchant-only area
             </div>
           </div>
         </aside>
@@ -318,3 +318,5 @@ useEffect(() => {
     </div>
   );
 }
+
+

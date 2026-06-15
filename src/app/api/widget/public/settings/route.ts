@@ -28,16 +28,21 @@ export async function GET(req: Request) {
     );
   }
 
-  const widget = await prisma.widget.findUnique({
-    where: { publicKey: key },
-    select: {
-      enabled: true,
-      brandColor: true,
-      assistantName: true,
-      greeting: true,
-      tenantId: true,
+const widget = await prisma.widget.findUnique({
+  where: { publicKey: key },
+  select: {
+    enabled: true,
+    brandColor: true,
+    assistantName: true,
+    greeting: true,
+    tenantId: true,
+    tenant: {
+      select: {
+        settingsJson: true,
+      },
     },
-  });
+  },
+});
 
   if (!widget || !widget.enabled) {
     return NextResponse.json(
@@ -48,16 +53,35 @@ export async function GET(req: Request) {
 
   const voice = await getTenantVoiceUsage(widget.tenantId);
 
+let settings: Record<string, string> = {};
+
+try {
+  settings = widget.tenant?.settingsJson
+    ? JSON.parse(widget.tenant.settingsJson)
+    : {};
+} catch {
+  settings = {};
+}
+
   return NextResponse.json(
     {
       ok: true,
       widget: {
         enabled: widget.enabled,
-        brandColor: widget.brandColor || "#111827",
-        assistantName: widget.assistantName || "Store Assistant",
-        greeting:
-          widget.greeting ||
-          "Hi! I can help you find products, orders, and more.",
+brandColor:
+  settings.tz_brand_color?.trim() ||
+  widget.brandColor ||
+  "#111827",
+
+assistantName:
+  settings.tz_assistant_name?.trim() ||
+  widget.assistantName ||
+  "Store Assistant",
+
+greeting:
+  settings.tz_assistant_greeting?.trim() ||
+  widget.greeting ||
+  "Hi! I can help you find products, orders, and more.",
         voice,
       },
     },

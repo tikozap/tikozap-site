@@ -1,0 +1,100 @@
+// src/app/api/conversations/[id]/draft/route.ts
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getAuthedUserAndTenant } from "@/lib/auth";
+import { runTikoBrain } from "@/lib/brain";
+
+export const runtime = "nodejs";
+
+type Params = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export async function POST(_req: Request, { params }: Params) {
+  try {
+    const authed = await getAuthedUserAndTenant();
+
+    if (!authed?.tenant?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id,
+        tenantId: authed.tenant.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!conversation) {
+      return NextResponse.json(
+        { ok: false, error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
+    const recentMessages = await prisma.message.findMany({
+      where: {
+        conversationId: conversation.id,
+        role: {
+          in: ["customer", "assistant", "staff"],
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      take: 16,
+      select: {
+        role: true,
+        content: true,
+      },
+    });
+
+    const lastCustomer = [...recentMessages]
+      .reverse()
+      .find((m) => m.role === "customer");
+
+    const message = lastCustomer?.content?.trim();
+
+    if (!message) {
+      return NextResponse.json(
+        { ok: false, error: "No customer message found" },
+        { status: 400 }
+      );
+    }
+
+    const brain = await runTikoBrain({
+      message,
+      history: recentMessages.map((m) => ({
+        role: m.role as any,
+        content: m.content,
+      })),
+    });
+
+    return NextResponse.json({
+      ok: true,
+      draft: brain.reply,
+      products: brain.products || [],
+    });
+  } catch (error: any) {
+    console.error("CONVERSATION_DRAFT_FATAL", error);
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error?.message || "Could not generate draft",
+      },
+      { status: 500 }
+    );
+  }
+}

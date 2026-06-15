@@ -75,33 +75,41 @@ export default function MobilePageHeader({ title }: Props) {
           visibility:hidden;
         }
 
-        @media (max-width: 1000px){
-          .db-mobilePageTop{
-            display:grid;
-            grid-template-columns:48px 1fr 48px;
-            align-items:center;
-            gap:10px;
-            position:sticky;
-            top:0;
-            z-index:10;
-            background:#f8fafc;
-            border-bottom:1px solid #e5e7eb;
-            box-shadow:0 1px 0 rgba(15,23,42,.03);
-            padding:8px 0 12px;
-            margin-bottom:12px;
-          }
+@media (max-width: 1000px){
+  .db-mobilePageTop{
+    display:grid;
+    grid-template-columns:48px 1fr 48px;
+    align-items:center;
+    gap:10px;
 
-          .db-mobilePageTitle{
-            text-align:center;
-            font-size:18px;
-            font-weight:800;
-            color:#111827;
-          }
+    position:sticky;
+    top:0;
+    z-index:100;
 
-          .db-title{
-            display:none;
-          }
-        }
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+
+    background:#f8fafc;
+    border-bottom:1px solid #e5e7eb;
+    box-shadow:0 1px 0 rgba(15,23,42,.03);
+
+    padding:8px 16px 12px;
+    margin-bottom:12px;
+    box-sizing:border-box;
+  }
+
+  .db-mobilePageTitle{
+    text-align:center;
+    font-size:18px;
+    font-weight:800;
+    color:#111827;
+  }
+
+  .db-title{
+    display:none;
+  }
+}
       `}</style>
     </>
   );

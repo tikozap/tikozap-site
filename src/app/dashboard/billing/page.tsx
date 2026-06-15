@@ -24,19 +24,21 @@ type BillingUsage = {
   windowStart: string;
   windowEnd: string;
 
-  voice: {
-    enabled: boolean;
+voice: {
+  enabled: boolean;
+  pack: string | null;
+  usedMinutes: number;
+  limitMinutes: number;
+  remainingMinutes: number;
+  utilizationPct: number;
+  periodStart: string | null;
 
-    pack: string | null;
-
-    usedMinutes: number;
-    limitMinutes: number;
-    remainingMinutes: number;
-
-    utilizationPct: number;
-
-    periodStart: string | null;
-  };
+  freeQuestionsLimitDaily: number;
+  freeQuestionsUsedToday: number;
+  freeQuestionsRemainingToday: number;
+  freeQuestionsDate: string | null;
+  freeQuestionsTotal: number;
+};
 };
 
 const PLAN_OPTIONS = {
@@ -438,75 +440,47 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
 
 {/* Realtime Voice Concierge */}
 <div className="db-card">
-  <div className="db-cardTitle">
-    Realtime Voice Concierge
-  </div>
+  <div className="db-cardTitle">Realtime Voice Concierge</div>
 
   {!usage ? (
     <p className="db-cardText">Loading…</p>
-  ) : !usage.voice.enabled ? (
-    <>
-      <p className="db-cardText">
-        Voice is currently disabled for this store.
-      </p>
-
-      <p
-        className="db-cardText"
-        style={{ fontSize: 13, color: '#6b7280' }}
-      >
-        Enable realtime voice as an optional premium add-on.
-      </p>
-
-      <div
-  style={{
-    marginTop: 12,
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 8,
-  }}
->
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() =>
-      startVoiceCheckout('starter')
-    }
-  >
-    Voice Starter · 100 min · $19
-  </button>
-
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() =>
-      startVoiceCheckout('pro')
-    }
-  >
-    Voice Pro · 500 min · $69
-  </button>
-
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() =>
-      startVoiceCheckout('business')
-    }
-  >
-    Voice Business · 2000 min · $199
-  </button>
-</div>
-    </>
   ) : (
     <>
+      <div
+        style={{
+          marginTop: 8,
+          marginBottom: 12,
+          padding: '12px 14px',
+          borderRadius: 10,
+          background: '#ecfdf5',
+          border: '1px solid #bbf7d0',
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>
+          Free voice included
+        </div>
+
+        <div style={{ marginTop: 4, fontSize: 13, color: '#047857' }}>
+          Every store gets 20 free voice questions per day, even without a voice subscription.
+        </div>
+      </div>
+
+      <p className="db-cardText" style={{ fontWeight: 700 }}>
+        Today&apos;s free voice usage
+      </p>
+
       <p className="db-cardText">
-        {usage.voice.pack || 'Voice'} ·{' '}
-        {usage.voice.usedMinutes}/
-        {usage.voice.limitMinutes} minutes used
+{Math.min(
+  usage.voice.freeQuestionsUsedToday || 0,
+  usage.voice.freeQuestionsLimitDaily || 20
+)}
+/
+{usage.voice.freeQuestionsLimitDaily || 20} free questions used today
       </p>
 
       <div
         style={{
-          marginTop: 10,
+          marginTop: 8,
           width: '100%',
           height: 10,
           borderRadius: 999,
@@ -520,76 +494,147 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
             height: '100%',
             width: `${Math.min(
               100,
-              usage.voice.utilizationPct
+              Math.round(
+                ((usage.voice.freeQuestionsUsedToday || 0) /
+                  (usage.voice.freeQuestionsLimitDaily || 20)) *
+                  100
+              )
             )}%`,
-            background:
-              usage.voice.utilizationPct >= 90
-                ? '#b91c1c'
-                : usage.voice.utilizationPct >= 70
-                ? '#b45309'
-                : '#111827',
+            background: '#111827',
             borderRadius: 999,
             transition: 'width 180ms ease',
           }}
         />
       </div>
 
-      <p
-        className="db-cardText"
-        style={{
-          marginTop: 10,
-          color:
-            usage.voice.remainingMinutes <= 0
-              ? '#b91c1c'
-              : '#065f46',
-        }}
-      >
-        Remaining this month:{' '}
-        {usage.voice.remainingMinutes} minutes
-      </p>
+      {usage.voice.freeQuestionsRemainingToday <= 0 ? (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: '#b45309',
+      fontWeight: 700,
+    }}
+  >
+   {usage.voice.freeQuestionsRemainingToday <= 0 ? (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: usage.voice.enabled ? '#065f46' : '#b45309',
+      fontWeight: 700,
+    }}
+  >
+    {usage.voice.enabled
+      ? 'Daily free voice questions used. Paid voice minutes are now being used.'
+      : 'Daily free voice limit reached. Upgrade to a voice plan or continue tomorrow.'}
+  </p>
+) : (
+  <p className="db-cardText" style={{ marginTop: 8, color: '#065f46' }}>
+    Remaining today: {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
+  </p>
+)}
+  </p>
+) : (
+  <p className="db-cardText" style={{ marginTop: 8, color: '#065f46' }}>
+    Remaining today: {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
+  </p>
+)}
+
+      {usage.voice.enabled ? (
+        <>
+          <p className="db-cardText" style={{ marginTop: 14 }}>
+            {usage.voice.pack
+              ? `Voice ${usage.voice.pack.charAt(0).toUpperCase()}${usage.voice.pack.slice(1)}`
+              : 'Voice'}{' '}
+            · {usage.voice.usedMinutes}/{usage.voice.limitMinutes} minutes used this month
+          </p>
+
+          <div
+            style={{
+              marginTop: 8,
+              width: '100%',
+              height: 10,
+              borderRadius: 999,
+              background: '#e5e7eb',
+              overflow: 'hidden',
+            }}
+          >
+            <span
+              style={{
+                display: 'block',
+                height: '100%',
+                width: `${Math.min(100, usage.voice.utilizationPct)}%`,
+                background:
+                  usage.voice.utilizationPct >= 90
+                    ? '#b91c1c'
+                    : usage.voice.utilizationPct >= 70
+                    ? '#b45309'
+                    : '#111827',
+                borderRadius: 999,
+                transition: 'width 180ms ease',
+              }}
+            />
+          </div>
+
+          <p
+            className="db-cardText"
+            style={{
+              marginTop: 8,
+              color: usage.voice.remainingMinutes <= 0 ? '#b91c1c' : '#065f46',
+            }}
+          >
+            Remaining this month: {usage.voice.remainingMinutes} minutes
+          </p>
+        </>
+      ) : (
+        <p className="db-cardText" style={{ fontSize: 13, color: '#6b7280' }}>
+          Need more voice? Upgrade anytime for monthly voice minutes.
+        </p>
+      )}
 
       <div
-  style={{
-    marginTop: 12,
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 8,
-  }}
->
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() => startVoiceCheckout('starter')}
-  >
-    Voice Starter
-  </button>
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => startVoiceCheckout('starter')}
+        >
+          Voice Starter · 100 min · $9
+        </button>
 
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() => startVoiceCheckout('pro')}
-  >
-    Voice Pro
-  </button>
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => startVoiceCheckout('pro')}
+        >
+          Voice Pro · 500 min · $29
+        </button>
 
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() => startVoiceCheckout('business')}
-  >
-    Voice Business
-  </button>
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => startVoiceCheckout('business')}
+        >
+          Voice Business · 2000 min · $99
+        </button>
 
-  <button
-    type="button"
-    className="db-btn"
-    onClick={() =>
-      configureVoice('disable')
-    }
-  >
-    Disable Voice
-  </button>
-</div>
+        {usage.voice.enabled ? (
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => configureVoice('disable')}
+          >
+            Disable Voice
+          </button>
+        ) : null}
+      </div>
     </>
   )}
 </div>

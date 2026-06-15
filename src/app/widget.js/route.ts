@@ -30,7 +30,42 @@ if (subject) params.set("subject", subject);
 if (customerName) params.set("customerName", customerName);
 if (tags) params.set("tags", tags);
 
-iframe.src = base + "/widget/embed?" + params.toString();
+function setIframeSrc(extra) {
+  var nextParams = new URLSearchParams(params.toString());
+
+  if (extra && extra.assistantName) {
+    nextParams.set("name", extra.assistantName);
+  }
+
+  if (extra && extra.greeting) {
+    nextParams.set("greeting", extra.greeting);
+  }
+
+  if (extra && extra.brandColor) {
+    nextParams.set("brandColor", extra.brandColor);
+  }
+
+  iframe.src = base + "/widget/embed?" + nextParams.toString();
+}
+
+setIframeSrc(null);
+
+fetch(base + "/api/widget/public/settings?key=" + encodeURIComponent(key), {
+  cache: "no-store"
+})
+  .then(function(res) {
+    return res.json();
+  })
+  .then(function(data) {
+    if (!data || !data.ok || !data.widget) return;
+
+    setIframeSrc({
+      assistantName: data.widget.assistantName,
+      greeting: data.widget.greeting,
+      brandColor: data.widget.brandColor
+    });
+  })
+  .catch(function() {});
   iframe.title = "TikoZap Assistant";
   iframe.setAttribute("aria-label", "TikoZap Assistant");
   iframe.setAttribute("allow", "microphone *; camera *; autoplay *");

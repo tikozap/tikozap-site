@@ -86,10 +86,11 @@ export default async function StarterLinkPage({
           starterLinkEnabled: true,
           OR: [{ starterLinkSlug: slug }, { slug }],
         },
- select: {
+select: {
   id: true,
   slug: true,
   storeName: true,
+  settingsJson: true,
   starterLinkPage: true,
   widget: {
     select: {
@@ -172,6 +173,10 @@ const showMerchantLogin = false;
 
     storeName = tenant.storeName;
 const page = tenant.starterLinkPage;
+const settings = parseJson(
+  (tenant as any).settingsJson,
+  {}
+) as Record<string, string>;
 
 if (page) {
   storeLogoUrl = page.logoUrl || "";
@@ -192,9 +197,12 @@ if (page) {
 }
 
 assistantName =
-  widgetRow.assistantName?.trim() || `${storeName} Assistant`;
+  settings.tz_assistant_name?.trim() ||
+  widgetRow.assistantName?.trim() ||
+  `${storeName} Assistant`;
 
 greeting =
+  settings.tz_assistant_greeting?.trim() ||
   widgetRow.greeting?.trim() ||
   "Hi! I can help with products, order tracking, shipping, and returns.";
 
@@ -202,7 +210,10 @@ if (!page?.footerLine) {
   footerLine = `${storeName} powered by TikoZap`;
 }
 
-brandColor = widgetRow.brandColor?.trim() || "#111827";
+brandColor =
+  settings.tz_brand_color?.trim() ||
+  widgetRow.brandColor?.trim() ||
+  "#111827";
   }
 
 return (

@@ -12,6 +12,7 @@ model User {
   email     String   @unique
   name      String?
   passwordHash  String?
+  passwordResetTokens PasswordResetToken[]
   createdAt DateTime @default(now())
 
   sessions     Session[]
@@ -52,7 +53,12 @@ model Tenant {
 
   voiceUsagePeriodStart     DateTime?
 
+  voiceQuestionsToday       Int      @default(0)
+  voiceQuestionsDate        DateTime?
+  voiceQuestionsTotal       Int      @default(0)
+
   websiteUrl                String?
+  settingsJson              String?
 
   ownerId                   String
   owner                     User     @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -79,6 +85,7 @@ model Tenant {
 model Membership {
   id        String   @id @default(cuid())
   role      String   // owner | staff
+  settingsJson String?
   createdAt DateTime @default(now())
 
   userId   String
@@ -128,6 +135,20 @@ model Widget {
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model KnowledgeDoc {
   id        String   @id @default(cuid())
   tenantId  String
@@ -170,6 +191,7 @@ model Message {
   conversationId String
   role           String   // customer | assistant | staff | note
   content        String
+  productsJson   String?
   createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

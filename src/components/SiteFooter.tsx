@@ -31,9 +31,9 @@ export default function SiteFooter() {
         <div className="site-footer-col">
           <h3 className="site-footer-heading">Product</h3>
           <ul className="site-footer-list">
-            <li><Link href="/features" className="site-footer-link">Features</Link></li>
+            <li><Link href="/features" className="site-footer-link">Product</Link></li>
             <li><Link href="/pricing" className="site-footer-link">Pricing</Link></li>
-            <li><Link href="/docs" className="site-footer-link">Docs</Link></li>
+            <li><Link href="/docs" className="site-footer-link">Help Center</Link></li>
             <li><Link href="/signup" className="site-footer-link">Start free trial</Link></li>
           </ul>
         </div>

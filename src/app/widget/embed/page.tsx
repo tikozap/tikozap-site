@@ -10,19 +10,28 @@ export const dynamic = "force-dynamic";
 export default function WidgetEmbedPage({
   searchParams,
 }: {
-  searchParams: { key?: string; name?: string };
+  searchParams: {
+    key?: string;
+    name?: string;
+    brandColor?: string;
+    greeting?: string;
+  };
 }) {
   const publicKey = searchParams.key || "";
   const assistantName = searchParams.name || "Store Assistant";
+  const brandColor = searchParams.brandColor || "#111827";
+  const greeting =
+    searchParams.greeting ||
+    "Hi! I can help with products, order tracking, shipping, and returns.";
 
   return (
     <div className="tz-widget-embed">
       <StarterLinkAssistant
         publicKey={publicKey}
         assistantName={assistantName}
-        greeting="Hi! I can help with products, order tracking, shipping, and returns."
-        premium
-        brandColor="#111827"
+greeting={greeting}
+premium
+brandColor={brandColor}
         desktopDocked={false}
       />
 

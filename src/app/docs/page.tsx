@@ -1,3 +1,5 @@
+// src/app/docs/page.tsx
+
 'use client';
 
 const featureSections = [
@@ -18,9 +20,9 @@ export default function DocsPage() {
       {/* Page hero (unified style) */}
       <section className="page-hero">
         <div className="container">
-          <h1>Docs &amp; FAQ</h1>
+          <h1>Help Center</h1>
           <p className="small">
-            Quick start, feature deep-dives, and common questions about TikoZap.
+            Setup guides, feature explanations, and common questions.
           </p>
         </div>
       </section>

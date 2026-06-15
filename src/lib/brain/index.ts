@@ -21,6 +21,7 @@ export type RunTikoBrainInput = {
   message: string;
   history?: BrainHistoryMessage[];
   searchState?: SearchState;
+  storeKnowledge?: string;
 };
 
 export type RunTikoBrainOutput = {
@@ -37,6 +38,10 @@ const PRODUCTS_QUERY = `
           id
           title
           handle
+          description
+          productType
+          tags
+          vendor
           totalInventory
           featuredMedia {
             preview {
@@ -89,28 +94,90 @@ function detectCategory(text: string): string | undefined {
   return undefined;
 }
 
+function normalizeCategoryName(category?: string) {
+  const c = lower(category || "");
+
+  if (!c) return undefined;
+
+  if (c.includes("bike") || c.includes("bicycle")) return "bicycles";
+  if (c.includes("snowboard")) return "snowboards";
+  if (c.includes("dress") || c.includes("gown")) return "dresses";
+  if (c.includes("jacket") || c.includes("coat")) return "jackets";
+  if (c.includes("shoe") || c.includes("sneaker")) return "shoes";
+  if (c.includes("bag") || c.includes("purse")) return "bags";
+
+  return c;
+}
+
 function wantsProductSearch(
   message: string,
   interpretedIntent?: string,
   interpretedCategory?: string
 ) {
   if (interpretedIntent === "product_search") return true;
-  if (interpretedCategory) return true;
 
-  const t = lower(message);
+  const t = lower(message).trim();
 
-  return (
+  const hasCategory = !!interpretedCategory;
+
+  const explicitShoppingIntent =
     t.includes("show me") ||
-    t.includes("find") ||
     t.includes("looking for") ||
     t.includes("recommend") ||
-    t.includes("search") ||
+    t.includes("shop for") ||
     t.includes("buy") ||
-    t.includes("shop") ||
+    t.includes("browse") ||
+    t.includes("search products") ||
     t.includes("product") ||
     t.includes("products") ||
-    !!detectCategory(t)
-  );
+    t.includes("do you have") ||
+    t.includes("in stock");
+
+  const pricingIntent =
+    t.includes("cheaper") ||
+    t.includes("less expensive") ||
+    t.includes("lower price") ||
+    t.includes("budget") ||
+    t.includes("more expensive") ||
+    t.includes("premium") ||
+    t.includes("higher end") ||
+    t.includes("high end") ||
+    /\bover\s*\$?\d+/.test(t) ||
+    /\babove\s*\$?\d+/.test(t) ||
+    /\bmore than\s*\$?\d+/.test(t) ||
+    /\bunder\s*\$?\d+/.test(t) ||
+    /\bbelow\s*\$?\d+/.test(t) ||
+    /\bup to\s*\$?\d+/.test(t);
+
+  const conversationalOnly =
+    t.includes("thank") ||
+    t.includes("thanks") ||
+    t.includes("got it") ||
+    t.includes("okay") ||
+    t.includes("ok") ||
+    t.includes("hello") ||
+    t.includes("hi") ||
+    t.includes("how are you") ||
+    t.includes("install software") ||
+    t.includes("customer support") ||
+    t.includes("return policy") ||
+    t.includes("shipping") ||
+    t.includes("track my order") ||
+    t.includes("where is my order");
+
+  if (conversationalOnly) {
+    return false;
+  }
+
+  if (explicitShoppingIntent) {
+    return true;
+  }
+
+  if (pricingIntent && hasCategory) {
+    return true;
+  }
+
+  return false;
 }
 
 function buildSearchTerms(
@@ -120,14 +187,56 @@ function buildSearchTerms(
 ) {
   const raw = String(message || "").trim();
   const t = lower(raw);
-  const category = normalizedCategory || detectCategory(t);
+  const category = normalizeCategoryName(
+  normalizedCategory ||
+  detectCategory(t) ||
+  searchState?.lastCategory
+);
+
+const extraKeywords = raw
+  .toLowerCase()
+  .replace(/[^\w\s-]/g, " ")
+  .split(/\s+/)
+  .map((x) => x.trim())
+  .filter(Boolean)
+  .filter(
+    (x) =>
+      ![
+        "show",
+        "me",
+        "find",
+        "looking",
+        "for",
+        "some",
+        "any",
+        "please",
+        "how",
+        "about",
+        "do",
+        "you",
+        "have",
+        "i",
+        "need",
+        "want",
+        "am",
+        "im",
+        "i'm",
+      ].includes(x)
+  )
+  .filter((x) => !/^\d+$/.test(x));
 
   if (category === "jackets") {
-    return { query: "jacket", keywords: ["jacket", "jackets", "coat", "coats"] };
+    return {
+  query: "jacket",
+  keywords: Array.from(new Set([...extraKeywords, "jacket", "jackets", "coat", "coats", "denim"])),
+};
   }
 
   if (category === "dresses") {
-    return { query: "dress", keywords: ["dress", "dresses", "gown", "gowns"] };
+    return {
+  query: "dress",
+  keywords: Array.from(new Set([...extraKeywords, "dress", "dresses", "gown", "gowns"])),
+};
   }
 
   if (category === "snowboards") {
@@ -135,8 +244,11 @@ function buildSearchTerms(
   }
 
   if (category === "bicycles") {
-    return { query: "bicycle", keywords: ["bicycle", "bicycles", "bike", "bikes"] };
-  }
+  return {
+    query: "bike",
+    keywords: Array.from(new Set([...extraKeywords, "bike", "bikes", "mountain bike", "mountain bikes", "bicycle", "bicycles"])),
+  };
+}
 
   if (category === "books") {
     return { query: "book", keywords: ["book", "books", "novel", "novels"] };
@@ -205,21 +317,44 @@ function buildSearchTerms(
 
 async function runProductQuery(query: string, keywords: string[]) {
   const raw = await shopifyAdminGraphQL(PRODUCTS_QUERY, {
-    first: 6,
-    query,
-  });
+  first: 12,
+  query: `${query} status:active`,
+});
 
   const products = normalizeShopifyProducts(raw as any);
 
   return products
     .map((p: ProductSearchResult) => {
       let score = 0;
-      const title = String(p.title || "").toLowerCase();
 
-      if (query && title.includes(query.toLowerCase())) score += 10;
+      const title = String(p.title || "").toLowerCase();
+      const description = String((p as any).description || "").toLowerCase();
+      const productType = String((p as any).productType || "").toLowerCase();
+      const tags = Array.isArray((p as any).tags)
+        ? (p as any).tags.join(" ").toLowerCase()
+        : "";
+
+      const searchable = [title, description, productType, tags].join(" ");
+
+      if (query && title.includes(query.toLowerCase())) score += 12;
 
       for (const keyword of keywords) {
-        if (title.includes(keyword.toLowerCase())) score += 3;
+        const k = keyword.toLowerCase();
+
+        if (title.includes(k)) score += 10;
+        if (tags.includes(k)) score += 14;
+        if (productType.includes(k)) score += 8;
+        if (description.includes(k)) score += 5;
+      }
+
+      const matchedKeywords = keywords.filter((k) =>
+        searchable.includes(k.toLowerCase())
+      ).length;
+
+      score += matchedKeywords * 5;
+
+      if (keywords.length >= 2 && matchedKeywords < 2) {
+        score -= 25;
       }
 
       if ((p as any).available) score += 2;
@@ -256,14 +391,82 @@ async function searchProducts(
     try {
       const found = await runProductQuery(attempt, keywords);
       merged = [...merged, ...found];
-      if (merged.length >= 4) break;
     } catch (err) {
       console.error("BRAIN_SEARCH_ATTEMPT_FAILED", attempt, err);
     }
   }
 
-  const deduped = Array.from(new Map(merged.map((p: any) => [p.id, p])).values());
-  return deduped.slice(0, 4);
+  let deduped = Array.from(
+  new Map(merged.map((p: any) => [p.id, p])).values()
+) as ProductSearchResult[];
+
+deduped = deduped.filter((p: any) => {
+    if ((p as any).available === false) {
+    return false;
+  }
+  
+  const price =
+    typeof p.price === "number"
+      ? p.price
+      : p.price
+        ? Number(p.price)
+        : undefined;
+
+  if (
+    typeof searchState?.minPrice === "number" &&
+    typeof price === "number" &&
+    price < searchState.minPrice
+  ) {
+    return false;
+  }
+
+  if (
+    typeof searchState?.maxPrice === "number" &&
+    typeof price === "number" &&
+    price > searchState.maxPrice
+  ) {
+    return false;
+  }
+
+  return true;
+});
+
+if (searchState?.sortIntent === "cheaper") {
+  deduped.sort((a: any, b: any) => Number(a.price || 0) - Number(b.price || 0));
+}
+
+if (searchState?.sortIntent === "expensive") {
+  deduped.sort((a: any, b: any) => Number(b.price || 0) - Number(a.price || 0));
+}
+
+const keywordMatchCount = (p: any) => {
+  const title = String(p.title || "").toLowerCase();
+  const description = String(p.description || "").toLowerCase();
+  const productType = String(p.productType || "").toLowerCase();
+  const tags = Array.isArray(p.tags) ? p.tags.join(" ").toLowerCase() : "";
+
+  const searchable = [title, description, productType, tags].join(" ");
+
+  return keywords.filter((k) => searchable.includes(k.toLowerCase())).length;
+};
+
+const isSpecificSearch = keywords.length >= 3;
+
+if (isSpecificSearch) {
+  const requiredMatches = keywords.length >= 3 ? 3 : 2;
+
+const strongMatches = deduped.filter(
+  (p: any) => keywordMatchCount(p) >= requiredMatches
+);
+
+  if (strongMatches.length > 0) {
+    return strongMatches.slice(0, 4);
+  }
+
+  return deduped.slice(0, 2);
+}
+
+return deduped.slice(0, 4);
 }
 
 function getFallbackProducts(category?: string): ProductSearchResult[] {
@@ -616,7 +819,11 @@ function buildRuleBasedReply(
   return "I can help with product search, customer support, shipping, returns, and general store questions.";
 }
 
-function buildSystemPrompt(message: string, products: ProductSearchResult[]) {
+function buildSystemPrompt(
+  message: string,
+  products: ProductSearchResult[],
+  storeKnowledge?: string
+) {
   const isChinese =
     lower(message).includes("中文") ||
     lower(message).includes("chinese") ||
@@ -639,16 +846,28 @@ function buildSystemPrompt(message: string, products: ProductSearchResult[]) {
 
   return [
     "You are TikoZap, a smart AI sales and customer support assistant for an online store.",
-    "Be natural, warm, concise, and helpful.",
+storeKnowledge
+  ? `Store knowledge and policies:\n${storeKnowledge}`
+  : "No merchant-provided store knowledge is available yet.",
+"Use merchant-provided store knowledge as the source of truth for policies, FAQs, shipping, returns, sizing, and store details.",
+"If merchant knowledge conflicts with generic assumptions, follow merchant knowledge.",
+    "Sound like a confident store sales associate, not a generic chatbot.",
+"Be brief, warm, and specific.",
+"Do not ask for clarification if product context is already available.",
+"Use the shown products to answer directly.",
+"Never say 'Could you please provide more details' when the shopper is clearly refining a previous product search.",
     "Do not sound robotic or repeat the same sentence patterns.",
     "Do not invent products, prices, policies, or order details.",
     "If product matches are provided, use them naturally in the response.",
     "If no product matches are provided, be honest and suggest a more specific search.",
     "For greetings, respond briefly and naturally.",
     "For support questions, sound capable and reassuring.",
-    isChinese
-      ? "Reply in Chinese."
-      : "Reply in the user's language. Use Chinese only if the user asks or writes in Chinese.",
+isChinese
+  ? "Reply in Simplified Chinese."
+  : "Reply ONLY in English unless the shopper explicitly writes in Chinese.",
+"If products are provided, NEVER say the store does not have matching items.",
+"Use the returned products as the source of truth.",
+"If at least one product matches, recommend it confidently.",
     `Available product matches: ${productSummary}`,
   ].join(" ");
 }
@@ -656,12 +875,14 @@ function buildSystemPrompt(message: string, products: ProductSearchResult[]) {
 async function composeNaturalReply(
   message: string,
   products: ProductSearchResult[],
-  normalizedCategory?: string
+  normalizedCategory?: string,
+  storeKnowledge?: string
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
+  const hasProducts = Array.isArray(products) && products.length > 0;
 
   if (!apiKey) {
-    return buildRuleBasedReply(message, products);
+    return buildRuleBasedReply(message, products, normalizedCategory);
   }
 
   try {
@@ -673,12 +894,12 @@ async function composeNaturalReply(
       },
       body: JSON.stringify({
         model: process.env.OPENAI_TEXT_MODEL || "gpt-4o-mini",
-        temperature: 0.7,
+        temperature: 0.4,
         max_tokens: products.length > 0 ? 80 : 120,
         messages: [
           {
             role: "system",
-            content: buildSystemPrompt(message, products),
+            content: buildSystemPrompt(message, products, storeKnowledge),
           },
           {
             role: "user",
@@ -691,6 +912,16 @@ async function composeNaturalReply(
     const data = await response.json().catch(() => null);
     const text = data?.choices?.[0]?.message?.content?.trim();
 
+    if (
+      hasProducts &&
+      text &&
+      /don't have|don’t have|do not have|couldn't find|could not find|couldn’t find|no products|not available|not in stock|we don’t have|we don't have/i.test(
+        text
+      )
+    ) {
+      return buildRuleBasedReply(message, products, normalizedCategory);
+    }
+
     if (text) return text;
 
     return buildRuleBasedReply(message, products, normalizedCategory);
@@ -699,19 +930,47 @@ async function composeNaturalReply(
     return buildRuleBasedReply(message, products, normalizedCategory);
   }
 }
+function inferSearchStateFromHistory(
+  history: BrainHistoryMessage[] = []
+): SearchState {
+  const recent = [...history].reverse();
+
+  for (const msg of recent) {
+  if (msg.role !== "customer" && msg.role !== "user") continue;
+
+  const category = detectCategory(msg.content || "");
+
+    if (category) {
+      return {
+        lastCategory: category,
+        lastQuery: category,
+      };
+    }
+  }
+
+  return {};
+}
 
 export async function runTikoBrain(
   input: RunTikoBrainInput
 ): Promise<RunTikoBrainOutput> {
-  const nextIntent = extractSearchIntent(input.message);
-  const nextState = mergeSearchState(input.searchState || {}, nextIntent);
+const nextIntent = extractSearchIntent(input.message);
+
+const inferredState = {
+  ...inferSearchStateFromHistory(input.history || []),
+  ...(input.searchState || {}),
+};
+
+const nextState = mergeSearchState(inferredState, nextIntent);
 
   const interpreted = await interpretIntentWithAI(input.message);
 
-  const category =
-    interpreted.category ||
-    detectCategory(input.message) ||
-    detectCategory(nextState.lastQuery || "");
+const category = normalizeCategoryName(
+  interpreted.category ||
+  detectCategory(input.message) ||
+  nextState.lastCategory ||
+  detectCategory(nextState.lastQuery || "")
+);
 
   let products: ProductSearchResult[] = [];
 
@@ -727,7 +986,12 @@ export async function runTikoBrain(
     }
   }
 
-  const reply = await composeNaturalReply(input.message, products, category);
+  const reply = await composeNaturalReply(
+  input.message,
+  products,
+  category,
+  input.storeKnowledge
+);
 
   return {
     reply,

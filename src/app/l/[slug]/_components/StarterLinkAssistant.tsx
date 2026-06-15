@@ -72,7 +72,7 @@ function getConversationKey(publicKey: string) {
   return `tz_starter_link_conversation_${publicKey}`;
 }
 
-const FREE_VOICE_DAILY_LIMIT = 5;
+const FREE_VOICE_DAILY_LIMIT = 20;
 
 function getVoiceKey(publicKey: string) {
   const today = new Date().toISOString().slice(0, 10);
@@ -169,10 +169,16 @@ const lastSavedUserVoiceRef = useRef("");
 const lastSavedAssistantVoiceRef = useRef("");
 
   function scrollToBottom(behavior: ScrollBehavior = "smooth") {
-    requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ behavior, block: "end" });
+  requestAnimationFrame(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior,
     });
-  }
+  });
+}
 
 function dismissKeyboard() {
   if (typeof document === "undefined") return;
@@ -272,17 +278,25 @@ useEffect(() => {
   if (!voiceQuotaNotice) return;
 
   const timer = window.setTimeout(() => {
-    setVoiceQuotaNotice("Today's free voice limit reached. Unlimited voice can be enabled by this store.");
+    setVoiceQuotaNotice(
+  "Daily free voice limit reached. Please continue chatting by text, or try voice again tomorrow."
+);
   }, 3200);
 
   return () => window.clearTimeout(timer);
 }, [voiceQuotaNotice]);
 
   useEffect(() => {
-    if (!open) return;
-    scrollToBottom("auto");
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, [open]);
+  if (!open) return;
+
+  const t1 = window.setTimeout(() => scrollToBottom("auto"), 40);
+  const t2 = window.setTimeout(() => inputRef.current?.focus(), 80);
+
+  return () => {
+    window.clearTimeout(t1);
+    window.clearTimeout(t2);
+  };
+}, [open]);
 
 useEffect(() => {
   try {
@@ -296,7 +310,7 @@ useEffect(() => {
   } catch {}
 }, [open]);
 
-  useEffect(() => {
+useEffect(() => {
   if (!open) return;
 
   const el = messagesRef.current;
@@ -305,10 +319,12 @@ useEffect(() => {
   const distanceFromBottom =
     el.scrollHeight - el.scrollTop - el.clientHeight;
 
-  if (distanceFromBottom < 120) {
+  const nearBottom = distanceFromBottom < 260;
+
+  if (nearBottom || sending) {
     scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
   }
-}, [messages, open]);
+}, [messages, open, sending]);
 
   useEffect(() => {
     try {
@@ -636,7 +652,21 @@ async function saveVoiceMessage(
 
     const data = await res.json().catch(() => null);
 
-    if (data?.ok && data?.conversationId && !conversationId) {
+    if (!res.ok || !data?.ok) {
+      if (data?.reason === "VOICE_LIMIT_REACHED" || res.status === 402) {
+        stopRealtimeVoiceSession({ preserveAssistantText: true });
+        setComposerMode("type");
+        setVoiceState("error");
+        setVoiceQuotaNotice(
+          data?.error ||
+            "Daily free voice limit reached. Please continue chatting by text, or try voice again tomorrow."
+        );
+      }
+
+      return null;
+    }
+
+    if (data?.conversationId && !conversationId) {
       voiceConversationIdRef.current = data.conversationId;
       setConversationId(data.conversationId);
 
@@ -1061,7 +1091,10 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
           <section
   className={`sl-assistantPanel ${desktopDocked ? "sl-assistantPanel--docked" : ""} ${premium ? "sl-assistantPanel--premium" : ""} ${keyboardActive ? "is-keyboard-active" : ""}`}
   aria-label={assistantName}
-  style={{ ["--sl-kb" as any]: `${keyboardOffset}px` }}
+  style={{
+  ["--sl-kb" as any]: `${keyboardOffset}px`,
+  ["--sl-brand" as any]: brandColor || "#111827",
+}}
 >
             <div className="sl-assistantHeader">
   <button
@@ -1146,8 +1179,6 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
   >
     New chat
   </button>
-
-  <div className="sl-assistantHistorySectionSub">Recents</div>
 
   <button type="button" className="sl-assistantHistoryItem">
     Current conversation
@@ -1271,84 +1302,96 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
   setKeyboardActive(false);
 }}
 >
-      {messages.map((m) => (
-        <div
-          key={m.id}
-          className={`sl-assistantRow ${
-  m.role === "user"
-    ? "sl-assistantRow--user"
-    : "sl-assistantRow--assistant"
-}`}
-        >
 
-          {m.role === "staff" ? (
-  <div className="sl-assistantSpeakerName">
-    👤 {m.speakerName || "Store team"}
-  </div>
-) : null}
-          <div
-            className={`sl-assistantMsg ${
-              m.role === "user"
-  ? "sl-assistantMsg--user"
-  : m.role === "staff"
-    ? "sl-assistantMsg--staff"
-    : "sl-assistantMsg--assistant"
-            }`}
-          >
-            {m.text}
-          </div>
+{messages.map((m) => (
+  <div
+    key={m.id}
+    className={`sl-assistantRow ${
+      m.role === "user"
+        ? "sl-assistantRow--user"
+        : "sl-assistantRow--assistant"
+    }`}
+  >
+    {m.role === "staff" ? (
+      <div className="sl-assistantSpeakerName">
+        👤 {m.speakerName || "Store team"}
+      </div>
+    ) : null}
 
-          {m.role === "assistant" && m.products?.length ? (
-            <div className="sl-assistantProducts">
-              {m.products.map((p) => {
-                const card = (
-                  <>
-                    {p.image ? (
-                      <img
-                        src={p.image}
-                        alt={p.title}
-                        className="sl-assistantProductImage"
-                      />
-                    ) : (
-                      <div className="sl-assistantProductImage sl-assistantProductImage--placeholder" />
-                    )}
+    {m.text ? (
+      <div
+        className={`sl-assistantMsg ${
+          m.role === "user"
+            ? "sl-assistantMsg--user"
+            : m.role === "staff"
+              ? "sl-assistantMsg--staff"
+              : "sl-assistantMsg--assistant"
+        }`}
+      >
+        {m.text}
+      </div>
+    ) : null}
 
-                    <div className="sl-assistantProductMeta">
-                      <div className="sl-assistantProductTitle">{p.title}</div>
+    {m.products?.length ? (
+      <div className="sl-assistantProducts">
+        {m.products.map((p: any, idx: number) => {
+          const imageSrc = p.dataUrl || p.image;
 
-                      {typeof p.price === "number" ? (
-                        <div className="sl-assistantProductPrice">
-                          ${p.price.toFixed(2)}
-                        </div>
-                      ) : null}
+          if (p.type === "image" && imageSrc) {
+            return (
+              <div key={p.name || idx} className="sl-assistantProductCard">
+                <img
+                  src={imageSrc}
+                  alt={p.name || "Image attachment"}
+                  className="sl-assistantProductImage"
+                />
 
-                      <div className="sl-assistantProductStatus">
-                        {p.available ? "In stock" : "Unavailable"}
-                      </div>
-                    </div>
-                  </>
-                );
-
-                return p.url && p.url !== "#" ? (
-                  <a
-                    key={p.id}
-                    href={p.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="sl-assistantProductCard"
-                  >
-                    {card}
-                  </a>
-                ) : (
-                  <div key={p.id} className="sl-assistantProductCard">
-                    {card}
+                <div className="sl-assistantProductMeta">
+                  <div className="sl-assistantProductTitle">
+                    {p.name || "Image attachment"}
                   </div>
-                );
-              })}
+                  <div className="sl-assistantProductStatus">
+                    Image attachment
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={p.id || idx} className="sl-assistantProductCard">
+              {p.image ? (
+                <img
+                  src={p.image}
+                  alt={p.title || "Product"}
+                  className="sl-assistantProductImage"
+                />
+              ) : (
+                <div className="sl-assistantProductImage sl-assistantProductImage--placeholder" />
+              )}
+
+              <div className="sl-assistantProductMeta">
+                <div className="sl-assistantProductTitle">
+                  {p.title || "Product"}
+                </div>
+
+                {typeof p.price === "number" ? (
+                  <div className="sl-assistantProductPrice">
+                    ${p.price.toFixed(2)}
+                  </div>
+                ) : null}
+
+                <div className="sl-assistantProductStatus">
+                  {p.available ? "In stock" : "Unavailable"}
+                </div>
+              </div>
             </div>
-          ) : null}
-        </div>
-      ))}
+          );
+        })}
+      </div>
+    ) : null}
+  </div>
+))}
 
       {sending &&
       messages[messages.length - 1]?.role === "assistant" &&
@@ -1600,7 +1643,8 @@ onKeyDown={(e) => {
   gap:10px;
   padding:14px;
   border-bottom:1px solid #e5e7eb;
-  background:#fff;
+  background:var(--sl-brand, #111827);
+  color:#fff;
   flex:0 0 auto;
 }
 
@@ -1614,7 +1658,7 @@ onKeyDown={(e) => {
   height:50px;
   border:none;
   background:transparent;
-  color:#6b7280;
+  color:#fff;
   cursor:pointer;
   display:flex;
   align-items:center;
@@ -1655,7 +1699,7 @@ onKeyDown={(e) => {
   height:40px;
   border:none;
   background:transparent;
-  color:#6b7280;
+  color:#fff;
   font-size:28px;
   line-height:1;
   cursor:pointer;
@@ -1663,12 +1707,15 @@ onKeyDown={(e) => {
   padding:0;
 }
 
-        .sl-assistantMessages{
-          flex:1 1 auto;
-          overflow:auto;
-          padding:14px;
-          background:#f8fafc;
-        }
+.sl-assistantMessages{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:34px 14px 16px;
+  background:#f8fafc;
+  scroll-padding-top:34px;
+}
 
         .sl-assistantRow{
           display:grid;
@@ -1681,19 +1728,19 @@ onKeyDown={(e) => {
         }
 
         .sl-assistantMsg{
-  max-width:85%;
-  border-radius:18px;
-  padding:11px 13px;
-  font-size:14px;
-  line-height:1.5;
-  white-space:pre-wrap;
-  border:1px solid #e5e7eb;
-}
+         max-width:85%;
+         border-radius:18px;
+         padding:11px 13px;
+         font-size:14px;
+         line-height:1.5;
+         white-space:pre-wrap;
+         border:1px solid #e5e7eb;
+        }
 
 .sl-assistantMsg--user{
-  background:#007AFF;
+  background:var(--sl-brand, #111827);
   color:#fff;
-  border-color:#2563eb;
+  border-color:var(--sl-brand, #111827);
 }
 
         .sl-assistantMsg--assistant{
@@ -1902,8 +1949,8 @@ onKeyDown={(e) => {
   flex:0 0 38px !important;
 
   border-radius:999px;
-  border:1px solid #007AFF;
-  background:#007AFF;
+border:1px solid var(--sl-brand, #111827);
+background:var(--sl-brand, #111827);
   color:#fff;
 
   display:flex;
@@ -2129,7 +2176,7 @@ onKeyDown={(e) => {
   padding:0;
   margin:0;
   font:inherit;
-  color:#111827;
+  color:#fff;
   cursor:pointer;
   display:inline-flex;
   align-items:center;

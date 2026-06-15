@@ -863,7 +863,7 @@
   border-radius:999px;
   background:#dc2626;
   box-shadow:0 0 0 2px #f8fafc;
-  animation:cx-needs-human-blink 0.6s ease-in-out 3;
+  animation:cx-mobile-needs-human-blink 0.6s ease-in-out 3;
 }
 
 .cx-mobileThreadTop .cx-mobileTopBtn{
@@ -909,12 +909,24 @@
     opacity:1;
     transform:scale(1);
   }
+
   50%{
     opacity:.15;
     transform:scale(0.8);
   }
 }
 
+@keyframes cx-mobile-needs-human-blink{
+  0%, 100%{
+    opacity:1;
+    transform:translateY(-50%) scale(1);
+  }
+
+  50%{
+    opacity:.15;
+    transform:translateY(-50%) scale(0.8);
+  }
+}
 /* =========================
    Mobile layered inbox/thread
 ========================= */
@@ -2040,18 +2052,6 @@ textarea{
 }
 
 /* =========================
-   Hide secondary actions (move to menu)
-========================= */
-
-.cx-threadActions,
-.cx-threadTopActions,
-.cx-addNoteBtn,
-.cx-closeBtn,
-.cx-markWaitingBtn{
-  display:none !important;
-}
-
-/* =========================
    Desktop inbox top controls
 ========================= */
 
@@ -2099,10 +2099,6 @@ textarea{
     align-items:start !important;
   }
 
-  .db-topRight{
-    display:none !important;
-  }
-
   .cx-split{
     margin-top:0 !important;
     grid-template-columns:320px 1fr !important;
@@ -2118,7 +2114,7 @@ textarea{
 /* Pull desktop thread upward into empty top-right space */
 @media (min-width: 901px){
   .cx-threadCol{
-    margin-top:-104px !important;
+    margin-top:-35px !important;
   }
 
   .cx-threadPane{
@@ -2174,15 +2170,9 @@ textarea{
     width:260px;
   }
 
-  /* Hide the old desktop thread header inside the thread pane.
-     Keep mobile header untouched. */
-  .cx-threadPane .cx-threadFrame > .cx-threadHead{
-    display:none !important;
-  }
-
   .cx-threadMessages{
-    padding-top:0 !important;
-  }
+  padding-top:24px !important;
+}
 }
 
 /* Align desktop thread header with Inbox title */
@@ -2194,11 +2184,13 @@ textarea{
 
 /* Desktop scroll fixes */
 @media (min-width: 901px){
-  .cx-listPane{
-    overflow-y:auto !important;
-    max-height:calc(100vh - 150px) !important;
-    min-height:0 !important;
-  }
+.cx-listPane{
+  overflow-y:auto !important;
+  height:calc(100vh - 150px) !important;
+  max-height:none !important;
+  min-height:0 !important;
+  scroll-padding-top:0 !important;
+}
 
   .cx-threadPane,
   .cx-threadFrame{
@@ -2318,4 +2310,617 @@ textarea{
   .cx-topThreadActions{
     grid-template-columns: 108px 108px 108px !important;
   }
+
+  .db-topSplit{
+    align-items:start !important;
+  }
+
+  .db-topRight{
+    padding-top:5px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-chip{
+    min-height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    gap: 6px !important;
+  }
+
+  .cx-addTagCombo{
+    width: 150px !important;
+  }
+
+  .cx-addTagInput{
+    height: 30px !important;
+    font-size: 11px !important;
+    padding: 0 8px !important;
+  }
+
+  .cx-addTagButton{
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 30px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadMain{
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .cx-topThreadHead{
+    grid-template-columns: 1fr auto !important;
+  }
+
+  .cx-tagRow{
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:6px !important;
+    max-width: 360px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap:16px !important;
+    align-items:start !important;
+  }
+
+  .cx-topThreadMain{
+    width:auto !important;
+    max-width:none !important;
+    min-width:0 !important;
+  }
+
+  .cx-tagRow{
+    width:auto !important;
+    max-width:100% !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:6px !important;
+  }
+
+  .cx-chip{
+    flex:0 0 auto !important;
+  }
+
+  .cx-topThreadActions{
+    flex:0 0 auto !important;
+    justify-self:end !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadActions > .db-btn{
+    width:86px !important;
+    height:34px !important;
+    min-height:34px !important;
+    padding:0 8px !important;
+    font-size:12px !important;
+  }
+
+.cx-topThreadActions{
+  grid-template-columns:86px 86px 96px !important;
+  gap:6px !important;
+  padding-top:5px !important;
+}
+
+  .cx-chip{
+    min-height:24px !important;
+    padding:0 7px !important;
+    font-size:11px !important;
+    gap:5px !important;
+  }
+
+  .cx-chip button{
+    width:14px !important;
+    height:14px !important;
+    font-size:12px !important;
+  }
+
+  .cx-addTagCombo{
+    width:130px !important;
+  }
+
+  .cx-addTagInput{
+    height:28px !important;
+    font-size:11px !important;
+    padding:0 7px !important;
+  }
+
+  .cx-addTagButton{
+    width:28px !important;
+    min-width:28px !important;
+    height:28px !important;
+  }
+}
+
+.cx-bubble.note{
+  background:#fffbeb !important;
+  border-color:#fde68a !important;
+  color:#78350f !important;
+  box-shadow:none !important;
+}
+
+.cx-bubble.note::before{
+  content:none !important;
+}
+
+.cx-threadFrame{
+  padding-bottom:8px !important;
+}
+
+.cx-dot.alert{
+  animation:cx-needs-human-blink 0.6s ease-in-out 3;
+}
+
+.cx-mobileRoot.cx-noBlink .cx-dot.alert,
+.cx-mobileRoot.cx-noBlink .cx-mobileNeedsHumanDot{
+  animation:none !important;
+}
+
+@media (min-width: 901px){
+  .cx-replyDock{
+    padding-bottom:68px !important;
+  }
+}
+
+
+@media (max-width: 900px){
+  .cx-replyDock{
+    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+
+  .cx-mobileThreadCard{
+    padding-bottom:0 !important;
+  }
+}
+
+/* ===== Fix thread scrolling / composer push ===== */
+
+.cx-threadPane{
+  min-height:0 !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.cx-threadFrame{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.cx-threadMessages{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+}
+
+.cx-msgList{
+  padding-bottom:12px !important;
+}
+
+@media (min-width: 901px){
+  .cx-split{
+    align-items:start !important;
+  }
+
+  .cx-listPane{
+    align-self:start !important;
+    padding-top:0 !important;
+    margin-top:0 !important;
+    transform:none !important;
+  }
+
+  .cx-listPane > .cx-item:first-child{
+    margin-top:0 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-listPane{
+    scroll-behavior:auto !important;
+  }
+}
+
+/* ===== Desktop fixed inbox/thread layout reset ===== */
+@media (min-width: 901px){
+  .db-topSplit{
+    position:relative !important;
+    min-height:104px !important;
+    margin-bottom:12px !important;
+    align-items:start !important;
+  }
+
+  .db-topRight{
+    position:absolute !important;
+    top:0 !important;
+    left:calc(clamp(360px, 30vw, 460px) + 28px) !important;
+    right:0 !important;
+  }
+
+  .cx-split{
+    height:calc(100vh - 80px) !important;
+    min-height:0 !important;
+    align-items:stretch !important;
+    margin-top:0 !important;
+  }
+
+  .cx-listPane{
+    height:100% !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    padding-top:0 !important;
+    margin-top:0 !important;
+  }
+
+  .cx-threadCol,
+.cx-threadPane{
+  height:calc(100% + 14px) !important;
+  min-height:0 !important;
+  margin-top:0 !important;
+}
+  .cx-threadFrame{
+    height:100% !important;
+    min-height:0 !important;
+  }
+
+  .cx-threadMessages{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+  }
+
+  .cx-replyDock{
+    flex:0 0 auto !important;
+    padding-bottom:0px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    overflow:visible !important;
+    z-index:5 !important;
+  }
+
+  .cx-topThreadHead{
+    overflow:visible !important;
+    z-index:6 !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    overflow:visible !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns:minmax(0, 1fr) 300px !important;
+    align-items:start !important;
+    overflow:visible !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    grid-template-columns:86px 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    z-index:20 !important;
+  }
+
+  .cx-topThreadActions .db-btn{
+    display:inline-flex !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    display:flex !important;
+    grid-column:1 / -1 !important;
+    justify-self:end !important;
+    width:130px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topSplit{
+    position:relative !important;
+    z-index:50 !important;
+  }
+
+  .db-topRight{
+    position:absolute !important;
+    top:0 !important;
+    right:0 !important;
+    left:calc(clamp(360px, 30vw, 460px) + 28px) !important;
+    z-index:60 !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadHead{
+    position:relative !important;
+    z-index:70 !important;
+    display:grid !important;
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    overflow:visible !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadActions{
+    position:relative !important;
+    z-index:80 !important;
+    display:grid !important;
+    grid-template-columns:86px 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadActions > .db-btn{
+    display:inline-flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    grid-column:1 / -1 !important;
+    justify-self:end !important;
+    width:130px !important;
+  }
+
+  .cx-split{
+    position:relative !important;
+    z-index:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    position:static !important;
+    display:block !important;
+    overflow:visible !important;
+    z-index:auto !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    overflow:visible !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    grid-template-columns:86px 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-threadPane .cx-threadFrame > .cx-threadHead{
+    display:none !important;
+  }
+}
+
+/* =========================
+   Final mobile safety + Inbox header alignment
+   Keep this at the very end of conversations.css
+========================= */
+
+@media (max-width: 900px){
+  html,
+  body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+    touch-action:pan-y;
+  }
+
+  input,
+  textarea,
+  select,
+  button{
+    font-size:16px !important;
+  }
+
+  .cx-mobileRoot,
+  .cx-mobileStage,
+  .cx-mobileInboxLayer,
+  .cx-mobileThreadLayer,
+  .cx-mobileScreen,
+  .cx-mobileThreadScreen{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+    box-sizing:border-box;
+  }
+
+  .cx-mobileScreen{
+    padding-left:6px !important;
+    padding-right:6px !important;
+    padding-top:env(safe-area-inset-top) !important;
+  }
+
+  .cx-mobileInboxTop{
+    height:68px !important;
+    min-height:68px !important;
+    padding:12px 14px 18px !important;
+    display:grid !important;
+    grid-template-columns:44px 1fr 44px !important;
+    align-items:center !important;
+    background:#f8fafc !important;
+    border-bottom:1px solid #e5e7eb !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileInboxTitle{
+    line-height:1 !important;
+    margin:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    transform:translateY(2px);
+    font-size:16px !important;
+    font-weight:800 !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn{
+    align-self:center !important;
+    justify-self:center !important;
+    transform:translateY(2px);
+    width:44px !important;
+    height:44px !important;
+    min-width:44px !important;
+    min-height:44px !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn svg{
+    width:22px !important;
+    height:22px !important;
+  }
+
+  .cx-mobileSearchWrap,
+  .cx-mobileList{
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileList,
+  .cx-threadMessages{
+    overflow-x:hidden;
+  }
+
+  .cx-item,
+  .cx-threadFrame,
+  .cx-mobileThreadCard,
+  .cx-replyDock,
+  .cx-composerWrap{
+    max-width:100%;
+    overflow-x:hidden;
+    box-sizing:border-box;
+  }
+
+  .cx-preview,
+  .cx-subjectText,
+  .cx-bubble{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+}
+
+@media (max-width: 900px){
+  .cx-rightDrawerOverlay{
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    background:rgba(15,23,42,.28);
+    display:flex;
+    justify-content:flex-end;
+  }
+
+  .cx-rightDrawer{
+    width:min(320px, 86vw);
+    height:100dvh;
+    min-height:100dvh;
+    background:#fff;
+    border-left:1px solid #e5e7eb;
+    box-shadow:-8px 0 24px rgba(15,23,42,.14);
+    padding:16px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .cx-rightDrawer .cx-sheetTop{
+    align-items:flex-start;
+    padding-bottom:12px;
+    border-bottom:1px solid #e5e7eb;
+  }
+
+  .cx-rightDrawer .cx-sheetActions{
+    display:grid;
+    gap:8px;
+  }
+
+  .cx-rightDrawer .db-btn{
+    width:100%;
+    justify-content:flex-start !important;
+    text-align:left !important;
+    height:42px !important;
+    padding:0 14px !important;
+    border-radius:12px !important;
+  }
+
+  .cx-rightDrawer .cx-sheetTags{
+    margin-top:8px;
+  }
+}
+
+.cx-filterMenuItem{
+  width:100%;
+  height:42px;
+  border:none;
+  background:transparent;
+  color:#111827;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  padding:0 12px;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:700;
+}
+
+.cx-filterMenuItem:hover,
+.cx-filterMenuItem.active{
+  background:#f1f5f9;
+}
+
+.cx-rightDrawer .cx-tagRow{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  margin-top:8px !important;
+}
+
+.cx-rightDrawer .cx-sheetTagAdd{
+  display:grid !important;
+  grid-template-columns:1fr 88px !important;
+  gap:8px !important;
+  align-items:center !important;
+}
+
+.cx-rightDrawer .cx-tagInput{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.cx-rightDrawer .cx-tagAddBtn{
+  width:88px !important;
+  justify-content:center !important;
 }

@@ -1,3 +1,5 @@
+// src/components/PricingFAQ.tsx
+
 'use client';
 
 const faqs = [
@@ -29,7 +31,7 @@ const faqs = [
 
 export default function PricingFAQ() {
   return (
-    <section className="container faq" aria-labelledby="pricing-faq-heading">
+    <section className="faq" aria-labelledby="pricing-faq-heading">
       <header className="stack faq-head">
         <h2 id="pricing-faq-heading">Pricing FAQ</h2>
         <p className="small">

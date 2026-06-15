@@ -47,8 +47,7 @@ const [loading, setLoading] = useState(false);
           <p className="eyebrow">Welcome back</p>
           <h1>Log in to TikoZap</h1>
           <p className="sub">
-            Use the email and password you used to create your account to access your dashboard and
-            conversations.
+            Use the email and password you used to create your account.
           </p>
         </div>
       </section>
@@ -93,7 +92,9 @@ const [loading, setLoading] = useState(false);
 ) : null}
 
               <p className="small auth-footnote">
-                Forgot your password? We&apos;ll add reset links once authentication is connected.
+                <Link href="/forgot-password">
+                  Forgot your password?
+                </Link>
               </p>
             </form>
 

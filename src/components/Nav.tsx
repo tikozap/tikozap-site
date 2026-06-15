@@ -8,9 +8,8 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
 const LINKS = [
-  { href: '/features', label: 'Features' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/docs', label: 'Docs' },
+{ href: '/features', label: 'Product' },
+{ href: '/pricing', label: 'Pricing' },
 ];
 
 export default function Nav() {
@@ -44,7 +43,7 @@ const hideGlobalNav =
       {/* Full-width strip */}
       <nav className="nav">
         {/* Centered content – same width as hero, etc. */}
-        <div className="container nav__inner">
+        <div className="container-xl nav__inner">
           {/* Brand: logo + wordmark */}
           <Link href="/" className="nav__brand" aria-label="TikoZap home">
             <Image

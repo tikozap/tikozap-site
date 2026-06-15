@@ -5,18 +5,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { buildSupportReply } from '@/lib/supportAssistant';
-
 
 const KEY_SELECTED = 'tz_db_conversations_selected';
 const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
-
+const KEY_ACTIVE_CUSTOMER_DOT = "tz_setting_active_customer_dot";
+const KEY_BLINK_RED_DOT = "tz_setting_blink_red_dot";
+const KEY_ESCALATION_SOUND = "tz_setting_escalation_sound";
+const KEY_ESCALATION_VIBRATE = "tz_setting_escalation_vibrate";
+const KEY_BROWSER_NOTIFICATIONS = "tz_browser_notifications";
+const KEY_QUIET_HOURS = "tz_setting_quiet_hours";
+const KEY_SOUND_LEVEL = "tz_setting_sound_level";
 
 // ===== Naming =====
 const STAFF_NAME = 'Kevin';
 const STORE_ASSISTANT_NAME = 'Store Assistant';
 const DRAFT_PREFIX = 'Suggested reply (draft — not sent):';
-
 
 type Preview = { role: string; content: string; createdAt: string };
 type ListItem = {
@@ -82,6 +85,16 @@ function orderedThreadMessages(messages: ThreadMessage[], channel?: string) {
   return sorted;
 }
 
+function isCustomerActive(c: ListItem) {
+  if (!c.lastMessageAt) return false;
+
+  const last = new Date(c.lastMessageAt).getTime();
+  if (!Number.isFinite(last)) return false;
+
+  const ACTIVE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+  return Date.now() - last < ACTIVE_WINDOW_MS;
+}
+
 function fmtTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -113,7 +126,7 @@ function roleLabel(role: string) {
   if (role === 'customer') return 'Customer';
   if (role === 'assistant') return STORE_ASSISTANT_NAME;
   if (role === 'staff') return `Staff ${STAFF_NAME}`;
-  if (role === 'note') return 'Internal note';
+  if (role === 'note') return 'Internal note · only visible to your team';
   return role;
 }
 
@@ -181,6 +194,18 @@ export default function ConversationsClient() {
   const [list, setList] = useState<ListItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [thread, setThread] = useState<Thread | null>(null);
+  
+  const [showActiveCustomerDot, setShowActiveCustomerDot] = useState(true);
+  const [blinkRedDot, setBlinkRedDot] = useState(true);
+  const [vibrateOnEscalation, setVibrateOnEscalation] = useState(true);
+
+  const [playEscalationSound, setPlayEscalationSound] = useState(true);
+  const alertedNeedsHumanIdsRef = useRef<Set<string>>(new Set());
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] =
+  useState(true);
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
+  const [soundLevel, setSoundLevel] = useState("Soft");
+
   const searchParams = useSearchParams();
   const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
@@ -193,6 +218,7 @@ export default function ConversationsClient() {
 const [aiDefault, setAiDefault] = useState(true);
 const [previewProduct, setPreviewProduct] = useState<any | null>(null);
 const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+const [selectedImages, setSelectedImages] = useState<any[]>([]);
 const [productPickerOpen, setProductPickerOpen] = useState(false);
 
 const replyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -209,6 +235,8 @@ const startXRef = useRef(0);
 const startYRef = useRef(0);
 const deltaXRef = useRef(0);
 const deltaYRef = useRef(0);
+
+const takeoverKey = (id: string) => `tz_takeover_started_${id}`;
 
 const autoTakeoverTriggeredRef = useRef(false);
 const [showMobileNeedsHumanDot, setShowMobileNeedsHumanDot] = useState(false);
@@ -237,6 +265,7 @@ const [dragX, setDragX] = useState(0);
 const [isClosingThread, setIsClosingThread] = useState(false);
 const revealPct = Math.max(0, Math.min(dragX / 320, 1));
 const [isOpeningThread, setIsOpeningThread] = useState(false);
+const [mobileInboxMenuOpen, setMobileInboxMenuOpen] = useState(false);
 
 useEffect(() => {
   autoTakeoverTriggeredRef.current = false;
@@ -282,7 +311,183 @@ useEffect(() => {
     setThread(data.conversation);
     return data.conversation;
   }, []);
+
+  const autoResumeIdleAi = async (convos: ListItem[]) => {
+  const AUTO_RESUME_MS = 15 * 60 * 1000;
+
+  const now = Date.now();
+
+  for (const c of convos) {
+    if (c.aiEnabled) continue;
+    if (c.status === "closed") continue;
+    if (!c.lastMessageAt) continue;
+
+    const takeoverStarted = Number(localStorage.getItem(takeoverKey(c.id)) || 0);
+if (!Number.isFinite(takeoverStarted) || takeoverStarted <= 0) continue;
+
+if (now - takeoverStarted >= AUTO_RESUME_MS) {
+      await api(`/api/conversations/${c.id}/ai`, {
+        method: "POST",
+        body: JSON.stringify({ aiEnabled: true }),
+      });
+
+      localStorage.removeItem(takeoverKey(c.id));
+
+      if (selectedId === c.id) {
+        await refreshThread(c.id);
+      }
+
+      await refreshList();
+      break;
+    }
+  }
+};
   
+useEffect(() => {
+  const loadSettings = () => {
+    setShowActiveCustomerDot(
+      (localStorage.getItem(KEY_ACTIVE_CUSTOMER_DOT) ?? "1") === "1"
+    );
+
+    setBlinkRedDot(
+      (localStorage.getItem(KEY_BLINK_RED_DOT) ?? "1") === "1"
+    );
+
+    setPlayEscalationSound(
+      (localStorage.getItem(KEY_ESCALATION_SOUND) ?? "1") === "1"
+    );
+
+    setVibrateOnEscalation(
+      (localStorage.getItem(KEY_ESCALATION_VIBRATE) ?? "1") === "1"
+    );
+
+    setQuietHoursEnabled(
+      (localStorage.getItem(KEY_QUIET_HOURS) ?? "0") === "1"
+    );
+
+    setSoundLevel(localStorage.getItem(KEY_SOUND_LEVEL) || "Soft");
+  };
+
+  loadSettings();
+
+  window.addEventListener("tz-settings-change", loadSettings);
+  window.addEventListener("storage", loadSettings);
+
+  return () => {
+    window.removeEventListener("tz-settings-change", loadSettings);
+    window.removeEventListener("storage", loadSettings);
+  };
+}, []);
+
+const playSoftPing = () => {
+  const soundEnabled =
+    (localStorage.getItem(KEY_ESCALATION_SOUND) ?? "1") === "1";
+
+  if (!soundEnabled) return;
+
+  const beep = (delayMs: number) => {
+    window.setTimeout(() => {
+      try {
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        const ctx = new AudioContextClass();
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = 720;
+
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+
+        const currentLevel =
+          localStorage.getItem(KEY_SOUND_LEVEL) || soundLevel || "Soft";
+
+        const peak =
+          currentLevel === "Loud" ? 0.32 :
+          currentLevel === "Standard" ? 0.18 :
+          0.08;
+
+        gain.gain.exponentialRampToValueAtTime(peak, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.2);
+      } catch {
+        // ignore audio restrictions
+      }
+    }, delayMs);
+  };
+
+  beep(0);
+  beep(220);
+};
+
+const vibrateOnce = () => {
+  const vibrationEnabled =
+    (localStorage.getItem(KEY_ESCALATION_VIBRATE) ?? "1") === "1";
+
+  if (!vibrationEnabled) return;
+  if (typeof navigator === "undefined") return;
+  if (!("vibrate" in navigator)) return;
+
+  try {
+    navigator.vibrate(180);
+  } catch {
+    // ignore unsupported devices
+  }
+};
+
+const requestBrowserNotificationPermission = async () => {
+  if (typeof window === "undefined") return false;
+
+  if (!("Notification" in window)) return false;
+
+  if (Notification.permission === "granted") {
+    return true;
+  }
+
+  if (Notification.permission !== "denied") {
+    const result = await Notification.requestPermission();
+    return result === "granted";
+  }
+
+  return false;
+};
+
+const showEscalationNotification = async (
+  customerName: string,
+  preview?: string
+) => {
+  if (!browserNotificationsEnabled) return;
+
+  const allowed = await requestBrowserNotificationPermission();
+
+  if (!allowed) return;
+
+  try {
+    const notification = new Notification("TikoZap • Human help requested", {
+      body:
+        preview ||
+        `${customerName} is waiting for a human response.`,
+      icon: "/icon-192.png",
+      tag: "tikozap-escalation",
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+  } catch {
+    // ignore notification failures
+  }
+};
+
 useEffect(() => {
   (async () => {
     const conversations = await refreshList();
@@ -351,6 +556,7 @@ useEffect(() => {
       if (document.visibilityState !== "visible") return;
 
       const convos = await refreshList();
+      await autoResumeIdleAi(convos);
       const top = convos?.[0];
 const topTs = top?.lastMessageAt
   ? new Date(top.lastMessageAt).getTime()
@@ -424,6 +630,46 @@ if (selectedId) {
         );
       });
   }, [list, q, status]);
+
+        const isQuietHoursNow = () => {
+  if (!quietHoursEnabled) return false;
+
+  const hour = new Date().getHours();
+  return hour >= 22 || hour < 8;
+};
+
+useEffect(() => {
+  for (const c of list) {
+    if (!c.needsHuman) continue;
+
+    if (!alertedNeedsHumanIdsRef.current.has(c.id)) {
+      alertedNeedsHumanIdsRef.current.add(c.id);
+
+if (!isQuietHoursNow()) {
+  playSoftPing();
+
+  vibrateOnce();
+
+  showEscalationNotification(
+    c.customerName || "Customer",
+    c.preview?.content || "Customer needs human help."
+  );
+}
+
+      break;
+    }
+  }
+
+  const activeNeedsHumanIds = new Set(
+    list.filter((c) => c.needsHuman).map((c) => c.id)
+  );
+
+  alertedNeedsHumanIdsRef.current.forEach((id) => {
+    if (!activeNeedsHumanIds.has(id)) {
+      alertedNeedsHumanIdsRef.current.delete(id);
+    }
+  });
+}, [list, playEscalationSound, vibrateOnEscalation, quietHoursEnabled]);
 
 useEffect(() => {
   if (!isMobile) return;
@@ -627,8 +873,11 @@ const stopWelcomeDrag = () => {
     if (!thread) return;
     await api(`/api/conversations/${thread.id}/ai`, { method: 'POST', body: JSON.stringify({ aiEnabled: false }) });
     if (thread.status !== 'closed') {
-      await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'waiting' }) });
+    await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'waiting' }) });
     }
+
+    localStorage.setItem(takeoverKey(thread.id), String(Date.now()));
+
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -766,6 +1015,47 @@ const removeSelectedProduct = (id: string | number) => {
   setSelectedProducts((prev) => prev.filter((p) => String(p.id) !== String(id)));
 };
 
+const addImagesToReply = async (files: FileList | null) => {
+  if (!files || files.length === 0) return;
+
+  if (
+    thread?.aiEnabled &&
+    !autoTakeoverTriggeredRef.current
+  ) {
+    autoTakeoverTriggeredRef.current = true;
+    await ensureHumanTakeoverForDraft();
+  }
+
+  const picked = Array.from(files).slice(0, 3);
+
+  const encoded = await Promise.all(
+    picked.map(
+      (file) =>
+        new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            resolve({
+              type: 'image',
+              name: file.name,
+              dataUrl: String(reader.result || ''),
+            });
+          };
+
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        })
+    )
+  );
+
+  setSelectedImages((prev) => [...prev, ...encoded]);
+  setTimeout(() => replyRef.current?.focus(), 0);
+};
+
+const removeSelectedImage = (index: number) => {
+  setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+};
+
 const autoResizeComposer = () => {
   const el = replyRef.current;
   if (!el) return;
@@ -779,13 +1069,17 @@ const sendStaffReply = async () => {
   if (!thread) return;
 
   const text = draft.trim();
-  const products = selectedProducts;
+  const products = [
+  ...selectedProducts,
+  ...selectedImages,
+];
 
-  if (!text && products.length === 0) return;
+if (!text && products.length === 0) return;
 
   setDraft('');
   setSelectedProducts([]);
-  setSuggestedDraft('');
+setSelectedImages([]);
+setSuggestedDraft('');
 
   await api(`/api/conversations/${thread.id}/message`, {
     method: 'POST',
@@ -795,6 +1089,8 @@ const sendStaffReply = async () => {
       products,
     }),
   });
+
+  localStorage.setItem(takeoverKey(thread.id), String(Date.now()));
 
   await refreshThread(thread.id);
   await refreshList();
@@ -810,19 +1106,39 @@ const sendStaffReply = async () => {
     });
     await refreshThread(thread.id);
     await refreshList();
+    setTimeout(() => {
+  messagesRef.current?.scrollTo({
+    top: messagesRef.current.scrollHeight,
+    behavior: "smooth",
+  });
+}, 80);
   };
 
-  const generateDraft = async () => {
+const generateDraft = async () => {
   if (!thread) return;
 
-  const lastCustomer = [...thread.messages]
-    .reverse()
-    .find((m: any) => m.role === 'customer');
+  try {
+    const res = await fetch(
+      `/api/conversations/${thread.id}/draft`,
+      {
+        method: 'POST',
+      }
+    );
 
-  const customerText = lastCustomer?.content?.trim() || '';
-  const suggestion = buildSupportReply(customerText || 'Customer needs help.').reply;
+    const data = await res.json();
 
-  setSuggestedDraft(suggestion);
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || 'Draft failed');
+    }
+
+    setSuggestedDraft(data.draft || '');
+  } catch (err) {
+    console.error(err);
+
+    setSuggestedDraft(
+      'Sorry — AI could not generate a draft right now.'
+    );
+  }
 };
 
   const insertDraftIntoReply = (noteText: string) => {
@@ -1039,12 +1355,82 @@ const renderProductModal = () => {
   );
 };
 
+const renderMobileInboxMenu = () => {
+  if (!mobileInboxMenuOpen) return null;
+
+  const itemClass = (active: boolean) =>
+    ['cx-filterMenuItem', active ? 'active' : ''].filter(Boolean).join(' ');
+
+  return (
+    <div className="cx-rightDrawerOverlay" onClick={() => setMobileInboxMenuOpen(false)}>
+      <aside className="cx-rightDrawer" onClick={(e) => e.stopPropagation()}>
+        <div className="cx-sheetTop">
+          <div>
+            <div className="cx-sheetTitle">Inbox filters</div>
+            <div className="cx-sheetSub">Show conversations by status</div>
+          </div>
+
+          <button className="cx-sheetClose" onClick={() => setMobileInboxMenuOpen(false)}>
+            ×
+          </button>
+        </div>
+
+        <div className="cx-sheetActions">
+          <button
+            className={itemClass(status === 'all' && !showArchived)}
+            onClick={() => {
+              setStatus('all');
+              setShowArchived(false);
+              setMobileInboxMenuOpen(false);
+            }}
+          >
+            All conversations
+          </button>
+
+          <button
+            className={itemClass(status === 'waiting' && !showArchived)}
+            onClick={() => {
+              setStatus('waiting');
+              setShowArchived(false);
+              setMobileInboxMenuOpen(false);
+            }}
+          >
+            Waiting
+          </button>
+
+          <button
+            className={itemClass(status === 'closed' && !showArchived)}
+            onClick={() => {
+              setStatus('closed');
+              setShowArchived(false);
+              setMobileInboxMenuOpen(false);
+            }}
+          >
+            Closed
+          </button>
+
+          <button
+            className={itemClass(showArchived)}
+            onClick={() => {
+              setStatus('all');
+              setShowArchived(true);
+              setMobileInboxMenuOpen(false);
+            }}
+          >
+            Archived
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+};
+
 const renderThreadMenuSheet = () => {
   if (!thread || !threadMenuOpen) return null;
 
   return (
-    <div className="cx-sheetOverlay" onClick={() => setThreadMenuOpen(false)}>
-      <div className="cx-sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="cx-rightDrawerOverlay" onClick={() => setThreadMenuOpen(false)}>
+  <aside className="cx-rightDrawer" onClick={(e) => e.stopPropagation()}>
         <div className="cx-sheetTop">
           <div>
             <div className="cx-sheetTitle">{thread.customerName}</div>
@@ -1057,49 +1443,71 @@ const renderThreadMenuSheet = () => {
           </button>
         </div>
 
-        <div className="cx-sheetActions">
-          {thread.aiEnabled ? (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await takeOverThisChat(); }}>
-              Take over
-            </button>
-          ) : (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await resumeAiThisChat(); }}>
-              Resume AI
-            </button>
-          )}
+<div className="cx-sheetActions">
+  {thread.status !== 'closed' ? (
+    <button
+      className="db-btn"
+      onClick={async () => {
+        setThreadMenuOpen(false);
+        await setConvStatus('closed');
+      }}
+    >
+      Close
+    </button>
+  ) : (
+    <button
+      className="db-btn"
+      onClick={async () => {
+        setThreadMenuOpen(false);
+        await setConvStatus('open');
+      }}
+    >
+      Reopen
+    </button>
+  )}
 
-          <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await generateDraft(); }}>
-            Generate draft
-          </button>
+  <button
+    className="db-btn"
+    onClick={async () => {
+      setThreadMenuOpen(false);
+      await setConvStatus('waiting');
+    }}
+  >
+    Mark waiting
+  </button>
 
-          <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await addInternalNote(); }}>
-            Add note
-          </button>
+  {thread.archivedAt ? (
+    <button
+      className="db-btn"
+      onClick={async () => {
+        setThreadMenuOpen(false);
+        await restoreThisChat();
+      }}
+    >
+      Restore
+    </button>
+  ) : (
+    <button
+      className="db-btn"
+      onClick={async () => {
+        setThreadMenuOpen(false);
+        await archiveThisChat();
+      }}
+    >
+      Archive
+    </button>
+  )}
 
-          {thread.status !== 'closed' ? (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await setConvStatus('closed'); }}>
-              Close
-            </button>
-          ) : (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await setConvStatus('open'); }}>
-              Reopen
-            </button>
-          )}
-
-          <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await setConvStatus('waiting'); }}>
-            Mark waiting
-          </button>
-
-          {thread.archivedAt ? (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await restoreThisChat(); }}>
-              Restore
-            </button>
-          ) : (
-            <button className="db-btn" onClick={async () => { setThreadMenuOpen(false); await archiveThisChat(); }}>
-              Archive
-            </button>
-          )}
-        </div>
+  <button
+    className="db-btn"
+    onClick={async () => {
+      setThreadMenuOpen(false);
+      await addInternalNote();
+    }}
+  >
+    Add note
+  </button>
+</div>
 
         <div className="cx-sheetTags">
           <div className="cx-sheetSectionLabel">Tags</div>
@@ -1118,23 +1526,25 @@ const renderThreadMenuSheet = () => {
             ))}
           </div>
 
-          <div className="cx-sheetTagAdd">
-            <input
-              className="cx-tagInput"
-              value={tagDraft}
-              onChange={(e) => setTagDraft(e.target.value)}
-              placeholder="Add tag…"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-            />
-            <button className="db-btn" onClick={addTag}>Add</button>
-          </div>
+<div className="cx-sheetTagAdd">
+  <input
+    className="cx-tagInput"
+    value={tagDraft}
+    onChange={(e) => setTagDraft(e.target.value)}
+    placeholder="Add tag…"
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTag();
+      }
+    }}
+  />
+  <button className="db-btn cx-tagAddBtn" onClick={addTag}>
+    Add
+  </button>
+</div>
         </div>
-      </div>
+      </aside>
     </div>
   );
 };
@@ -1180,9 +1590,11 @@ const renderConversationList = () => (
       </div>
 
       <div className="cx-indicators">
-        {c.needsHuman && <span className="cx-dot alert" title="Needs human" />}
-        {c.unread && <span className="cx-dot unread" title="Unread" />}
-      </div>
+  {c.needsHuman && <span className="cx-dot alert" title="Needs human" />}
+  {showActiveCustomerDot && isCustomerActive(c) && (
+  <span className="cx-dot unread" title="Customer active now" />
+)}
+</div>
     </div>
 
     <div className="cx-preview">
@@ -1360,7 +1772,7 @@ const visibleTags = (thread.tags || []).filter(
   />
 
   <button className="cx-addTagButton" onClick={addTag} aria-label="Add tag">
-    →
+    ↑
   </button>
 </div>
               </div>
@@ -1390,59 +1802,87 @@ const visibleTags = (thread.tags || []).filter(
                 >
                   <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
 
-                  {Array.isArray((m as any).products) && (m as any).products.length > 0 ? (
-                    <div className="cx-productList">
-                      {(m as any).products.map((p: any, idx: number) => {
-                        const priceText =
-                          typeof p.price === 'number'
-                            ? `$${p.price.toFixed(2)}`
-                            : p.price
-                              ? String(p.price)
-                              : '';
+{Array.isArray((m as any).products) && (m as any).products.length > 0 ? (
+  <div className="cx-productList">
+    {(m as any).products.map((p: any, idx: number) => {
+      if (p?.type === 'image' && p?.dataUrl) {
+        return (
+          <button
+            key={p.name ?? idx}
+            type="button"
+            className="cx-productRow cx-productRow--clickable"
+            onClick={() => {
+              setPreviewProduct({
+                title: p.name || 'Image',
+                image: p.dataUrl,
+                price: '',
+                available: true,
+                url: '#',
+              });
+            }}
+            title="Image preview"
+          >
+            <div className="cx-productLeft">
+              <img
+                src={p.dataUrl}
+                alt={p.name || 'Attached image'}
+                className="cx-productThumb"
+              />
 
-                        const stockText =
-                          p.available === false ? 'Unavailable' : 'In stock';
+              <div className="cx-productMeta">
+                <div className="cx-productTitle">{p.name || 'Attached image'}</div>
+                <div className="cx-productStock">Image attachment</div>
+              </div>
+            </div>
+          </button>
+        );
+      }
 
-                        const href =
-                          typeof p.url === 'string' && p.url.trim() && p.url !== '#'
-                            ? p.url
-                            : '';
+      const priceText =
+        typeof p.price === 'number'
+          ? `$${p.price.toFixed(2)}`
+          : p.price
+            ? String(p.price)
+            : '';
 
-                        return (
-                          <button
-                            key={p.id ?? idx}
-                            type="button"
-                            className="cx-productRow cx-productRow--clickable"
-                            onClick={() => {
-                              setPreviewProduct(p);
-                            }}
-                            title="Product preview"
-                          >
-                            <div className="cx-productLeft">
-                              {p.image ? (
-                                <img
-                                  src={p.image}
-                                  alt={p.title || 'Product'}
-                                  className="cx-productThumb"
-                                />
-                              ) : (
-                                <div className="cx-productThumb cx-productThumb--placeholder" />
-                              )}
+      const stockText =
+        p.available === false ? 'Unavailable' : 'In stock';
 
-                              <div className="cx-productMeta">
-                                <div className="cx-productTitle">{p.title || 'Product'}</div>
-                                <div className="cx-productStock">{stockText}</div>
-                              </div>
-                            </div>
+      return (
+        <button
+          key={p.id ?? idx}
+          type="button"
+          className="cx-productRow cx-productRow--clickable"
+          onClick={() => {
+            setPreviewProduct(p);
+          }}
+          title="Product preview"
+        >
+          <div className="cx-productLeft">
+            {p.image ? (
+              <img
+                src={p.image}
+                alt={p.title || 'Product'}
+                className="cx-productThumb"
+              />
+            ) : (
+              <div className="cx-productThumb cx-productThumb--placeholder" />
+            )}
 
-                            <div className="cx-productRight">
-                              <div className="cx-productPrice">{priceText}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+            <div className="cx-productMeta">
+              <div className="cx-productTitle">{p.title || 'Product'}</div>
+              <div className="cx-productStock">{stockText}</div>
+            </div>
+          </div>
+
+          <div className="cx-productRight">
+            <div className="cx-productPrice">{priceText}</div>
+          </div>
+        </button>
+      );
+    })}
+  </div>
+) : null}
 
                   {showInsert && (
                     <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
@@ -1472,7 +1912,7 @@ const visibleTags = (thread.tags || []).filter(
     }}
   >
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-      <strong style={{ fontSize: 11 }}>Suggested draft. Click to insert.</strong>
+      <strong style={{ fontSize: 11 }}>AI's draft — click to insert.</strong>
       <button
   type="button"
   onClick={() => setSuggestedDraft('')}
@@ -1524,7 +1964,7 @@ const visibleTags = (thread.tags || []).filter(
 }}
   title="Click to insert into reply"
 >
-  {suggestedDraft || 'Draft is empty. Try Generate draft again.'}
+  {suggestedDraft || "Draft is empty. Try AI's draft again."}
 </div>
 
 
@@ -1539,16 +1979,22 @@ const visibleTags = (thread.tags || []).filter(
     <div className="cx-replyQuickActions">
   {primaryAiAction}
 
-  <button
-    className="db-btn"
-    type="button"
-    onClick={() => setProductPickerOpen(true)}
-  >
-    Insert product
-  </button>
+<label className="db-btn" style={{ cursor: 'pointer' }}>
+  Add image
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    hidden
+    onChange={(e) => {
+      void addImagesToReply(e.target.files);
+      e.currentTarget.value = '';
+    }}
+  />
+</label>
 
   <button className="db-btn" onClick={generateDraft}>
-    Generate draft
+    AI's draft
   </button>
 </div>
   </div>
@@ -1563,6 +2009,35 @@ const visibleTags = (thread.tags || []).filter(
           type="button"
           onClick={() => removeSelectedProduct(p.id)}
           aria-label={`Remove ${p.title || 'product'}`}
+        >
+          ×
+        </button>
+      </div>
+    ))}
+  </div>
+)}
+{selectedImages.length > 0 && (
+  <div className="cx-selectedProducts">
+    {selectedImages.map((img: any, idx: number) => (
+      <div key={`${img.name}-${idx}`} className="cx-selectedProductChip">
+        <img
+          src={img.dataUrl}
+          alt={img.name || 'Selected image'}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            objectFit: 'cover',
+            marginRight: 6,
+          }}
+        />
+
+        <span>{img.name || 'Image'}</span>
+
+        <button
+          type="button"
+          onClick={() => removeSelectedImage(idx)}
+          aria-label={`Remove ${img.name || 'image'}`}
         >
           ×
         </button>
@@ -1591,10 +2066,6 @@ const visibleTags = (thread.tags || []).filter(
   onKeyDown={async (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-
-      const text = draft.trim();
-      if (!text) return;
-
       await sendStaffReply();
     }
   }}
@@ -1642,18 +2113,35 @@ const renderMobileInboxScreen = () => (
     color: '#111827',
   }}
 >
-  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-    <line x1="9" y1="5" x2="9" y2="19" stroke="currentColor" strokeWidth="2" />
-  </svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+  <rect
+    x="4"
+    y="3"
+    width="16"
+    height="18"
+    rx="2"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  />
+  <line
+    x1="10"
+    y1="3"
+    x2="10"
+    y2="21"
+    stroke="currentColor"
+    strokeWidth="2"
+  />
+</svg>
 </button>
 
       <div className="cx-mobileInboxTitle">Inbox</div>
 
-     <button
+<button
   type="button"
   className="cx-mobileTopBtn"
-  aria-label="More"
+  aria-label="Inbox filters"
+  onClick={() => setMobileInboxMenuOpen(true)}
   style={{
     WebkitAppearance: 'none',
     appearance: 'none',
@@ -1718,17 +2206,33 @@ const renderDesktopLayout = () => (
   <div className="db-topRight">
     {thread ? (
       <div className="cx-topThreadHead">
-        <div className="cx-topThreadMain">
-          <div className="cx-threadName">
-            {thread.customerName || thread.subject || 'Conversation'}
-          </div>
+<div className="cx-topThreadMain">
+  <div className="cx-threadName">
+    {thread.customerName || thread.subject || 'Conversation'}
+  </div>
 
-          <div className="cx-threadMeta">
-            <span className="cx-inlineLabel">
-              {currentChannel} · {thread.status === 'open' ? 'Active' : thread.status}
-            </span>
-          </div>
-        </div>
+  <div className="cx-threadMeta">
+    <span className="cx-inlineLabel">
+      {currentChannel} · {thread.status === 'open' ? 'Active' : thread.status}
+    </span>
+  </div>
+
+  <div className="cx-tagRow">
+    {(thread.tags || [])
+      .filter((t: any) => !(
+        typeof t === "string" &&
+        ["starter-link", "no-website", "widget-test", "order-status"].includes(t)
+      ))
+      .map((t: any) => (
+        <span className="cx-chip" key={t}>
+          {typeof t === "string" ? t.charAt(0).toUpperCase() + t.slice(1) : t}
+          <button onClick={() => removeTag(t)} aria-label={`Remove tag ${t}`}>
+            ×
+          </button>
+        </span>
+      ))}
+  </div>
+</div>
 
         <div className="cx-topThreadActions">
           <button className="db-btn" onClick={addInternalNote}>
@@ -1764,7 +2268,7 @@ const renderDesktopLayout = () => (
             />
 
             <button className="cx-addTagButton" onClick={addTag} aria-label="Add tag">
-              →
+              ↑
             </button>
           </div>
         </div>
@@ -1995,13 +2499,14 @@ const renderWelcomeTestModal = () => {
 };
 
   return (
-  <div className="cx-mobileRoot">
+  <div className={["cx-mobileRoot", blinkRedDot ? "" : "cx-noBlink"].filter(Boolean).join(" ")}>
     {isMobile ? renderMobileLayout() : renderDesktopLayout()}
 
     {renderProductModal()}
-{renderProductPicker()}
-{renderThreadMenuSheet()}
-{renderWelcomeTestModal()}
+    {renderProductPicker()}
+    {renderMobileInboxMenu()}
+    {renderThreadMenuSheet()}
+    {renderWelcomeTestModal()}
   </div>
 );
 }

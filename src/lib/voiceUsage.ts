@@ -1,7 +1,5 @@
 // src/lib/voiceUsage.ts
 
-// src/lib/voiceUsage.ts
-
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
@@ -18,21 +16,29 @@ export type VoiceUsageSummary = {
   utilizationPct: number;
 
   periodStart: string | null;
+
+  freeQuestionsLimitDaily: number;
+  freeQuestionsUsedToday: number;
+  freeQuestionsRemainingToday: number;
+  freeQuestionsDate: string | null;
+  freeQuestionsTotal: number;
 };
+
+const FREE_VOICE_QUESTIONS_PER_DAY = 20;
 
 function startOfCurrentMonthUtc() {
   const now = new Date();
 
   return new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      1,
-      0,
-      0,
-      0,
-      0
-    )
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+  );
+}
+
+function startOfTodayUtc() {
+  const now = new Date();
+
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
   );
 }
 
@@ -47,8 +53,11 @@ export async function getTenantVoiceUsage(
 
       voiceMinutesLimit: true,
       voiceMinutesUsed: true,
-
       voiceUsagePeriodStart: true,
+
+      voiceQuestionsToday: true,
+      voiceQuestionsDate: true,
+      voiceQuestionsTotal: true,
     },
   });
 
@@ -57,33 +66,57 @@ export async function getTenantVoiceUsage(
   }
 
   const currentMonthStart = startOfCurrentMonthUtc();
+  const todayStart = startOfTodayUtc();
 
-  const needsReset =
+  const needsMonthReset =
     !tenant.voiceUsagePeriodStart ||
     tenant.voiceUsagePeriodStart < currentMonthStart;
 
-  if (needsReset) {
-    await prisma.tenant.update({
+  const needsDailyQuestionReset =
+    !tenant.voiceQuestionsDate || tenant.voiceQuestionsDate < todayStart;
+
+  if (needsMonthReset || needsDailyQuestionReset) {
+    const updated = await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        voiceMinutesUsed: 0,
-        voiceUsagePeriodStart: currentMonthStart,
+        ...(needsMonthReset
+          ? {
+              voiceMinutesUsed: 0,
+              voiceUsagePeriodStart: currentMonthStart,
+            }
+          : {}),
+        ...(needsDailyQuestionReset
+          ? {
+              voiceQuestionsToday: 0,
+              voiceQuestionsDate: todayStart,
+            }
+          : {}),
+      },
+      select: {
+        voiceEnabled: true,
+        voicePack: true,
+
+        voiceMinutesLimit: true,
+        voiceMinutesUsed: true,
+        voiceUsagePeriodStart: true,
+
+        voiceQuestionsToday: true,
+        voiceQuestionsDate: true,
+        voiceQuestionsTotal: true,
       },
     });
 
-    tenant.voiceMinutesUsed = 0;
-    tenant.voiceUsagePeriodStart = currentMonthStart;
+    Object.assign(tenant, updated);
   }
 
   const limit = tenant.voiceMinutesLimit || 0;
   const used = tenant.voiceMinutesUsed || 0;
-
   const remaining = Math.max(0, limit - used);
 
   const utilizationPct =
-    limit > 0
-      ? Math.min(100, Math.round((used / limit) * 100))
-      : 0;
+    limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
+  const questionsUsedToday = tenant.voiceQuestionsToday || 0;
 
   return {
     enabled: tenant.voiceEnabled,
@@ -99,6 +132,17 @@ export async function getTenantVoiceUsage(
     periodStart: tenant.voiceUsagePeriodStart
       ? tenant.voiceUsagePeriodStart.toISOString()
       : null,
+
+    freeQuestionsLimitDaily: FREE_VOICE_QUESTIONS_PER_DAY,
+    freeQuestionsUsedToday: questionsUsedToday,
+    freeQuestionsRemainingToday: Math.max(
+      0,
+      FREE_VOICE_QUESTIONS_PER_DAY - questionsUsedToday
+    ),
+    freeQuestionsDate: tenant.voiceQuestionsDate
+      ? tenant.voiceQuestionsDate.toISOString()
+      : null,
+    freeQuestionsTotal: tenant.voiceQuestionsTotal || 0,
   };
 }
 
@@ -108,14 +152,15 @@ export async function incrementVoiceUsage(
 ) {
   const usage = await getTenantVoiceUsage(tenantId);
 
-  if (!usage.enabled) {
-    return {
-      ok: false,
-      reason: 'VOICE_DISABLED',
-    };
-  }
+  const hasFreeQuestionRemaining =
+    usage.freeQuestionsUsedToday < usage.freeQuestionsLimitDaily;
 
-  if (usage.usedMinutes + minutesToAdd > usage.limitMinutes) {
+  const hasPaidVoiceMinutes =
+    usage.enabled &&
+    usage.limitMinutes > 0 &&
+    usage.usedMinutes + minutesToAdd <= usage.limitMinutes;
+
+  if (!hasFreeQuestionRemaining && !hasPaidVoiceMinutes) {
     return {
       ok: false,
       reason: 'VOICE_LIMIT_REACHED',
@@ -125,9 +170,20 @@ export async function incrementVoiceUsage(
   await prisma.tenant.update({
     where: { id: tenantId },
     data: {
-      voiceMinutesUsed: {
-        increment: minutesToAdd,
+      voiceQuestionsToday: {
+        increment: 1,
       },
+      voiceQuestionsTotal: {
+        increment: 1,
+      },
+
+      ...(hasPaidVoiceMinutes && !hasFreeQuestionRemaining
+        ? {
+            voiceMinutesUsed: {
+              increment: minutesToAdd,
+            },
+          }
+        : {}),
     },
   });
 

@@ -1,213 +1,444 @@
-'use client';
+// src/app/features/page.tsx
 
-import Link from 'next/link';
+"use client";
 
-const coreFeatures = [
+import Image from "next/image";
+import Link from "next/link";
+
+const productFeatures = [
   {
-    id: 'ai-support',
-    title: '24/7 AI support',
-    icon: '⚡️',
-    body: 'Instant answers around the clock powered by ChatGPT, your FAQs, and store knowledge—no waiting in line.',
-    href: '/docs#ai-support',
+    title: "AI customer support",
+    body: "24/7 answers for products, orders, shipping, and returns.",
   },
   {
-    id: 'store-aware',
-    title: 'Store-aware answers',
-    icon: '🛒',
-    body: 'Grounded in your catalog, orders, shipping rules, and policies so replies are always specific to your shop.',
-    href: '/docs#store-aware',
+    title: "Human handoff",
+    body: "Take over any conversation when a customer needs a person.",
   },
   {
-    id: 'omnichannel',
-    title: 'Omnichannel inbox',
-    icon: '💬',
-    body: 'One AI agent for your site widget, email, and more, so customers get consistent help wherever they show up.',
-    href: '/docs#omnichannel',
+    title: "Omnichannel inbox",
+    body: "Monitor AI and human conversations in one place.",
   },
   {
-    id: 'easy-install',
-    title: 'One-click install',
-    icon: '🔌',
-    body: 'Drop-in script, app install, or Starter Link for no-website SBOs. Launch in minutes without an engineering team.',
-    href: '/docs#easy-install',
+    title: "Website widget & Starter Link",
+    body: "Works with your website, or launch with Starter Link if you don't have one.",
   },
   {
-    id: 'proactive',
-    title: 'Proactive engagement',
-    icon: '🎯',
-    body: 'Targeted prompts that rescue abandoned carts, answer pre-sale questions, and keep customers moving.',
-    href: '/docs#proactive',
+    title: "Store-aware & multilingual",
+    body: "Answers based on your products, FAQs, and policies—in your customers' language.",
   },
   {
-    id: 'multilingual',
-    title: 'Multilingual & sentiment-aware',
-    icon: '🌍',
-    body: 'Detects language and mood automatically. Responds kindly in your customer’s preferred language.',
-    href: '/docs#multilingual',
-  },
-  {
-    id: 'safe-actions',
-    title: 'Safe actions & guardrails',
-    icon: '🛡️',
-    body: 'Only runs approved workflows—like refunds or discounts—with strong safety filters and data privacy.',
-    href: '/docs#safe-actions',
-  },
-  {
-    id: 'handoff',
-    title: 'Human handoff',
-    icon: '👥',
-    body: 'Hand tricky conversations to a human in a click, with full context so no one has to repeat themselves.',
-    href: '/docs#handoff',
-  },
-  {
-    id: 'analytics',
-    title: 'Analytics & control center',
-    icon: '📊',
-    body: 'Monitor volume, resolution rate, and satisfaction. Tune rules and responses from one simple dashboard.',
-    href: '/docs#analytics',
+    title: "Security & privacy",
+    body: "Your data stays yours. Guardrails, alerts, and ownership controls built in.",
   },
 ];
 
-export default function FeaturesPage() {
+const steps = [
+  {
+    title: "Customer asks",
+    body: "Customers can chat from your website or Starter Link.",
+  },
+  {
+    title: "AI responds",
+    body: "AI Assistant answers product, shipping, return, and order questions instantly.",
+  },
+  {
+    title: "Human takes over",
+    body: "Need a person? Take over the conversation at any time.",
+  },
+  {
+    title: "One inbox",
+    body: "AI and human conversations live together in a single workspace.",
+  },
+];
+
+const faqs = [
+  {
+    q: "Do I need a website?",
+    a: "No. If you do not have a website, you can launch with Starter Link and share your store link anywhere.",
+  },
+  {
+    q: "Can I use TikoZap on my existing website?",
+    a: "Yes. Add the TikoZap widget to your website so customers can ask questions directly.",
+  },
+  {
+    q: "Can I take over conversations?",
+    a: "Yes. You can pause AI and reply as a human whenever a customer needs personal help.",
+  },
+  {
+    q: "Does TikoZap support multiple languages?",
+    a: "Yes. TikoZap can help customers in different languages based on their questions.",
+  },
+  {
+    q: "Can TikoZap answer from my store information?",
+    a: "Yes. It can use your products, FAQs, policies, and support content to answer more accurately.",
+  },
+  {
+    q: "Is my data secure?",
+    a: "Your workspace data stays yours. TikoZap is designed with privacy, guardrails, and ownership controls in mind.",
+  },
+];
+
+export default function ProductPage() {
   return (
-    <main id="main" className="features-page">
-      {/* Unified page hero: title + one-line subtitle */}
-      <section className="page-hero">
-        <div className="container">
-          <h1>Features</h1>
-          <p className="small">
-            Everything you need for fast, reliable AI support.
+    <main id="main" className="product-page">
+      <section className="product-hero">
+        <div className="container-xl product-hero-inner">
+          <h1>
+            Support your customers
+            <br />
+            around the clock
+          </h1>
+
+          <p>
+            AI support 24/7, human handoff, multilingual answers, and security built in.
           </p>
+
+          <div className="product-orbit-wrap">
+            <Image
+              src="/art/product-orbit.png"
+              alt="TikoZap product overview with support, multilingual chat, security, live chat, and human handoff"
+              width={1200}
+              height={800}
+              className="product-orbit"
+              priority
+            />
+          </div>
         </div>
       </section>
 
-      {/* 9-square feature grid */}
-      <section className="features-main">
-        <div className="container">
-          <div className="features-main__intro">
-            <p className="lead">
-              Nine core capabilities that make TikoZap feel like a trained support teammate,
-              not just another chatbot.
-            </p>
-            <p className="hint">
-              Each tile below links to a short explanation in the docs.
-            </p>
-          </div>
-
-          <div className="features-grid">
-            {coreFeatures.map((feature: any) => (
-              <article key={feature.id} className="feature-card" id={feature.id}>
-                <div className="feature-icon" aria-hidden="true">
-                  <span>{feature.icon}</span>
-                </div>
-                <h2 className="feature-title">{feature.title}</h2>
-                <p className="feature-body">{feature.body}</p>
-                <div className="feature-link-wrap">
-                  <Link href={feature.href} className="feature-link">
-                    Read the docs →
-                  </Link>
-                </div>
+      <section className="product-section features-section">
+        <div className="container-xl">
+          <div className="feature-grid">
+            {productFeatures.map((feature) => (
+              <article className="feature-card" key={feature.title}>
+                <h2>{feature.title}</h2>
+                <p>{feature.body}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
-    </main>
-  );
+
+      <section className="product-section how-section">
+        <div className="container-xl">
+          <header className="section-head">
+            <h2>How TikoZap works</h2>
+            <p>From customer questions to human support—all in one workflow.</p>
+          </header>
+
+          <div className="steps-grid">
+            {steps.map((step, index) => (
+              <article className="step-item" key={step.title}>
+                <span className="step-watermark">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="product-section faq-section">
+        <div className="container-xl faq-shell">
+          <header className="section-head">
+            <h2>Product FAQ</h2>
+            <p>Quick answers for store owners getting started with TikoZap.</p>
+          </header>
+
+          <div className="faq-list">
+            {faqs.map((item) => (
+              <details className="faq-item" key={item.q}>
+                <summary>
+                  <span>{item.q}</span>
+                  <span className="faq-arrow" aria-hidden="true" />
+                </summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="product-cta">
+        <div className="container-xl">
+          <Link href="/signup?plan=pro" className="button">
+            Get started free
+          </Link>
+          <p>You&apos;ll start with a 14-day Pro trial. No credit card required.</p>
+        </div>
+      </section>
+
+      <style jsx>{`
+        .product-hero {
+          background: #ffffff;
+          padding: 3.25rem 0 2.25rem;
+        }
+
+        .product-hero-inner {
+          text-align: center;
+        }
+
+        .product-hero h1 {
+          max-width: 980px;
+          margin: 0 auto;
+          font-size: clamp(38px, 4.4vw, 62px);
+          line-height: 1.03;
+          letter-spacing: -0.055em;
+          font-weight: 850;
+          color: #111827;
+        }
+
+        .product-hero p {
+          max-width: 860px;
+          margin: 1.1rem auto 0;
+          font-size: clamp(17px, 1.35vw, 21px);
+          line-height: 1.55;
+          color: #64748b;
+        }
+
+        .product-orbit-wrap {
+          margin: 2.1rem auto 0;
+          max-width: 850px;
+        }
+
+        .product-orbit {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+
+        .product-section {
+          background: #ffffff;
+          padding: 3rem 0;
+        }
+
+        .features-section {
+          padding-top: 1.5rem;
+        }
+
+        .feature-grid {
+          display: grid;
+          gap: 1.25rem;
+        }
+
+        .feature-card {
+          border: 1px solid rgba(203, 213, 225, 0.9);
+          border-radius: 1.35rem;
+          background: #ffffff;
+          padding: 1.7rem;
+          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.055);
+        }
+
+        .feature-card h2 {
+          margin: 0;
+          font-size: 1.25rem;
+          line-height: 1.25;
+          font-weight: 800;
+          color: #111827;
+        }
+
+        .feature-card p {
+          margin: 0.75rem 0 0;
+          color: #4b5563;
+          line-height: 1.6;
+          font-size: 1rem;
+        }
+
+.how-section {
+  background: #f8fafc;
+  padding: 4rem 0 3.5rem;
 }
 
-/* ——— Tiny inline icons (kept for future use) ——— */
-function iconFor(name: string) {
-  const common = {
-    width: 22,
-    height: 22,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-  } as any;
+        .section-head {
+          max-width: 760px;
+          margin-bottom: 2rem;
+        }
 
-  switch (name) {
-    case 'inbox':
-      return (
-        <svg {...common}>
-          <path d="M4 13h4l2 3h4l2-3h4" />
-          <path d="M22 13V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v6" />
-          <path d="M2 13v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4" />
-        </svg>
-      );
-    case 'chat':
-      return (
-        <svg {...common}>
-          <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-          <path d="M8 9h8M8 13h6" />
-        </svg>
-      );
-    case 'flow':
-      return (
-        <svg {...common}>
-          <circle cx="6" cy="6" r="3" />
-          <circle cx="18" cy="6" r="3" />
-          <circle cx="18" cy="18" r="3" />
-          <path d="M9 6h6M6 9v6a3 3 0 0 0 3 3h6" />
-        </svg>
-      );
-    case 'spark':
-      return (
-        <svg {...common}>
-          <path d="M12 2v6M12 16v6" />
-          <path d="M2 12h6M16 12h6" />
-          <path d="M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4" />
-        </svg>
-      );
-    case 'book':
-      return (
-        <svg {...common}>
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-          <path d="M20 22V5a2 2 0 0 0-2-2H7" />
-          <path d="M4 22V4a2 2 0 0 1 2-2h11" />
-        </svg>
-      );
-    case 'mood':
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="10" />
-          <path d="M8 15s1.5 2 4 2 4-2 4-2" />
-          <path d="M9 9h.01M15 9h.01" />
-        </svg>
-      );
-    case 'shield':
-      return (
-        <svg {...common}>
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      );
-    case 'handoff':
-      return (
-        <svg {...common}>
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-          <path d="M7 9l5-4 5 4M7 15l5 4 5-4" />
-        </svg>
-      );
-    case 'chart':
-      return (
-        <svg {...common}>
-          <path d="M3 3v18h18" />
-          <rect x="7" y="12" width="3" height="6" />
-          <rect x="12" y="8" width="3" height="10" />
-          <rect x="17" y="5" width="3" height="13" />
-        </svg>
-      );
-    case 'pulse':
-      return (
-        <svg {...common}>
-          <path d="M3 12h3l3 7 4-14 3 7h5" />
-        </svg>
-      );
-    default:
-      return null;
+        .section-head h2 {
+          margin: 0;
+          font-size: clamp(34px, 3.3vw, 48px);
+          line-height: 1.05;
+          letter-spacing: -0.045em;
+          font-weight: 800;
+          color: #111827;
+        }
+
+        .section-head p {
+          margin: 0.85rem 0 0;
+          color: #64748b;
+          font-size: 1.1rem;
+          line-height: 1.55;
+        }
+
+        .steps-grid {
+          display: grid;
+          gap: 1.4rem;
+        }
+
+.step-item {
+  position: relative;
+  min-height: 135px;
+  padding: 0.8rem 0.75rem 1.1rem 0;
+}
+
+.step-watermark {
+  position: absolute;
+  top: 20px;
+  left: 35%;
+  transform: translateX(-50%);
+  font-size: 6.8rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  color: rgba(37, 99, 235, 0.055);
+  pointer-events: none;
+  user-select: none;
+}
+
+.step-item h3 {
+  position: relative;
+  margin: 1.65rem 0 0;
+  color: #111827;
+  font-size: 1.15rem;
+  font-weight: 800;
+  z-index: 1;
+}
+
+.step-item p {
+  position: relative;
+  margin: 0.55rem 0 0;
+  color: #4b5563;
+  line-height: 1.6;
+  max-width: 16rem;
+  z-index: 1;
+}
+
+        .faq-shell {
+          max-width: 1000px;
+        }
+
+        .faq-list {
+          display: grid;
+          gap: 0.7rem;
+        }
+
+        .faq-item {
+          border-radius: 0.9rem;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+          padding: 0.85rem 1rem;
+        }
+
+        .faq-item summary {
+          list-style: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          color: #111827;
+          font-weight: 650;
+        }
+
+        .faq-item summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .faq-arrow {
+          width: 11px;
+          height: 11px;
+          border-right: 1.6px solid #6b7280;
+          border-bottom: 1.6px solid #6b7280;
+          transform: rotate(45deg);
+          transition: transform 0.18s ease;
+          flex: 0 0 auto;
+        }
+
+        details[open] .faq-arrow {
+          transform: rotate(-135deg);
+        }
+
+        .faq-item p {
+          margin: 0.65rem 0 0;
+          color: #4b5563;
+          line-height: 1.6;
+        }
+
+        .product-cta {
+          background: #ffffff;
+          padding: 1.5rem 0 3rem;
+          text-align: center;
+        }
+
+        .product-cta .button {
+          min-width: 170px;
+          padding: 0.9rem 1.35rem;
+          font-size: 1rem;
+          border-radius: 0.8rem;
+        }
+
+        .product-cta p {
+          margin: 0.7rem 0 0;
+          color: #64748b;
+          font-size: 0.95rem;
+        }
+
+        @media (min-width: 768px) {
+          .feature-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          .steps-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+        }
+
+@media (max-width: 767px) {
+  .steps-grid {
+    gap: 2.25rem;
   }
+
+  .step-item {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    column-gap: 1.25rem;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .step-watermark {
+    position: static;
+    transform: none;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    font-size: 5.6rem;
+    line-height: 0.9;
+    color: rgba(37, 99, 235, 0.075);
+  }
+
+  .step-item h3 {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .step-item p {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0.55rem;
+    max-width: none;
+  }
+
+.product-orbit-wrap {
+  max-width: 108%;
+  width: 108%;
+  margin-left: -4%;
+  margin-right: -4%;
+}
+}
+      `}</style>
+    </main>
+  );
 }

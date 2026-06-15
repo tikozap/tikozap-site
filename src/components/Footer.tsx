@@ -31,7 +31,7 @@ if (
 
   return (
     <footer className="footer footer-band-navy">
-      <div className="container footer__inner">
+      <div className="container-xl footer__inner">
         <div className="cols">
           {/* Brand column */}
           <div className="footer__brand">
@@ -56,13 +56,13 @@ if (
             <h3>Product</h3>
             <ul className="footer__list">
               <li>
-                <Link href="/features">Features</Link>
+                <Link href="/features">Product</Link>
               </li>
               <li>
                 <Link href="/pricing">Pricing</Link>
               </li>
               <li>
-                <Link href="/docs">Docs</Link>
+                <Link href="/docs">Help Center</Link>
               </li>
             </ul>
           </div>

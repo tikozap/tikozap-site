@@ -1,34 +1,45 @@
 // src/app/dashboard/phone-agent/page.tsx
 
-import Link from 'next/link';
 import MobilePageHeader from '../_components/MobilePageHeader';
 
 export default function PhoneAgentPage() {
-  return (
-    <div className="db-container">
+return (
+  <div className="db-container">
+    <div className="db-pageStack">
       <MobilePageHeader title="Phone Agent" />
 
-      <div className="db-pageStack">
         <h1 className="db-title">Phone Agent</h1>
+
         <p className="db-sub">
-          Voice support lives in your Inbox workflow so staff and AI can hand off cleanly.
+          AI phone answering service for your business.
         </p>
 
         <div className="db-card">
-          <div className="db-cardTitle">Quick actions</div>
+          <div className="db-cardTitle">Early access</div>
+
           <p className="db-cardText">
-            Open phone-originated conversations, monitor Twilio transport quality, and take over when
-            needed.
+            TikoZap Phone Agent will answer phone calls and speak naturally for:
           </p>
 
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="db-btn primary" href="/dashboard/conversations">
-              Open conversations
-            </Link>
-            <Link className="db-btn" href="/dashboard">
-              View transport snapshot
-            </Link>
-          </div>
+          <ul className="db-list">
+            <li>Order status</li>
+            <li>Shipping questions</li>
+            <li>Returns</li>
+            <li>Product recommendations</li>
+            <li>Human handoff</li>
+          </ul>
+
+          <p className="db-cardText" style={{ marginTop: 14 }}>
+            We’re currently enabling Phone Agent selectively for early partners while we finalize voice workflows and onboarding.
+          </p>
+
+          <a
+            className="db-btn primary"
+            href="mailto:support@tikozap.com"
+            style={{ marginTop: 14, display: 'inline-flex' }}
+          >
+            Contact support
+          </a>
         </div>
       </div>
     </div>

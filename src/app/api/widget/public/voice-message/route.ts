@@ -179,16 +179,20 @@ export async function POST(req: Request) {
       },
     });
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: widget.tenantId },
-      select: {
-        voiceEnabled: true,
-      },
-    });
+const voiceUsageResult = await incrementVoiceUsage(widget.tenantId, 1);
 
-    if (tenant?.voiceEnabled) {
-      await incrementVoiceUsage(widget.tenantId, 1);
-    }
+if (!voiceUsageResult.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        'Daily free voice limit reached. Please continue chatting by text, or try voice again tomorrow.',
+      reason: voiceUsageResult.reason,
+      conversationId: convo.id,
+    },
+    { status: 402 }
+  );
+}
 
     return NextResponse.json({
       ok: true,

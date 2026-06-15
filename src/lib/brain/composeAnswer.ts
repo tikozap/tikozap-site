@@ -1,4 +1,5 @@
 // src/lib/brain/composeAnswer.ts
+
 import type { MergedIntent, ProductSearchResult, VisionContext } from "./types";
 
 type ComposeAnswerArgs = {

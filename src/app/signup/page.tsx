@@ -159,7 +159,7 @@ const handleSubmit = async (e: any) => {
               </button>
 
 <p className="small auth-footnote">
-  You’ll get full Pro features for 14 days. No credit card required.
+  Includes all Pro features during your trial.
 </p>
             </form>
 
