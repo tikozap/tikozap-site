@@ -945,11 +945,56 @@ html, body{
     color:#6b7280 !important;
   }
 }
-
 .db-list{
   margin:12px 0 0;
   padding-left:18px;
   color:#4b5563;
   display:grid;
   gap:6px;
+}
+
+/* Keep desktop sidebar footer reachable */
+@media (min-width: 901px){
+  .db-sidebar{
+    display:flex !important;
+    flex-direction:column !important;
+    height:100% !important;
+    max-height:100% !important;
+    overflow-y:auto !important;
+    padding-bottom:24px !important;
+    box-sizing:border-box !important;
+  }
+
+  .db-sidebar-footer{
+    margin-top:auto !important;
+    flex-shrink:0 !important;
+    padding-bottom:8px !important;
+  }
+}
+
+/* Compact desktop sidebar spacing */
+@media (min-width: 901px){
+  .db-sidebar{
+    padding-top:12px !important;
+    padding-bottom:16px !important;
+  }
+
+  .db-brand{
+    padding:6px 8px 8px !important;
+    margin-bottom:6px !important;
+  }
+
+  .db-nav{
+    gap:3px !important;
+  }
+
+  .db-link{
+    padding:8px 10px !important;
+    border-radius:12px !important;
+    font-size:13px !important;
+  }
+
+  .db-sidebar-note{
+    margin-top:6px !important;
+  }
 }

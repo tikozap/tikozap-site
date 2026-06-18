@@ -55,7 +55,7 @@ const [greeting, setGreeting] = useState(
   "Hi! I can help with products, order tracking, shipping, and returns."
 );
 
-const [footerLine, setFooterLine] = useState("Powered by TikoZap");
+const [footerLine, setFooterLine] = useState("");
 const [contactEmail, setContactEmail] = useState("");
   const [shippingNote, setShippingNote] = useState("");
   const [returnNote, setReturnNote] = useState("");
@@ -101,7 +101,7 @@ const [contactEmail, setContactEmail] = useState("");
       setLogoUrl(page.logoUrl || "");
       setTagline(page.tagline || "Tagline for store");
       setSubheading(page.subheading || "Store’s subheading");
-      setFooterLine(page.footerLine || "Powered by TikoZap");
+      setFooterLine(page.footerLine || data.storeName || "");
       setContactEmail(page.contactEmail || "");
       setShippingNote(page.shippingNote || "");
       setReturnNote(page.returnNote || "");
@@ -196,7 +196,7 @@ const [contactEmail, setContactEmail] = useState("");
           <div>
             <h1 className="db-title">Starter Link</h1>
             <p className="db-sub">
-              Manage your storefront page with AI assistant for your customers.
+              Your storefront page with web chat assistant for your customers.
             </p>
           </div>
         </div>
@@ -223,7 +223,7 @@ const [contactEmail, setContactEmail] = useState("");
 
         <div className="db-card">
           <div className="db-cardTitle">Branding</div>
-          <p className="db-cardText">These fields control your Starter Link page.</p>
+          <p className="db-cardText">Build your Starter Link page.</p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
@@ -301,7 +301,7 @@ const [contactEmail, setContactEmail] = useState("");
         <div className="db-card">
           <div className="db-cardTitle">Products</div>
 <p className="db-cardText">
-  Feature your best seller and show up to 9 products during your free trial.
+  Feature your best seller and 9 products on your storefront page.
 </p>
 
 <div
@@ -334,10 +334,67 @@ const [contactEmail, setContactEmail] = useState("");
                   <input className="db-btn" value={bestSeller.price} onChange={(e) => setBestSeller({ ...bestSeller, price: e.target.value })} />
                 </label>
 
-                <label style={fieldWrap}>
-                  <span style={fieldLabel}>Image URL</span>
-                  <input className="db-btn" value={bestSeller.image} onChange={(e) => setBestSeller({ ...bestSeller, image: e.target.value })} />
-                </label>
+<label style={fieldWrap}>
+  <span style={fieldLabel}>Product image</span>
+
+  {bestSeller.image ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <img
+        src={bestSeller.image}
+        alt="Best seller preview"
+        style={{
+          width: 72,
+          height: 72,
+          objectFit: "cover",
+          borderRadius: 14,
+          border: "1px solid #e5e7eb",
+          background: "#f8fafc",
+        }}
+      />
+
+      <button
+        type="button"
+        className="db-btn"
+        onClick={() =>
+          setBestSeller({ ...bestSeller, image: "" })
+        }
+      >
+        Remove
+      </button>
+    </div>
+  ) : null}
+
+  <label className="db-btn" style={{ width: "fit-content" }}>
+    Choose image
+    <input
+      type="file"
+      accept="image/*"
+      style={{ display: "none" }}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          setBestSeller({
+            ...bestSeller,
+            image: String(reader.result || ""),
+          });
+        };
+        reader.readAsDataURL(file);
+      }}
+    />
+  </label>
+
+  <input
+    className="db-btn"
+    placeholder="Or paste image URL"
+    value={bestSeller.image}
+    onChange={(e) =>
+      setBestSeller({ ...bestSeller, image: e.target.value })
+    }
+  />
+</label>
               </div>
             </div>
 
@@ -356,10 +413,66 @@ const [contactEmail, setContactEmail] = useState("");
                     <input className="db-btn" value={product.price} onChange={(e) => updateProduct(idx, { price: e.target.value })} />
                   </label>
 
-                  <label style={fieldWrap}>
-                    <span style={fieldLabel}>Image URL</span>
-                    <input className="db-btn" value={product.image} onChange={(e) => updateProduct(idx, { image: e.target.value })} />
-                  </label>
+<label style={fieldWrap}>
+  <span style={fieldLabel}>Product image</span>
+
+  {product.image ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <img
+        src={product.image}
+        alt={`Product ${idx + 1}`}
+        style={{
+          width: 72,
+          height: 72,
+          objectFit: "cover",
+          borderRadius: 14,
+          border: "1px solid #e5e7eb",
+          background: "#f8fafc",
+        }}
+      />
+
+      <button
+        type="button"
+        className="db-btn"
+        onClick={() =>
+          updateProduct(idx, { image: "" })
+        }
+      >
+        Remove
+      </button>
+    </div>
+  ) : null}
+
+  <label className="db-btn" style={{ width: "fit-content" }}>
+    Choose image
+    <input
+      type="file"
+      accept="image/*"
+      style={{ display: "none" }}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          updateProduct(idx, {
+            image: String(reader.result || ""),
+          });
+        };
+        reader.readAsDataURL(file);
+      }}
+    />
+  </label>
+
+  <input
+    className="db-btn"
+    placeholder="Or paste image URL"
+    value={product.image}
+    onChange={(e) =>
+      updateProduct(idx, { image: e.target.value })
+    }
+  />
+</label>
                 </div>
               </div>
             ))}
@@ -368,7 +481,7 @@ const [contactEmail, setContactEmail] = useState("");
 
         <div className="db-card">
           <div className="db-cardTitle">Assistant</div>
-          <p className="db-cardText">Control the right-side chat assistant.</p>
+          <p className="db-cardText">Name your chat assistant.</p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
@@ -388,9 +501,19 @@ const [contactEmail, setContactEmail] = useState("");
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
-              <span style={fieldLabel}>Footer line</span>
+              <span style={fieldLabel}>Footer text</span>
               <input className="db-btn" value={footerLine} onChange={(e) => setFooterLine(e.target.value)} />
             </label>
+
+          <p
+           style={{
+            margin: 0,
+            fontSize: 12,
+            color: "#6b7280",
+          }}
+       >
+          Your store name, owner name, or short message. Powered by TikoZap is added automatically.
+       </p>
 
             <label style={fieldWrap}>
               <span style={fieldLabel}>Contact email</span>
@@ -422,11 +545,6 @@ const [contactEmail, setContactEmail] = useState("");
               <input type="checkbox" checked={showContactNav} onChange={(e) => setShowContactNav(e.target.checked)} />
               <span style={{ fontSize: 14 }}>Show Contact menu link</span>
             </label>
-
-            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <input type="checkbox" checked={showFooterBrand} onChange={(e) => setShowFooterBrand(e.target.checked)} />
-              <span style={{ fontSize: 14 }}>Show footer branding</span>
-            </label>
           </div>
         </div>
 
@@ -439,7 +557,19 @@ const [contactEmail, setContactEmail] = useState("");
               {saving ? "Saving..." : "Save Starter Link"}
             </button>
 
-<Link className="db-btn" href={previewHref} target="_blank">
+<Link
+  className="db-btn"
+  href={previewHref}
+  target="_blank"
+  style={{
+    minHeight: 44,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 13,
+    fontWeight: 700,
+  }}
+>
   Preview public page
 </Link>
 

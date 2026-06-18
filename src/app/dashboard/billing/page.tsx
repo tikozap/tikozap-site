@@ -12,6 +12,9 @@ type BillingPlan = 'starter' | 'pro' | 'business';
 type BillingUsage = {
   plan: BillingPlan;
   billingStatus?: string;
+  billingInterval?: 'monthly' | 'yearly';
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string | null;
 
   monthlyLimit: number;
   usedConversations: number;
@@ -87,7 +90,20 @@ function prettyPlan(plan: BillingPlan): string {
 
 function monthLabel(startIso: string): string {
   const date = new Date(startIso);
-  return date.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  return date.toLocaleString(undefined, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function dateLabel(iso?: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function BillingPage() {
@@ -131,6 +147,14 @@ export default function BillingPage() {
       setError('Billing usage unavailable right now.');
     }
   };
+
+useEffect(() => {
+  if (usage?.billingInterval === 'yearly') {
+    setBillingMode('yearly');
+  } else if (usage?.billingInterval === 'monthly') {
+    setBillingMode('monthly');
+  }
+}, [usage?.billingInterval]);
 
   useEffect(() => {
     void loadUsage();
@@ -309,6 +333,19 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
                 Billing window: {monthLabel(usage.windowStart)}
               </p>
 
+{usage.cancelAtPeriodEnd && usage.currentPeriodEnd ? (
+  <p
+    className="db-cardText"
+    style={{
+      fontSize: 13,
+      color: '#b45309',
+      fontWeight: 700,
+    }}
+  >
+    Your plan is scheduled to cancel on {dateLabel(usage.currentPeriodEnd)}.
+  </p>
+) : null}
+
               <div
                 style={{
                   marginTop: 10,
@@ -396,17 +433,28 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
 <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
   {PLAN_OPTIONS[billingMode].map((option: any) => {
     const normalizedPlan = option.plan.replace('-yearly', '');
-    const active = normalizedPlan === selectedPlan;
+const optionInterval = option.plan.endsWith('-yearly') ? 'yearly' : 'monthly';
+
+const active =
+  normalizedPlan === selectedPlan &&
+  optionInterval === usage?.billingInterval;
 
     return (
-      <button
-        key={option.plan}
-        type="button"
-        className={`db-btn ${active ? 'primary' : ''}`}
-        onClick={() => changePlan(option.plan)}
-        disabled={savingPlan !== null}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-      >
+    <button
+  key={option.plan}
+  type="button"
+  className="db-btn"
+  onClick={() => changePlan(option.plan)}
+  disabled={savingPlan !== null}
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    background: active ? '#e5e7eb' : '#fff',
+    borderColor: active ? '#cbd5e1' : '#d1d5db',
+    fontWeight: active ? 800 : 600,
+  }}
+>
         <span>{active ? `${option.label} (Current)` : option.label}</span>
         <span style={{ opacity: 0.8, fontSize: 12 }}>
           {option.price}
@@ -601,39 +649,59 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
           gap: 8,
         }}
       >
-        <button
-          type="button"
-          className="db-btn"
-          onClick={() => startVoiceCheckout('starter')}
-        >
-          Voice Starter · 100 min · $9
-        </button>
 
-        <button
-          type="button"
-          className="db-btn"
-          onClick={() => startVoiceCheckout('pro')}
-        >
-          Voice Pro · 500 min · $29
-        </button>
+<button
+  type="button"
+  className="db-btn"
+  onClick={() => startVoiceCheckout('starter')}
+  style={{
+    background: usage.voice.pack === 'starter' ? '#e5e7eb' : '#fff',
+    borderColor: usage.voice.pack === 'starter' ? '#cbd5e1' : '#d1d5db',
+    fontWeight: usage.voice.pack === 'starter' ? 800 : 600,
+  }}
+>
+  {usage.voice.pack === 'starter'
+    ? 'Voice Starter (Current) · 100 min · $9'
+    : 'Voice Starter · 100 min · $9'}
+</button>
 
-        <button
-          type="button"
-          className="db-btn"
-          onClick={() => startVoiceCheckout('business')}
-        >
-          Voice Business · 2000 min · $99
-        </button>
+<button
+    type="button"
+    className="db-btn"
+    onClick={() => startVoiceCheckout('pro')}
+    style={{
+    background: usage.voice.pack === 'pro' ? '#e5e7eb' : '#fff',
+    borderColor: usage.voice.pack === 'pro' ? '#cbd5e1' : '#d1d5db',
+    fontWeight: usage.voice.pack === 'pro' ? 800 : 600,
+  }}
+>
+  {usage.voice.pack === 'pro'
+    ? 'Voice Pro (Current) · 500 min · $29'
+    : 'Voice Pro · 500 min · $29'}
+</button>
 
-        {usage.voice.enabled ? (
-          <button
-            type="button"
-            className="db-btn"
-            onClick={() => configureVoice('disable')}
-          >
-            Disable Voice
-          </button>
-        ) : null}
+<button
+    type="button"
+    className="db-btn"
+    onClick={() => startVoiceCheckout('business')}
+    style={{
+    background: usage.voice.pack === 'business' ? '#e5e7eb' : '#fff',
+    borderColor: usage.voice.pack === 'business' ? '#cbd5e1' : '#d1d5db',
+    fontWeight: usage.voice.pack === 'business' ? 800 : 600,
+  }}
+>
+  {usage.voice.pack === 'business'
+    ? 'Voice Business (Current) · 2000 min · $99'
+    : 'Voice Business · 2000 min · $99'}
+</button>
+
+<button
+  type="button"
+  className="db-btn"
+  onClick={openCustomerPortal}
+>
+  Manage voice subscription
+</button>
       </div>
     </>
   )}

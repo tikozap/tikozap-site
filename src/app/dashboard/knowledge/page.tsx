@@ -85,6 +85,26 @@ export default function KnowledgePage() {
     }
   }
 
+function isSizingDoc(title: string) {
+  const s = title.toLowerCase();
+  return s.includes("siz") || s.includes("fit") || s.includes("measurement");
+}
+
+async function uploadKnowledgeFile(file: File, idx: number) {
+  const text = await file.text();
+
+  setDocs((prev) =>
+    prev.map((d, i) =>
+      i === idx
+        ? {
+            ...d,
+            content: `${d.content ? d.content + "\n\n" : ""}Uploaded file: ${file.name}\n\n${text}`,
+          }
+        : d
+    )
+  );
+}
+
   if (loading) {
     return (
       <div className="db-container">
@@ -128,6 +148,32 @@ export default function KnowledgePage() {
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
+
+{isSizingDoc(doc.title) ? (
+  <div className="db-uploadBox">
+    <div>
+      <strong>Upload size chart or measurement guide</strong>
+      <p>
+        Upload a text, CSV, or markdown file, or paste your chart below.
+      </p>
+    </div>
+
+    <label className="db-btn" style={{ width: "fit-content" }}>
+      Choose file
+      <input
+        type="file"
+        accept=".txt,.csv,.md,text/plain,text/csv"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          uploadKnowledgeFile(file, idx);
+          e.currentTarget.value = "";
+        }}
+      />
+    </label>
+  </div>
+) : null}
 
               <textarea
                 className="db-knowledgeTextarea"
@@ -185,6 +231,24 @@ export default function KnowledgePage() {
           border-color: #3b82f6;
           box-shadow: 0 0 0 3px rgba(59,130,246,.12);
         }
+
+        .db-uploadBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.db-uploadBox p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
       `}</style>
     </div>
   );

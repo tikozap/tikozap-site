@@ -38,12 +38,18 @@ model Tenant {
   slug                      String   @unique
   storeName                 String
   billingPlan               String   @default("starter")
+  billingInterval           String   @default("monthly")
   starterLinkSlug           String?  @unique
   starterLinkEnabled        Boolean  @default(true)
   
   stripeCustomerId          String?
   stripeSubscriptionId      String?
   billingStatus             String?
+  stripeVoiceCustomerId     String?
+  voiceCancelAtPeriodEnd    Boolean  @default(false)
+  voiceCurrentPeriodEnd     DateTime?
+  stripeCancelAtPeriodEnd   Boolean  @default(false)
+  stripeCurrentPeriodEnd    DateTime?
 
   voiceEnabled              Boolean  @default(false)
 

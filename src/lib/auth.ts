@@ -15,6 +15,7 @@ type AuthedUserAndTenant = {
     storeName: string | null;
     billingPlan: string | null;
     billingStatus: string | null;
+    billingInterval: string | null;
     starterLinkSlug: string | null;
     starterLinkEnabled: boolean | null;
   };
@@ -92,6 +93,7 @@ export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | nu
       storeName: tenant.storeName,
       billingPlan: tenant.billingPlan,
       billingStatus: tenant.billingStatus,
+      billingInterval: tenant.billingInterval,
       starterLinkSlug: tenant.starterLinkSlug,
       starterLinkEnabled: tenant.starterLinkEnabled,
     },

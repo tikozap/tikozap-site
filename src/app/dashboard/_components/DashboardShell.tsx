@@ -36,10 +36,13 @@ function NavItem({
 export default function DashboardShell({
   children,
   tenantName,
+  planName,
 }: {
   children: ReactNode;
   tenantName: string;
+  planName: string;
 }) {
+
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -112,7 +115,7 @@ useEffect(() => {
         <aside className="db-sidebar">
           <div className="db-brand">
             <div className="db-ws">{tenantName}</div>
-            <div className="db-meta">Plan: PRO</div>
+            <div className="db-meta">Plan: {planName}</div>
           </div>
 
           <ul className="db-nav">

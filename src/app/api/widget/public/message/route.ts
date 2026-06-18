@@ -73,6 +73,44 @@ const HUMAN_HANDOFF_REPLY =
 const HUMAN_STILL_WAITING_REPLY =
   "I understand you're still waiting. The team may be occupied right now, but I’m here and I’ll continue helping as best I can while you wait.";
 
+function shouldShowProductCards(text: string) {
+  const s = text.toLowerCase();
+
+  const productBrowsingWords = [
+    "show me",
+    "what products",
+    "do you sell",
+    "recommend",
+    "looking for",
+    "browse",
+    "product",
+    "products",
+    "snowboard",
+    "snowboards",
+    "dress",
+    "dresses",
+    "shoes",
+    "bags",
+  ];
+
+  const knowledgeOnlyWords = [
+    "size chart",
+    "sizes",
+    "shipping",
+    "return",
+    "refund",
+    "policy",
+    "contact",
+    "where are you",
+    "hours",
+    "delivery",
+  ];
+
+  if (knowledgeOnlyWords.some((x) => s.includes(x))) return false;
+
+  return productBrowsingWords.some((x) => s.includes(x));
+}
+
 function tagsForChannel(channel: string) {
   return channel === "starter-link" ? "starter-link,no-website" : "widget";
 }
@@ -315,14 +353,18 @@ const result = await runTikoBrain({
   storeKnowledge,
 });
 
+const productsToShow = shouldShowProductCards(text)
+  ? result.products || []
+  : [];
+
 await prisma.message.create({
   data: {
     conversationId: conversation.id,
     role: "assistant",
     content: result.reply,
     productsJson:
-      result.products && result.products.length > 0
-        ? JSON.stringify(result.products)
+      productsToShow.length > 0
+        ? JSON.stringify(productsToShow)
         : null,
   },
 });
@@ -346,7 +388,7 @@ await prisma.message.create({
           { role: "customer", content: text },
           { role: "assistant", content: result.reply },
         ],
-        products: result.products,
+        products: shouldShowProductCards(text) ? result.products : [],
       },
       {
         headers: { ...corsHeaders, "cache-control": "no-store" },

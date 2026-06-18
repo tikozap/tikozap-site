@@ -113,13 +113,13 @@ select: {
     );
   }
 
-let storeName = "Demo Boutique";
+let storeName = "My Store";
 let tagline = "Tagline for store";
 let subheading = "Store’s subheading";
 let assistantName = "Demo Boutique Assistant";
 let greeting =
   "Hi! I can help with products, order tracking, shipping, and returns.";
-let footerLine = "Demo Boutique powered by TikoZap";
+let footerLine = "My Store";
 
 let widgetPublicKey = "tz_demo_demo";
 let brandColor = "#111827";
@@ -207,7 +207,7 @@ greeting =
   "Hi! I can help with products, order tracking, shipping, and returns.";
 
 if (!page?.footerLine) {
-  footerLine = `${storeName} powered by TikoZap`;
+  footerLine = storeName;
 }
 
 brandColor =
@@ -292,8 +292,13 @@ return (
 </section>
 
         <footer id="footer" className="sl-footer">
-          <div className="sl-footerLine">{footerLine}</div>
-<div className="sl-poweredLine">Powered by TikoZap</div>
+          <div className="sl-footerLine">
+  {footerLine || storeName}
+</div>
+
+<div className="sl-poweredLine">
+  Powered by TikoZap
+</div>
 {contactEmail ? <div className="sl-footerLine">{contactEmail}</div> : null}
 {shippingNote ? <div className="sl-footerLine">{shippingNote}</div> : null}
 {returnNote ? <div className="sl-footerLine">{returnNote}</div> : null}

@@ -11,9 +11,15 @@ export const PLAN_LIMITS = {
 } as const;
 
 export type BillingPlan = keyof typeof PLAN_LIMITS;
+export type BillingInterval = 'monthly' | 'yearly';
 
 export type BillingUsageSummary = {
   plan: BillingPlan;
+  billingInterval: BillingInterval;
+
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string | null;
+
   monthlyLimit: number;
   usedConversations: number;
   remainingConversations: number;
@@ -31,20 +37,49 @@ export function normalizeBillingPlan(input: unknown): BillingPlan {
   return 'starter';
 }
 
+function normalizeBillingInterval(input: unknown): BillingInterval {
+  return input === 'yearly' ? 'yearly' : 'monthly';
+}
+
 function monthWindow(now = new Date()): { start: Date; end: Date } {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+  );
+
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)
+  );
+
   return { start, end };
 }
 
-function summarize(plan: BillingPlan, usedConversations: number, start: Date, end: Date): BillingUsageSummary {
+function summarize(
+  plan: BillingPlan,
+  billingInterval: BillingInterval,
+  usedConversations: number,
+  start: Date,
+  end: Date,
+  extra?: {
+    cancelAtPeriodEnd?: boolean;
+    currentPeriodEnd?: Date | string | null;
+  }
+): BillingUsageSummary {
   const monthlyLimit = PLAN_LIMITS[plan];
   const remainingConversations = Math.max(0, monthlyLimit - usedConversations);
+
   const utilizationPct = monthlyLimit
     ? Math.min(100, Math.round((usedConversations / monthlyLimit) * 100))
     : 0;
+
   return {
     plan,
+    billingInterval,
+
+    cancelAtPeriodEnd: extra?.cancelAtPeriodEnd || false,
+    currentPeriodEnd: extra?.currentPeriodEnd
+      ? new Date(extra.currentPeriodEnd).toISOString()
+      : null,
+
     monthlyLimit,
     usedConversations,
     remainingConversations,
@@ -56,17 +91,28 @@ function summarize(plan: BillingPlan, usedConversations: number, start: Date, en
   };
 }
 
-export async function getTenantBillingUsage(tenantId: string): Promise<BillingUsageSummary> {
+export async function getTenantBillingUsage(
+  tenantId: string
+): Promise<BillingUsageSummary> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { billingPlan: true },
+    select: {
+      billingPlan: true,
+      billingInterval: true,
+      stripeCancelAtPeriodEnd: true,
+      stripeCurrentPeriodEnd: true,
+    },
   });
+
   if (!tenant) {
     throw new Error('Tenant not found');
   }
 
   const plan = normalizeBillingPlan(tenant.billingPlan);
+  const billingInterval = normalizeBillingInterval(tenant.billingInterval);
+
   const window = monthWindow();
+
   const usedConversations = await prisma.conversation.count({
     where: {
       tenantId,
@@ -77,22 +123,39 @@ export async function getTenantBillingUsage(tenantId: string): Promise<BillingUs
     },
   });
 
-  return summarize(plan, usedConversations, window.start, window.end);
+  return summarize(
+    plan,
+    billingInterval,
+    usedConversations,
+    window.start,
+    window.end,
+    {
+      cancelAtPeriodEnd: tenant.stripeCancelAtPeriodEnd || false,
+      currentPeriodEnd: tenant.stripeCurrentPeriodEnd || null,
+    }
+  );
 }
 
-export async function setTenantBillingPlan(tenantId: string, plan: BillingPlan) {
+export async function setTenantBillingPlan(
+  tenantId: string,
+  plan: BillingPlan
+) {
   await prisma.tenant.update({
     where: { id: tenantId },
     data: { billingPlan: plan },
   });
+
   return getTenantBillingUsage(tenantId);
 }
 
-export async function canCreateConversationForTenant(tenantId: string): Promise<{
+export async function canCreateConversationForTenant(
+  tenantId: string
+): Promise<{
   ok: boolean;
   usage: BillingUsageSummary;
 }> {
   const usage = await getTenantBillingUsage(tenantId);
+
   return {
     ok: !usage.isOverLimit,
     usage,

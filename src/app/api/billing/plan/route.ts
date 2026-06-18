@@ -1,3 +1,5 @@
+//src/app/api/billing/plan/route.ts
+
 import { NextResponse } from 'next/server';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { normalizeBillingPlan, setTenantBillingPlan } from '@/lib/billingUsage';

@@ -31,8 +31,6 @@ export default function WidgetTestClient({
 ></script>`;
   }, [origin, widgetPublicKey]);
 
-  const starterLink = origin ? `${origin}/l/demo` : 'https://link.tikozap.com/l/your-store';
-
   const designerInstructions = `Please install TikoZap on our website.
 
 Add this script before the closing </body> tag:
@@ -83,18 +81,18 @@ After publishing, please confirm the chat bubble appears on the website.`;
 
       <div className="db-top">
         <div>
-          <h1 className="db-title">Add widget</h1>
+          <h1 className="db-title">Widget</h1>
           <p className="db-sub">
-            Choose the setup that fits your business best.
+            Add web chat widget to your website.
           </p>
         </div>
       </div>
 
       <div className="db-pageStack">
         <section className="db-card">
-          <div className="db-cardTitle">Option 1 - Add widget to your website by yourself</div>
+          <div className="db-cardTitle">Option 1 - Add widget by yourself</div>
           <p className="db-cardText">
-            Copy this script and paste it before the closing body tag on your website.
+            Copy this code and install widget on your website.
           </p>
 
           <pre style={{ marginTop: 14, overflow: 'auto', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: 12, fontSize: 12, whiteSpace: 'pre-wrap' }}>
@@ -105,18 +103,15 @@ After publishing, please confirm the chat bubble appears on the website.`;
             <button className="db-btn primary" onClick={() => copyText(installScript, 'Install script copied.')}>
               Copy install script
             </button>
-            <Link className="db-btn" href="/dashboard/conversations?testAssistant=1">
-              Open Test Assistant
-            </Link>
           </div>
 
           <p className="db-cardText" style={{ marginTop: 12 }}>
-            Your web designer can usually install this in under 2 minutes.
+            Not sure where to paste the code? Go to Option 2 below.
           </p>
         </section>
 
         <section className="db-card">
-          <div className="db-cardTitle">Option 2 - Send to my web designer</div>
+          <div className="db-cardTitle">Option 2 - Send to your web designer</div>
           <p className="db-cardText">
             Copy simple instructions you can forward to the person who manages your website.
           </p>
@@ -129,24 +124,9 @@ After publishing, please confirm the chat bubble appears on the website.`;
           </button>
         </section>
 
-        <section className="db-card">
-          <div className="db-cardTitle">Option 3 - No website needed</div>
-          <p className="db-cardText">
-            Use Starter Link to share on Instagram, Facebook, TikTok, Google, or anywhere customers contact you.
-          </p>
-          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="db-btn primary" onClick={() => copyText(starterLink, 'TikoZap Link copied.')}>
-              Copy my TikoZap Link
-            </button>
-            <Link className="db-btn" href="/dashboard/tikozap-link">
-              Open Starter Link
-            </Link>
-          </div>
-        </section>
-
 
         <section className="db-card">
-          <div className="db-cardTitle">Option 4 - Shopify installation</div>
+          <div className="db-cardTitle">Shopify</div>
           <p className="db-cardText">
             One-click Shopify installation is coming soon.
           </p>
@@ -169,15 +149,31 @@ After publishing, please confirm the chat bubble appears on the website.`;
             style={{ marginTop: 14, width: '100%' }}
           />
 
-          <button
-            type="button"
-            className="db-btn primary"
-            onClick={saveAllowedDomains}
-            disabled={savingDomains}
-            style={{ marginTop: 12 }}
-          >
-            {savingDomains ? 'Saving…' : 'Save domains'}
-          </button>
+<div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+  <button
+    type="button"
+    className="db-btn primary"
+    onClick={saveAllowedDomains}
+    disabled={savingDomains}
+  >
+    {savingDomains ? 'Saving…' : 'Save domains'}
+  </button>
+
+<Link
+  className="db-btn"
+  href="/dashboard/conversations?testAssistant=1"
+  style={{
+    height: 44,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: 700,
+  }}
+>
+  Test installation
+</Link>
+</div>
 
           {domainsMsg ? <p className="db-cardText">{domainsMsg}</p> : null}
         </section>

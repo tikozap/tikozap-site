@@ -471,7 +471,6 @@ const toggleMemberNotifications = async (member: TeamMember) => {
               <section className="st-card">
                 <h3>Public identity</h3>
                 <Toggle label="Show store name in chat" desc="Customers see your store name in the assistant header." />
-                <Toggle label="Show Powered by TikoZap" desc="Recommended for Starter plan trust and transparency." />
               </section>
             </div>
           ) : null}
@@ -1007,6 +1006,12 @@ const toggleMemberNotifications = async (member: TeamMember) => {
           line-height:1.5;
         }
 
+        @media (max-width: 1000px){
+  .st-header{
+    display:none;
+  }
+}
+
         .st-layout{
           display:grid;
           grid-template-columns:280px minmax(0,1fr);
@@ -1176,8 +1181,8 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 }
 
 .st-radioDot{
-  width:16px;
-  height:16px;
+  width:20px;
+  height:20px;
   border-radius:999px;
   border:2px solid #cbd5e1;
   display:inline-flex;
@@ -1193,8 +1198,8 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 
 .st-radioRow.is-on .st-radioDot::after{
   content:"";
-  width:6px;
-  height:6px;
+  width:8px;
+  height:8px;
   border-radius:999px;
   background:#6366f1;
 }

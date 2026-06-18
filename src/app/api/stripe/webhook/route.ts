@@ -9,13 +9,37 @@ export const runtime = 'nodejs';
 
 function planFromPrice(priceId: string | null | undefined) {
   if (!priceId) return null;
+
   if (priceId === process.env.STRIPE_PRICE_STARTER) return 'starter';
   if (priceId === process.env.STRIPE_PRICE_PRO) return 'pro';
   if (priceId === process.env.STRIPE_PRICE_BUSINESS) return 'business';
+
   if (priceId === process.env.STRIPE_PRICE_STARTER_YEARLY) return 'starter';
   if (priceId === process.env.STRIPE_PRICE_PRO_YEARLY) return 'pro';
   if (priceId === process.env.STRIPE_PRICE_BUSINESS_YEARLY) return 'business';
+
   return null;
+}
+
+function intervalFromSubscription(subscription: Stripe.Subscription) {
+  const interval = subscription.items.data[0]?.price?.recurring?.interval;
+  return interval === 'year' ? 'yearly' : 'monthly';
+}
+
+function isVoicePrice(priceId: string | null | undefined) {
+  return (
+    priceId === process.env.STRIPE_PRICE_VOICE_STARTER ||
+    priceId === process.env.STRIPE_PRICE_VOICE_PRO ||
+    priceId === process.env.STRIPE_PRICE_VOICE_BUSINESS
+  );
+}
+
+function subscriptionPeriodEnd(subscription: Stripe.Subscription) {
+  const value =
+    (subscription as any).current_period_end ||
+    (subscription.items?.data?.[0] as any)?.current_period_end;
+
+  return typeof value === 'number' ? new Date(value * 1000) : null;
 }
 
 export async function POST(req: Request) {
@@ -51,7 +75,9 @@ export async function POST(req: Request) {
 
       if (tenantId && kind === 'voice') {
         const voicePack = session.metadata?.voicePack || null;
-        const voiceMinutesLimit = Number(session.metadata?.voiceMinutesLimit || 0);
+        const voiceMinutesLimit = Number(
+          session.metadata?.voiceMinutesLimit || 0
+        );
 
         await prisma.tenant.update({
           where: { id: tenantId },
@@ -61,8 +87,20 @@ export async function POST(req: Request) {
             voiceMinutesLimit,
             voiceMinutesUsed: 0,
             voiceUsagePeriodStart: new Date(),
-            stripeCustomerId:
-              typeof session.customer === 'string' ? session.customer : undefined,
+
+            stripeVoiceCustomerId:
+              typeof session.customer === 'string'
+                ? session.customer
+                : undefined,
+
+            stripeVoiceSubscriptionId:
+              typeof session.subscription === 'string'
+                ? session.subscription
+                : undefined,
+
+            voiceBillingStatus: 'active',
+            voiceCancelAtPeriodEnd: false,
+            voiceCurrentPeriodEnd: null,
           },
         });
       } else {
@@ -73,9 +111,17 @@ export async function POST(req: Request) {
             where: { id: tenantId },
             data: {
               billingPlan: plan,
+              billingInterval:
+                session.metadata?.billingInterval === 'yearly'
+                  ? 'yearly'
+                  : 'monthly',
               billingStatus: 'active',
+
               stripeCustomerId:
-                typeof session.customer === 'string' ? session.customer : undefined,
+                typeof session.customer === 'string'
+                  ? session.customer
+                  : undefined,
+
               stripeSubscriptionId:
                 typeof session.subscription === 'string'
                   ? session.subscription
@@ -99,7 +145,25 @@ export async function POST(req: Request) {
           where: { stripeSubscriptionId: subscription.id },
           data: {
             billingPlan: plan,
+            billingInterval: intervalFromSubscription(subscription),
             billingStatus: subscription.status,
+            stripeCancelAtPeriodEnd: Boolean(
+              subscription.cancel_at_period_end
+            ),
+            stripeCurrentPeriodEnd: subscriptionPeriodEnd(subscription),
+          },
+        });
+      }
+
+      if (isVoicePrice(priceId)) {
+        await prisma.tenant.updateMany({
+          where: { stripeVoiceSubscriptionId: subscription.id },
+          data: {
+            voiceBillingStatus: subscription.status,
+            voiceCancelAtPeriodEnd: Boolean(
+              subscription.cancel_at_period_end
+            ),
+            voiceCurrentPeriodEnd: subscriptionPeriodEnd(subscription),
           },
         });
       }
@@ -112,6 +176,18 @@ export async function POST(req: Request) {
         where: { stripeSubscriptionId: subscription.id },
         data: {
           billingStatus: 'canceled',
+          stripeCancelAtPeriodEnd: false,
+          stripeCurrentPeriodEnd: null,
+        },
+      });
+
+      await prisma.tenant.updateMany({
+        where: { stripeVoiceSubscriptionId: subscription.id },
+        data: {
+          voiceBillingStatus: 'canceled',
+          voiceEnabled: false,
+          voiceCancelAtPeriodEnd: false,
+          voiceCurrentPeriodEnd: null,
         },
       });
     }
