@@ -3,7 +3,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import MobilePageHeader from '../_components/MobilePageHeader';
 import { PRICING_PLANS } from '@/lib/pricingPlans';
 
@@ -187,7 +186,15 @@ useEffect(() => {
   }, [usage]);
 
 const changePlan = async (plan: string) => {
-  if (plan === selectedPlan || savingPlan) return;
+  const clickedBasePlan = plan.replace('-yearly', '');
+const clickedInterval = plan.endsWith('-yearly') ? 'yearly' : 'monthly';
+
+if (
+  savingPlan ||
+  (clickedBasePlan === selectedPlan && clickedInterval === usage?.billingInterval)
+) {
+  return;
+}
 
   setSavingPlan(plan);
   setNotice('');
@@ -252,7 +259,11 @@ const configureVoice = async (
   }
 };
 
+
+
 const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
+  if (pack === usage?.voice.pack) return;
+
   setNotice('');
 
   try {
@@ -394,41 +405,69 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
 
 <div
   style={{
-    marginTop: 12,
     display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.25rem',
+    padding: '0rem',
+    borderRadius: '9999px',
     border: '1px solid #e5e7eb',
-    borderRadius: 999,
-    padding: 4,
-    gap: 4,
-    background: '#f8fafc',
+    background: '#f3f4f6',
   }}
 >
-  <button
-    type="button"
-    onClick={() => setBillingMode('monthly')}
-    className="db-btn"
-    style={{
-      background: billingMode === 'monthly' ? '#111827' : 'transparent',
-      color: billingMode === 'monthly' ? '#fff' : '#111827',
-      border: 'none',
-    }}
-  >
-    Monthly
-  </button>
+<button
+  type="button"
+  onClick={() => setBillingMode('monthly')}
+  style={{
+    border: 'none',
+    background:
+      billingMode === 'monthly' ? '#111827' : 'transparent',
+    color:
+      billingMode === 'monthly' ? '#ffffff' : '#6b7280',
+    padding: '0rem 0.4rem',
+    borderRadius: '9999px',
+    cursor: 'pointer',
+    boxShadow:
+      billingMode === 'monthly'
+        ? '0 4px 10px rgba(17, 24, 39, 0.25)'
+        : 'none',
+  }}
+>
+  Monthly
+</button>
 
-  <button
-    type="button"
-    onClick={() => setBillingMode('yearly')}
-    className="db-btn"
-    style={{
-      background: billingMode === 'yearly' ? '#111827' : 'transparent',
-      color: billingMode === 'yearly' ? '#fff' : '#111827',
-      border: 'none',
-    }}
-  >
-    Yearly
-  </button>
+<button
+  type="button"
+  onClick={() => setBillingMode('yearly')}
+  style={{
+    border: 'none',
+    background:
+      billingMode === 'yearly' ? '#111827' : 'transparent',
+    color:
+      billingMode === 'yearly' ? '#ffffff' : '#6b7280',
+    padding: '0rem 0.8rem',
+    borderRadius: '9999px',
+    cursor: 'pointer',
+    boxShadow:
+      billingMode === 'yearly'
+        ? '0 4px 10px rgba(17, 24, 39, 0.25)'
+        : 'none',
+  }}
+>
+  Yearly
+</button>
 </div>
+
+<p
+  style={{
+    marginTop: 8,
+    marginBottom: 0,
+    fontSize: 13,
+    color: '#6b7280',
+  }}
+>
+  Pay annually and save 20%.
+</p>
 
 <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
   {PLAN_OPTIONS[billingMode].map((option: any) => {
@@ -706,23 +745,6 @@ const active =
     </>
   )}
 </div>
-
-        {/* Quick links */}
-        <div className="db-card">
-          <div className="db-cardTitle">Quick links</div>
-          <p className="db-cardText">
-            Use onboarding billing for setup flow, then manage usage here.
-          </p>
-
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="db-btn" href="/onboarding/billing">
-              Open billing step
-            </Link>
-            <Link className="db-btn" href="/pricing">
-              View pricing page
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   );

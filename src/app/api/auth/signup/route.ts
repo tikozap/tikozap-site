@@ -151,12 +151,10 @@ export async function POST(req: Request) {
     cookieStore.set('tz_user_name', name, { path: '/', sameSite: 'lax' });
     cookieStore.set('tz_store_name', storeName, { path: '/', sameSite: 'lax' });
 
-    return NextResponse.json({
-      ok: true,
-      redirectTo: hasWebsite
-        ? '/onboarding/install?mode=widget'
-        : '/onboarding/install?mode=starter-link',
-    });
+return NextResponse.json({
+  ok: true,
+  redirectTo: '/onboarding/store',
+});
   } catch (err: any) {
     if (err?.code === 'P2002') {
       return NextResponse.json(

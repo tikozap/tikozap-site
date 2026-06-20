@@ -115,7 +115,9 @@ useEffect(() => {
         <aside className="db-sidebar">
           <div className="db-brand">
             <div className="db-ws">{tenantName}</div>
-            <div className="db-meta">Plan: {planName}</div>
+           <div className="db-meta">
+  Plan: {planName === 'pro' ? 'Pro Trial' : planName}
+</div>
           </div>
 
           <ul className="db-nav">

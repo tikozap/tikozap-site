@@ -129,73 +129,80 @@ async function uploadKnowledgeFile(file: File, idx: number) {
         </div>
 
         <div className="db-knowledgeGrid">
-          {docs.map((doc, idx) => (
-            <section key={`${doc.title}-${idx}`} className="db-card">
-              <div className="db-cardHead">
-                <div>
-                  <h3 className="db-cardTitle">{doc.title}</h3>
+{docs.map((doc, idx) => (
+  <section key={`${doc.title}-${idx}`} className="db-card" style={{ padding: 0 }}>
+    <div
+      className="knowledge-rowInner"
+      style={{
+        backgroundColor: idx % 2 === 1 ? "#eef2f7" : "#ffffff",
+      }}
+    >
+      <div className="db-cardHead">
+        <div>
+          <h3 className="db-cardTitle">{doc.title}</h3>
 
-                  <p className="db-cardText">
-                    Information your assistant can use in replies.
-                  </p>
-                </div>
+          <p className="db-cardText">
+            Information your assistant can use in replies.
+          </p>
+        </div>
 
-                <button
-                  className="db-btn primary"
-                  disabled={saving}
-                  onClick={() => saveDoc(doc)}
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
+        <button
+          className="db-btn primary"
+          disabled={saving}
+          onClick={() => saveDoc(doc)}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
 
-{isSizingDoc(doc.title) ? (
-  <div className="db-uploadBox">
-    <div>
-      <strong>Upload size chart or measurement guide</strong>
-      <p>
-        Upload a text, CSV, or markdown file, or paste your chart below.
-      </p>
-    </div>
+      {isSizingDoc(doc.title) ? (
+        <div className="db-uploadBox">
+          <div>
+            <strong>Upload size chart or measurement guide</strong>
+            <p>
+              Upload a text, CSV, or markdown file, or paste your chart below.
+            </p>
+          </div>
 
-    <label className="db-btn" style={{ width: "fit-content" }}>
-      Choose file
-      <input
-        type="file"
-        accept=".txt,.csv,.md,text/plain,text/csv"
-        style={{ display: "none" }}
+          <label className="db-btn" style={{ width: "fit-content" }}>
+            Choose file
+            <input
+              type="file"
+              accept=".txt,.csv,.md,text/plain,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                uploadKnowledgeFile(file, idx);
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <textarea
+        className="db-knowledgeTextarea"
+        value={doc.content}
+        placeholder={`Add ${doc.title.toLowerCase()} here...`}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          uploadKnowledgeFile(file, idx);
-          e.currentTarget.value = "";
+          const value = e.target.value;
+
+          setDocs((prev) =>
+            prev.map((d, i) =>
+              i === idx
+                ? {
+                    ...d,
+                    content: value,
+                  }
+                : d
+            )
+          );
         }}
       />
-    </label>
-  </div>
-) : null}
-
-              <textarea
-                className="db-knowledgeTextarea"
-                value={doc.content}
-                placeholder={`Add ${doc.title.toLowerCase()} here...`}
-                onChange={(e) => {
-                  const value = e.target.value;
-
-                  setDocs((prev) =>
-                    prev.map((d, i) =>
-                      i === idx
-                        ? {
-                            ...d,
-                            content: value,
-                          }
-                        : d
-                    )
-                  );
-                }}
-              />
-            </section>
-          ))}
+    </div>
+  </section>
+))}
         </div>
       </div>
 
@@ -248,6 +255,23 @@ async function uploadKnowledgeFile(file: File, idx: number) {
   margin: 4px 0 0;
   font-size: 13px;
   color: #64748b;
+}
+
+.knowledge-row {
+  background: #ffffff;
+}
+
+.knowledge-row.is-muted {
+  background: #f8fafc;
+}
+
+.knowledge-row.is-muted .db-knowledgeTextarea {
+  background: #ffffff;
+}
+
+.knowledge-rowInner {
+  border-radius: 16px;
+  padding: 20px;
 }
       `}</style>
     </div>

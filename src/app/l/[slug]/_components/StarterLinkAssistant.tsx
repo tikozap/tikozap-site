@@ -107,6 +107,20 @@ function getVisitorName(publicKey: string) {
   }
 }
 
+function getContrastTextColor(hex: string) {
+  const clean = hex.replace("#", "").trim();
+
+  if (!/^[0-9A-Fa-f]{6}$/.test(clean)) return "#ffffff";
+
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  return brightness > 150 ? "#374151" : "#ffffff";
+}
+
 export default function StarterLinkAssistant({
   publicKey,
   assistantName,
@@ -1094,6 +1108,7 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
   style={{
   ["--sl-kb" as any]: `${keyboardOffset}px`,
   ["--sl-brand" as any]: brandColor || "#111827",
+  ["--sl-brand-text" as any]: getContrastTextColor(brandColor || "#111827"),
 }}
 >
             <div className="sl-assistantHeader">
@@ -1644,7 +1659,7 @@ onKeyDown={(e) => {
   padding:14px;
   border-bottom:1px solid #e5e7eb;
   background:var(--sl-brand, #111827);
-  color:#fff;
+  color: var(--sl-brand-text, #fff);
   flex:0 0 auto;
 }
 
@@ -1658,7 +1673,7 @@ onKeyDown={(e) => {
   height:50px;
   border:none;
   background:transparent;
-  color:#fff;
+  color:var(--sl-brand-text, #fff);
   cursor:pointer;
   display:flex;
   align-items:center;
@@ -1699,7 +1714,7 @@ onKeyDown={(e) => {
   height:40px;
   border:none;
   background:transparent;
-  color:#fff;
+  color:var(--sl-brand-text, #fff);
   font-size:28px;
   line-height:1;
   cursor:pointer;
@@ -1739,7 +1754,7 @@ onKeyDown={(e) => {
 
 .sl-assistantMsg--user{
   background:var(--sl-brand, #111827);
-  color:#fff;
+  color:var(--sl-brand-text, #fff);
   border-color:var(--sl-brand, #111827);
 }
 
@@ -2176,7 +2191,7 @@ background:var(--sl-brand, #111827);
   padding:0;
   margin:0;
   font:inherit;
-  color:#fff;
+  color:var(--sl-brand-text, #fff);
   cursor:pointer;
   display:inline-flex;
   align-items:center;

@@ -11,7 +11,7 @@ export default function AssistantStep() {
         </h2>
 
         <p className="text-sm leading-6 opacity-80">
-          Set the assistant name, greeting, and a few store details. You can refine everything later.
+          Set the assistant name, edit greeting, and add a few store details. You can refine everything later.
         </p>
       </div>
 
@@ -22,7 +22,7 @@ export default function AssistantStep() {
               <span className="text-sm font-medium">Assistant name</span>
               <input
                 className="w-full rounded-2xl border border-zinc-300 px-4 py-3 text-sm"
-                defaultValue="Demo Boutique Assistant"
+                defaultValue="Name your Assistant here"
               />
             </label>
 

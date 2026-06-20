@@ -46,6 +46,8 @@ model Tenant {
   stripeSubscriptionId      String?
   billingStatus             String?
   stripeVoiceCustomerId     String?
+  stripeVoiceSubscriptionId String?
+  voiceBillingStatus        String?
   voiceCancelAtPeriodEnd    Boolean  @default(false)
   voiceCurrentPeriodEnd     DateTime?
   stripeCancelAtPeriodEnd   Boolean  @default(false)

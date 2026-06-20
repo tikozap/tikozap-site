@@ -99,7 +99,13 @@ export default function Page() {
             You&apos;ll start with a 14-day Pro trial. No credit card required.
           </p>
         </div>
+
       </section>
+
+<script
+  src="http://192.168.1.160:3000/widget.js"
+  data-tikozap-key="tz_1bf3625186119c6aabaa6df7621ea383"
+/>
 
       <style jsx>{`
         .hero-paths {

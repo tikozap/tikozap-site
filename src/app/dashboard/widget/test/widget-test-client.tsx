@@ -31,13 +31,15 @@ export default function WidgetTestClient({
 ></script>`;
   }, [origin, widgetPublicKey]);
 
-  const designerInstructions = `Please install TikoZap on our website.
+const designerInstructions = `Please install TikoZap on our website.
 
-Add this script before the closing </body> tag:
+Add this script to the website footer, just before the closing </body> tag:
 
 ${installScript}
 
-After publishing, please confirm the chat bubble appears on the website.`;
+If the website uses a builder, place it in Custom Code / Footer Code / Body End.
+
+After publishing, please confirm the TikoZap chat bubble appears in the bottom-right corner of the website.`;
 
   async function copyText(text: string, msg: string) {
     try {
@@ -92,8 +94,12 @@ After publishing, please confirm the chat bubble appears on the website.`;
         <section className="db-card">
           <div className="db-cardTitle">Option 1 - Add widget by yourself</div>
           <p className="db-cardText">
-            Copy this code and install widget on your website.
-          </p>
+  Copy the script below and paste it into your website footer, just before the closing &lt;/body&gt; tag.
+</p>
+
+<p className="db-cardText" style={{ marginTop: 8 }}>
+  If you use Shopify, WordPress, Wix, Squarespace, or another website builder, look for Custom Code, Footer Code, or Body End.
+</p>
 
           <pre style={{ marginTop: 14, overflow: 'auto', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: 12, fontSize: 12, whiteSpace: 'pre-wrap' }}>
             {installScript}
@@ -106,7 +112,7 @@ After publishing, please confirm the chat bubble appears on the website.`;
           </div>
 
           <p className="db-cardText" style={{ marginTop: 12 }}>
-            Not sure where to paste the code? Go to Option 2 below.
+            Need help? Send the installation instructions to your web designer below.
           </p>
         </section>
 

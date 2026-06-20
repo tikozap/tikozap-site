@@ -58,13 +58,13 @@ const handleSubmit = async (e: any) => {
             <form className="auth-form" onSubmit={handleSubmit}>
               <div className="field-row">
                 <div className="field">
-                  <label htmlFor="signup-name">Full name</label>
+                  <label htmlFor="signup-name">Store name</label>
                   <input
                     id="signup-name"
                     name="name"
                     type="text"
                     autoComplete="name"
-                    placeholder="Jane Doe"
+                    placeholder="Your Store"
                     required
                   />
                 </div>

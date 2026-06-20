@@ -70,36 +70,62 @@ fetch(base + "/api/widget/public/settings?key=" + encodeURIComponent(key), {
   iframe.setAttribute("aria-label", "TikoZap Assistant");
   iframe.setAttribute("allow", "microphone *; camera *; autoplay *");
 
+  var widgetOpen = false;
+
+  iframe.title = "TikoZap Assistant";
+  iframe.setAttribute("aria-label", "TikoZap Assistant");
+  iframe.setAttribute("allow", "microphone *; camera *; autoplay *");
+
   iframe.style.position = "fixed";
-  iframe.style.right = "24px";
-  iframe.style.bottom = "24px";
-  iframe.style.width = "420px";
-  iframe.style.height = "680px";
-  iframe.style.borderRadius = "24px";
-  iframe.style.boxShadow = "none";
-  iframe.style.transition = "width 220ms ease, height 220ms ease, box-shadow 220ms ease, border-radius 220ms ease";
-  iframe.style.maxWidth = "100vw";
-  iframe.style.maxHeight = "100vh";
   iframe.style.border = "0";
   iframe.style.zIndex = "2147483647";
   iframe.style.background = "transparent";
   iframe.style.pointerEvents = "auto";
+  iframe.style.boxShadow = "none";
+  iframe.style.transition =
+    "width 220ms ease, height 220ms ease, box-shadow 220ms ease, border-radius 220ms ease";
 
-  function applyDesktopPanel() {
+  function applyDesktopClosed() {
+    iframe.style.left = "auto";
+    iframe.style.top = "auto";
+    iframe.style.right = "24px";
+    iframe.style.bottom = "24px";
+    iframe.style.width = "88px";
+    iframe.style.height = "88px";
+    iframe.style.maxWidth = "88px";
+    iframe.style.maxHeight = "88px";
+    iframe.style.borderRadius = "999px";
+  }
+
+  function applyDesktopOpen() {
     iframe.style.left = "auto";
     iframe.style.top = "auto";
     iframe.style.right = "24px";
     iframe.style.bottom = "24px";
     iframe.style.width = "420px";
     iframe.style.height = "680px";
-    iframe.style.maxWidth = "100vw";
-    iframe.style.maxHeight = "100vh";
+    iframe.style.maxWidth = "calc(100vw - 32px)";
+    iframe.style.maxHeight = "calc(100vh - 32px)";
     iframe.style.borderRadius = "24px";
-    iframe.style.boxShadow = "none";
   }
 
-  function applyMobileFullScreen() {
-    var h = window.innerHeight || document.documentElement.clientHeight || screen.height;
+  function applyMobileClosed() {
+    iframe.style.left = "auto";
+    iframe.style.top = "auto";
+    iframe.style.right = "16px";
+    iframe.style.bottom = "16px";
+    iframe.style.width = "76px";
+    iframe.style.height = "76px";
+    iframe.style.maxWidth = "76px";
+    iframe.style.maxHeight = "76px";
+    iframe.style.borderRadius = "999px";
+  }
+
+  function applyMobileOpen() {
+    var h =
+      window.innerHeight ||
+      document.documentElement.clientHeight ||
+      screen.height;
 
     iframe.style.left = "0";
     iframe.style.right = "0";
@@ -110,14 +136,21 @@ fetch(base + "/api/widget/public/settings?key=" + encodeURIComponent(key), {
     iframe.style.maxWidth = "100vw";
     iframe.style.maxHeight = h + "px";
     iframe.style.borderRadius = "0";
-    iframe.style.boxShadow = "none";
   }
 
   function syncSize() {
     if (window.innerWidth < 900) {
-      applyMobileFullScreen();
+      if (widgetOpen) {
+        applyMobileOpen();
+      } else {
+        applyMobileClosed();
+      }
     } else {
-      applyDesktopPanel();
+      if (widgetOpen) {
+        applyDesktopOpen();
+      } else {
+        applyDesktopClosed();
+      }
     }
   }
 
@@ -125,7 +158,11 @@ fetch(base + "/api/widget/public/settings?key=" + encodeURIComponent(key), {
   window.addEventListener("orientationchange", syncSize);
 
   window.addEventListener("message", function(event) {
-    if (!event || !event.data || event.data.type !== "TIKOZAP_WIDGET_STATE") return;
+    if (!event || !event.data || event.data.type !== "TIKOZAP_WIDGET_STATE") {
+      return;
+    }
+
+    widgetOpen = event.data.open === true;
     syncSize();
   });
 

@@ -5,8 +5,6 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import SupportMetricsCards from './_components/SupportMetricsCards';
-import DesignPartnerRolloutCard from './_components/DesignPartnerRolloutCard';
-import CaseStudyExportCard from './_components/CaseStudyExportCard';
 import MobilePageHeader from './_components/MobilePageHeader';
 import OverviewVisualDashboard from './_components/OverviewVisualDashboard';
 
@@ -27,8 +25,6 @@ export default async function MerchantOverview() {
   </div>
 
   <div className="db-actions">
-    <Link href="/onboarding/knowledge" className="db-btn">Edit Knowledge</Link>
-    <Link href="/onboarding/install" className="db-btn">Starter Link Setup</Link>
     <Link href="/dashboard/conversations" className="db-btn primary">Open Inbox</Link>
   </div>
 </header>
@@ -42,15 +38,6 @@ export default async function MerchantOverview() {
         <SupportMetricsCards />
       </section>
 
-      {/* Rollout – keep Cursor's card, full-width */}
-      <section className="db-section db-rollout">
-        <DesignPartnerRolloutCard />
-      </section>
-
-      {/* Export – keep Cursor's card, full-width */}
-      <section className="db-section db-export">
-        <CaseStudyExportCard />
-      </section>
 
       <style>{`
   .db-mobilePageTop{

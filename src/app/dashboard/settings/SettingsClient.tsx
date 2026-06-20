@@ -9,8 +9,7 @@ type SectionKey =
   | "team"
   | "notifications"
   | "ai"
-  | "voice"
-  | "widget";
+  | "voice";
 
 const sections: { key: SectionKey; label: string; desc: string }[] = [
   { key: "general", label: "General", desc: "Store profile and business basics" },
@@ -18,10 +17,8 @@ const sections: { key: SectionKey; label: string; desc: string }[] = [
 
   { key: "notifications", label: "Inbox & Notifications", desc: "Alerts, dots, sounds, and escalation signals" },
 
-  { key: "ai", label: "AI Assistant", desc: "Tone, behavior, and handoff rules" },
+  { key: "ai", label: "AI Assistant & Widget", desc: "Assistant identity, greeting, branding, and widget appearance" },
   { key: "voice", label: "Voice & Orb", desc: "Voice style, orb behavior, and speaking mode" },
-
-  { key: "widget", label: "Widget", desc: "Website bubble appearance and behavior" },
 ];
 
 const BRAND_PRESETS = [
@@ -49,7 +46,7 @@ function getContrastTextColor(hex: string) {
 
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
 
-  return brightness > 150 ? "#111827" : "#ffffff";
+  return brightness > 150 ? "#374151" : "#ffffff";
 }
 
 type TeamMember = {
@@ -451,7 +448,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
                 <div className="st-grid2">
                   <label className="st-field">
                     <span className="st-label">Store name</span>
-                    <input placeholder="Kevin Zhang Store" />
+                    <input placeholder="Your store name" />
                   </label>
                   <label className="st-field">
                     <span className="st-label">Support email</span>
@@ -478,15 +475,15 @@ const toggleMemberNotifications = async (member: TeamMember) => {
           {active === "team" ? (
   <div className="st-cardGrid">
 <section className="st-card">
-  <h3>Workspace owner</h3>
+  <h3>Primary account</h3>
 
   {teamMembers
     .filter((m) => String(m.role).toLowerCase() === "owner")
     .map((m) => (
       <div className="st-teamMember" key={m.id}>
         <div>
-          <strong>{m.name || m.email}</strong>
-          <small>{m.email} · Full access</small>
+          <strong>{m.email}</strong>
+          <small>Full access</small>
         </div>
 
         <span className="st-roleBadge">Owner</span>
@@ -563,9 +560,16 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 <input
   value={assistantName}
   onChange={(e) => setAssistantName(e.target.value)}
-  placeholder="Demo Boutique Assistant"
+  placeholder="Name your assistant"
 />
   </label>
+
+<ChoiceGroup
+  label="Assistant identity"
+  options={["Female", "Male", "Neutral"]}
+  defaultValue="Female"
+  storageKey="tz_assistant_identity"
+/>
 
   <label className="st-field">
     <span className="st-label">Assistant greeting</span>
@@ -659,7 +663,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
         borderRadius: 14,
         padding: "10px 12px",
         fontSize: 13,
-        color: "#111827",
+        color:"#374151" ,
       }}
     >
       {assistantGreeting || "Hi! I'm here to help."}
@@ -688,7 +692,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
     borderRadius: 14,
     padding: "10px 12px",
     fontSize: 13,
-    color: "#111827",
+    color: "#374151",
   }}
 >
   I can help you check that. Can you share your order ID?
@@ -954,30 +958,10 @@ const toggleMemberNotifications = async (member: TeamMember) => {
             <div className="st-cardGrid">
               <section className="st-card">
                 <h3>Website widget</h3>
-                <ChoiceGroup
-                  label="Bubble position"
-                  options={["Bottom right", "Bottom left"]}
-                  defaultValue="Bottom right"
-                />
+
                 <Toggle label="Show welcome message" />
                 <Toggle label="Show product suggestions" />
                 <Toggle label="Enable voice in widget" />
-              </section>
-
-              <section className="st-card">
-                <h3>Branding</h3>
-                <label className="st-field">
-                  <span className="st-label">Assistant name</span>
-                  <input placeholder="Kevin Zhang Assistant" />
-                </label>
-                <label className="st-field">
-  <span className="st-label">Assistant greeting</span>
-  <textarea
-    className="st-textarea"
-    placeholder="Hi! I'm here if you need help with products, orders, shipping, or returns."
-    defaultValue="Hi! I'm here if you need help with products, orders, shipping, or returns."
-  />
-</label>
               </section>
             </div>
           ) : null}
@@ -1210,16 +1194,18 @@ const toggleMemberNotifications = async (member: TeamMember) => {
           gap:8px;
         }
 
-        .st-choice{
-          border:1px solid #d1d5db;
-          background:#fff;
-          border-radius:999px;
-          padding:8px 12px;
-          font-size:12px;
-          font-weight:700;
-          color:#475569;
-          cursor:pointer;
-        }
+.st-choice{
+  border:1px solid #d1d5db;
+  background:#fff;
+  border-radius:999px;
+  padding:8px 12px;
+  min-width:76px;
+  text-align:center;
+  font-size:12px;
+  font-weight:700;
+  color:#475569;
+  cursor:pointer;
+}
 
         .st-choice.active{
   background:#eff6ff;

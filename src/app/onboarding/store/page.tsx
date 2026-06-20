@@ -7,7 +7,7 @@ export default function StoreStep() {
     <div>
       <h2 className="text-lg font-semibold">Store basics</h2>
       <p className="mt-1 text-sm opacity-80">
-        Create your workspace (tenant). For testing, use <span className="font-medium">Demo Boutique</span>.
+        Tell us a little about your store so we can set up your workspace.
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -15,8 +15,8 @@ export default function StoreStep() {
           <span className="text-sm font-medium">Store name</span>
           <input
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="Demo Boutique"
-            defaultValue="Demo Boutique"
+            placeholder="Your Store"
+            defaultValue="Your Store"
           />
         </label>
 
@@ -34,20 +34,27 @@ export default function StoreStep() {
             <input className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm" placeholder="support@demoboutique.com" />
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Primary category</span>
-            <select className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm">
-              <option>Women&apos;s fashion</option>
-              <option>Beauty</option>
-              <option>Electronics</option>
-              <option>Home & living</option>
-              <option>Other</option>
-            </select>
-          </label>
+<label className="grid gap-1">
+  <span className="text-sm font-medium">Primary category</span>
+  <select className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm">
+    <option>Fashion</option>
+    <option>Beauty</option>
+    <option>Electronics</option>
+    <option>Home & living</option>
+    <option>Food & beverage</option>
+    <option>Jewelry & accessories</option>
+    <option>Sports & outdoors</option>
+    <option>Health & wellness</option>
+    <option>Pet supplies</option>
+    <option>Flowers & gifts</option>
+    <option>Books & stationery</option>
+    <option>Other</option>
+  </select>
+</label>
         </div>
       </div>
 
-      <OnboardingNav backHref="/onboarding/install" nextHref="/onboarding/assistant" />
+      <OnboardingNav nextHref="/onboarding/assistant" />
     </div>
   );
 }
