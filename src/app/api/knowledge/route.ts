@@ -36,11 +36,26 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({
-    ok: true,
-    docs,
-    defaults: DEFAULT_SECTIONS,
-  });
+const docsByTitle = new Map(docs.map((doc) => [doc.title, doc]));
+
+const mergedDocs = DEFAULT_SECTIONS.map((title) => {
+  const existing = docsByTitle.get(title);
+
+  return (
+    existing || {
+      id: "",
+      title,
+      content: "",
+      updatedAt: "",
+    }
+  );
+});
+
+return NextResponse.json({
+  ok: true,
+  docs: mergedDocs,
+  defaults: DEFAULT_SECTIONS,
+});
 }
 
 export async function POST(req: Request) {
@@ -57,22 +72,22 @@ export async function POST(req: Request) {
       ? body.title.trim()
       : "";
 
-  const content =
-    typeof body.content === "string" && body.content.trim()
-      ? body.content.trim()
-      : "";
+const content =
+  typeof body.content === "string"
+    ? body.content.trim()
+    : "";
 
   const id =
     typeof body.id === "string" && body.id.trim()
       ? body.id.trim()
       : "";
 
-  if (!title || !content) {
-    return NextResponse.json(
-      { ok: false, error: "Title and content are required" },
-      { status: 400 }
-    );
-  }
+if (!title) {
+  return NextResponse.json(
+    { ok: false, error: "Title is required" },
+    { status: 400 }
+  );
+}
 
   if (id) {
     const existing = await prisma.knowledgeDoc.findFirst({

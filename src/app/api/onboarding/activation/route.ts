@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   const windowParam = (url.searchParams.get("window") || "24h") as WindowKey;
   const startedAt = getWindowStart(windowParam);
 
-  const [tenant, widget, knowledgeCount, conversationCount, previewCount] =
+  const [tenant, widget, knowledgeDocs, conversationCount, widgetConversationCount, previewCount] =
     await Promise.all([
       prisma.tenant.findUnique({
         where: { id: tenantId },
@@ -50,12 +50,23 @@ export async function GET(req: Request) {
         },
       }),
 
-      prisma.knowledgeDoc.count({
+      prisma.knowledgeDoc.findMany({
         where: { tenantId },
+        select: {
+          title: true,
+          content: true,
+        },
       }),
 
       prisma.conversation.count({
         where: { tenantId },
+      }),
+
+      prisma.conversation.count({
+        where: {
+          tenantId,
+          channel: "web",
+        },
       }),
 
       prisma.metricEvent.count({
@@ -69,6 +80,15 @@ export async function GET(req: Request) {
       }),
     ]);
 
+  const filledKnowledgeCount = knowledgeDocs.filter((doc) => {
+    return doc.content.trim().length > 0;
+  }).length;
+
+  const knowledgePct = Math.min(
+    100,
+    Math.round((filledKnowledgeCount / 5) * 100)
+  );
+
   const steps = [
     {
       id: "install",
@@ -78,7 +98,8 @@ export async function GET(req: Request) {
     {
       id: "knowledge",
       label: "Added store knowledge",
-      done: knowledgeCount > 0,
+      done: knowledgePct === 100,
+      conversionPct: knowledgePct,
     },
     {
       id: "starter-link",
@@ -88,7 +109,7 @@ export async function GET(req: Request) {
     {
       id: "widget",
       label: "Installed website widget",
-      done: Boolean(widget?.installedAt),
+      done: Boolean(widget?.installedAt || widgetConversationCount > 0),
     },
     {
       id: "first-conversation",
@@ -114,11 +135,12 @@ export async function GET(req: Request) {
       startedAt: startedAt.toISOString(),
       totalEvents: completedCount,
       baselineCount: totalCount,
-      steps: steps.map((step, index) => ({
+      steps: steps.map((step) => ({
         id: step.id,
         label: step.label,
         count: step.done ? 1 : 0,
-        conversionPct: step.done ? 100 : 0,
+        conversionPct:
+          "conversionPct" in step ? step.conversionPct : step.done ? 100 : 0,
       })),
     },
     checklist: steps.map((step) => ({

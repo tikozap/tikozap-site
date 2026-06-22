@@ -167,6 +167,7 @@ model KnowledgeDoc {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, title])
   @@index([tenantId, updatedAt])
 }
 

@@ -585,24 +585,35 @@ const orbState = useMemo(() => {
 
 
 function startVoiceCapture() {
+  if (!recognitionRef.current || sending) return;
+
   transcriptRef.current = "";
   setLiveTranscript("");
   setHoldingToTalk(true);
 
   try {
-    recognitionRef.current?.start?.();
-  } catch (e) {
-    console.log("[speech] start failed", e);
-  }
+    recognitionRef.current.start();
+  } catch {}
 }
 
 function stopVoiceCapture() {
+  setHoldingToTalk(false);
+
   try {
-    recognitionRef.current?.stop?.();
-  } catch (e) {
-    console.log("[speech] stop failed", e);
-    setHoldingToTalk(false);
+    recognitionRef.current?.stop();
+  } catch {}
+}
+
+function toggleTextSpeechCapture() {
+  if (holdingToTalk) {
+    stopVoiceCapture();
+    return;
   }
+
+  setLastInputMethod("speak");
+  setComposerMode("speak");
+  inputRef.current?.blur();
+  startVoiceCapture();
 }
 
 function stopRealtimeVoiceSession(options?: { preserveAssistantText?: boolean }) {
@@ -1426,7 +1437,7 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
     </div>
 
     <div className="sl-assistantComposer">
-      {!isMobileView ? (
+      {open ? (
         <button
           type="button"
           className={`sl-assistantModeIcon ${holdingToTalk ? "is-holding" : ""}`}
@@ -1476,17 +1487,12 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
         </button>
       ) : null}
 
-      {!isMobileView && isSpeakMode ? (
-        <button
-          type="button"
-          className={`sl-assistantHoldField ${holdingToTalk ? "is-listening" : ""}`}
-          onMouseDown={() => {
-            setHoldingToTalk(true);
-            startVoiceCapture();
-          }}
-          onMouseUp={stopVoiceCapture}
-          onMouseLeave={stopVoiceCapture}
-        >
+      {isSpeakMode ? (
+<button
+  type="button"
+  className={`sl-assistantHoldField ${holdingToTalk ? "is-listening" : ""}`}
+  onClick={toggleTextSpeechCapture}
+>
           {holdingToTalk ? (
             <span className="sl-assistantHoldLive">
               <span className="sl-assistantHoldDots" aria-hidden="true">
@@ -1497,7 +1503,7 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
               Listening...
             </span>
           ) : (
-            "Hold to talk"
+            "Tap to speak"
           )}
         </button>
       ) : (
@@ -1537,10 +1543,10 @@ onKeyDown={(e) => {
       <button
         type="button"
         className="sl-assistantSendIcon"
-        disabled={!hasText || sending || (!isMobileView && isSpeakMode)}
+        disabled={!hasText || sending || isSpeakMode}
         aria-label="Send message"
         onClick={() => {
-          if (!hasText || sending || (!isMobileView && isSpeakMode)) return;
+          if (!hasText || sending || isSpeakMode) return;
           sendMessage(input);
         }}
       >

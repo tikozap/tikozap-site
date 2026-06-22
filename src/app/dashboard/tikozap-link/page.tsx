@@ -42,6 +42,7 @@ export default function TikoZapLinkPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
+  const [copiedMsg, setCopiedMsg] = useState("");
 
   const [slug, setSlug] = useState("my-store");
 const [storeName, setStoreName] = useState("My Store");
@@ -75,6 +76,10 @@ const [contactEmail, setContactEmail] = useState("");
   );
 
   const previewHref = `/l/${slug || "my-store"}`;
+  const starterLinkUrl =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/l/${slug || "my-store"}`
+    : `/l/${slug || "my-store"}`;
 
   useEffect(() => {
     loadData();
@@ -187,6 +192,16 @@ const [contactEmail, setContactEmail] = useState("");
     );
   }
 
+  async function copyStarterLink() {
+  try {
+    await navigator.clipboard.writeText(starterLinkUrl);
+    setCopiedMsg("Copied.");
+    window.setTimeout(() => setCopiedMsg(""), 1800);
+  } catch {
+    setCopiedMsg("Could not copy.");
+  }
+}
+
   return (
     <div className="db-container">
       <MobilePageHeader title="Starter Link" />
@@ -205,21 +220,79 @@ const [contactEmail, setContactEmail] = useState("");
           <div className="db-card">Loading Starter Link settings...</div>
         ) : null}
 
-        <div className="db-card">
-          <div className="db-cardTitle">Starter Link setup</div>
-          <p className="db-cardText">Set up your public link of your storefront page.</p>
+<div className="db-card">
+  <div className="db-cardTitle">Starter Link setup</div>
 
-          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Public slug</span>
-              <input className="db-btn" value={slug} onChange={(e) => setSlug(e.target.value)} />
-            </label>
+  <p className="db-cardText">
+    Share this link anywhere customers can find you.
+  </p>
 
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "10px 12px", background: "#f8fafc", fontSize: 14 }}>
-              /l/{slug || "demo"}
-            </div>
-          </div>
-        </div>
+  <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+    <label style={fieldWrap}>
+      <span style={fieldLabel}>Your Starter Link URL</span>
+
+      <input
+        className="db-btn"
+        value={starterLinkUrl}
+        readOnly
+      />
+    </label>
+
+    <label style={fieldWrap}>
+      <span style={fieldLabel}>Customize link ending</span>
+
+      <input
+        className="db-btn"
+        value={slug}
+        onChange={(e) => setSlug(e.target.value)}
+        placeholder="your-store-name"
+      />
+    </label>
+
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        alignItems: "center",
+        flexWrap: "wrap",
+      }}
+    >
+<button
+  className="db-btn primary"
+  type="button"
+  onClick={copyStarterLink}
+  style={{
+    minHeight: 34,
+    paddingTop: 0,
+    paddingBottom: 0,
+    display: "inline-flex",
+    alignItems: "center",
+  }}
+>
+  Copy link
+</button>
+
+      <Link
+        className="db-btn"
+        href={previewHref}
+        target="_blank"
+      >
+        Preview page
+      </Link>
+
+      {copiedMsg ? (
+        <span
+          style={{
+            fontSize: 13,
+            color: copiedMsg === "Copied." ? "#047857" : "#b91c1c",
+          }}
+        >
+          {copiedMsg}
+        </span>
+      ) : null}
+    </div>
+  </div>
+</div>
 
         <div className="db-card">
           <div className="db-cardTitle">Branding</div>
@@ -570,7 +643,7 @@ const [contactEmail, setContactEmail] = useState("");
     fontWeight: 700,
   }}
 >
-  Preview public page
+  Preview page
 </Link>
 
             {savedMsg ? <span style={{ fontSize: 13, color: savedMsg === "Saved." ? "#047857" : "#b91c1c" }}>{savedMsg}</span> : null}

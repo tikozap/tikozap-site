@@ -226,12 +226,49 @@ export default function SettingsClient() {
   const [currentUserId, setCurrentUserId] = useState("");
 
   const [assistantName, setAssistantName] = useState("Store Assistant");
+  const [storeName, setStoreName] = useState("");
+  const [storeWebsite, setStoreWebsite] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [category, setCategory] = useState("Fashion");
+  const [timeZone, setTimeZone] = useState("America/New_York");
+  const [businessHours, setBusinessHours] = useState("");
   const [assistantGreeting, setAssistantGreeting] = useState(
   "Hi! I'm here if you need help with products, orders, shipping, or returns."
 );
   const [brandColor, setBrandColor] = useState("#111111");
   const [showCustomColor, setShowCustomColor] = useState(false);
 
+  const saveStoreProfile = async () => {
+  const raw = localStorage.getItem("tz_settings_cache");
+  const cached = raw ? JSON.parse(raw) : {};
+
+  const res = await fetch("/api/settings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      settings: cached,
+      profile: {
+        storeName,
+        websiteUrl: storeWebsite,
+        supportEmail,
+        category,
+        timeZone,
+        businessHours,
+      },
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.ok) {
+    alert("Could not save store profile.");
+    return;
+  }
+
+  alert("Store profile saved.");
+};
   const saveAssistantBranding = async () => {
   const raw = localStorage.getItem("tz_settings_cache");
   const cached = raw ? JSON.parse(raw) : {};
@@ -262,19 +299,36 @@ export default function SettingsClient() {
   );
 
 useEffect(() => {
-  loadSavedSettings().then((settings) => {
-    localStorage.setItem("tz_settings_cache", JSON.stringify(settings));
+  fetch("/api/settings", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data?.ok) return;
 
-    Object.entries(settings).forEach(([key, value]) => {
-      localStorage.setItem(key, String(value));
+      const settings = data.settings || {};
+      const profile = data.profile || {};
+
+      localStorage.setItem(
+        "tz_settings_cache",
+        JSON.stringify(settings)
+      );
+
+      Object.entries(settings).forEach(([key, value]) => {
+        localStorage.setItem(key, String(value));
+      });
+
+      setStoreName(profile.storeName || "");
+      setStoreWebsite(profile.websiteUrl || "");
+      setSupportEmail(profile.supportEmail || "");
+      setCategory(profile.category || "Fashion");
+      setTimeZone(profile.timeZone || "America/New_York");
+      setBusinessHours(profile.businessHours || "");
+
+      setSoundEnabled(
+        (localStorage.getItem("tz_setting_escalation_sound") ?? "1") === "1"
+      );
+
+      window.dispatchEvent(new Event("tz-settings-change"));
     });
-
-    setSoundEnabled(
-      (localStorage.getItem("tz_setting_escalation_sound") ?? "1") === "1"
-    );
-
-    window.dispatchEvent(new Event("tz-settings-change"));
-  });
 }, []);
 
 useEffect(() => {
@@ -448,20 +502,56 @@ const toggleMemberNotifications = async (member: TeamMember) => {
                 <div className="st-grid2">
                   <label className="st-field">
                     <span className="st-label">Store name</span>
-                    <input placeholder="Your store name" />
+                    <input
+  value={storeName}
+  onChange={(e) => setStoreName(e.target.value)}
+/>
                   </label>
                   <label className="st-field">
                     <span className="st-label">Support email</span>
-                    <input placeholder="support@yourstore.com" />
+                    <input
+  value={supportEmail}
+  onChange={(e) => setSupportEmail(e.target.value)}
+/>
                   </label>
                   <label className="st-field">
+  <span className="st-label">Store website</span>
+
+  <input
+    value={storeWebsite}
+    onChange={(e) => setStoreWebsite(e.target.value)}
+  />
+</label>
+
+<label className="st-field">
+  <span className="st-label">Primary category</span>
+
+  <input
+    value={category}
+    onChange={(e) => setCategory(e.target.value)}
+  />
+</label>
+                  <label className="st-field">
                     <span className="st-label">Time zone</span>
-                    <input placeholder="America/New_York" />
+                    <input
+  value={timeZone}
+  onChange={(e) => setTimeZone(e.target.value)}
+/>
                   </label>
                   <label className="st-field">
                     <span className="st-label">Business hours</span>
-                    <input placeholder="Mon–Fri, 9 AM–5 PM" />
+                    <input
+  value={businessHours}
+  onChange={(e) => setBusinessHours(e.target.value)}
+/>
                   </label>
+                  <button
+  type="button"
+  className="st-upgradeBtn"
+  onClick={saveStoreProfile}
+>
+  Save profile
+</button>
                 </div>
               </section>
 
@@ -953,18 +1043,6 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 ) : null}
   </div>
 ) : null}
-
-          {active === "widget" ? (
-            <div className="st-cardGrid">
-              <section className="st-card">
-                <h3>Website widget</h3>
-
-                <Toggle label="Show welcome message" />
-                <Toggle label="Show product suggestions" />
-                <Toggle label="Enable voice in widget" />
-              </section>
-            </div>
-          ) : null}
         </main>
       </div>
 

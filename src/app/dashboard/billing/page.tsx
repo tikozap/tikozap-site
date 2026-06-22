@@ -407,10 +407,9 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
   style={{
     display: 'inline-flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.25rem',
-    padding: '0rem',
-    borderRadius: '9999px',
+    gap: 0,
+    padding: 0,
+    borderRadius: 9999,
     border: '1px solid #e5e7eb',
     background: '#f3f4f6',
   }}
@@ -424,7 +423,10 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
       billingMode === 'monthly' ? '#111827' : 'transparent',
     color:
       billingMode === 'monthly' ? '#ffffff' : '#6b7280',
-    padding: '0rem 0.4rem',
+    padding: '5px 12px',
+fontSize: 13,
+fontWeight: 700,
+lineHeight: 1,
     borderRadius: '9999px',
     cursor: 'pointer',
     boxShadow:
@@ -445,7 +447,10 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
       billingMode === 'yearly' ? '#111827' : 'transparent',
     color:
       billingMode === 'yearly' ? '#ffffff' : '#6b7280',
-    padding: '0rem 0.8rem',
+    padding: '5px 16px',
+fontSize: 13,
+fontWeight: 700,
+lineHeight: 1,
     borderRadius: '9999px',
     cursor: 'pointer',
     boxShadow:
