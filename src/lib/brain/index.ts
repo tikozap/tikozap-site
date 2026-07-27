@@ -989,12 +989,40 @@ function buildSystemPrompt(
 
 async function composeNaturalReply(
   message: string,
+  history: BrainHistoryMessage[],
   products: ProductSearchResult[],
   normalizedCategory: string | undefined,
   evidencePack: string
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   const hasProducts = Array.isArray(products) && products.length > 0;
+    const recentHistory = (history || [])
+    .slice(-12)
+    .map((item) => {
+      const role =
+        item.role === "assistant"
+          ? "assistant"
+          : item.role === "customer" || item.role === "user"
+            ? "user"
+            : null;
+
+      if (!role || !item.content?.trim()) {
+        return null;
+      }
+
+      return {
+        role,
+        content: item.content.trim(),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        role: "user" | "assistant";
+        content: string;
+      } => Boolean(item)
+    );
 
   if (!apiKey) {
     return buildRuleBasedReply(message, products, normalizedCategory);
@@ -1011,19 +1039,20 @@ async function composeNaturalReply(
         model: process.env.OPENAI_TEXT_MODEL || "gpt-4o-mini",
         temperature: 0.4,
         max_tokens: products.length > 0 ? 80 : 120,
-        messages: [
-          {
-            role: "system",
-content: buildSystemPrompt(
-  message,
-  evidencePack
-),
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
+messages: [
+  {
+    role: "system",
+    content: buildSystemPrompt(
+      message,
+      evidencePack
+    ),
+  },
+  ...recentHistory,
+  {
+    role: "user",
+    content: message,
+  },
+],
       }),
     });
 
@@ -1125,6 +1154,7 @@ const evidencePack = buildBrainEvidencePack(
 
 const reply = await composeNaturalReply(
   input.message,
+  input.history || [],
   products,
   category,
   evidencePack
