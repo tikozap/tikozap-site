@@ -1210,11 +1210,11 @@ console.log("BRAIN_SEARCH_STATE", {
   nextState,
 });
 
-  const interpreted = await interpretIntentWithAI(input.message);
+const interpreted = await interpretIntentWithAI(input.message);
 
 // Explicit category words in the shopper's current message
 // must override AI interpretation and prior conversation state.
-const explicitCategory = detectCategory(input.message);
+const explicitCategory = detectedCurrentCategory;
 
 const category = normalizeCategoryName(
   explicitCategory ||
