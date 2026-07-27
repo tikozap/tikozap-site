@@ -118,24 +118,28 @@ export async function interpretIntentWithAI(
   }
 
   try {
-    const systemPrompt = [
-      "You normalize customer messages for an e-commerce AI assistant.",
-      "Return strict JSON only.",
-      "Do not include markdown.",
-      '{"intent":"product_search|order_help|return_help|shipping_help|store_question|general_chat","category":"optional normalized english category","language":"optional language code like en or zh","userGoal":"brief summary","supportTopic":"order|return|shipping|store|optional","urgency":"low|medium|high|optional","requiresHuman":true|false|optional,"filters":{"minPrice":number?,"maxPrice":number?,"color":"optional","style":"optional"}}',
-      "Detect customer support scenarios clearly:",
-"- order_help: order status, tracking, missing package",
-"- return_help: return, refund, exchange, cancellation",
-"- shipping_help: delivery time, shipping cost, delays",
-"- store_question: policies, contact, hours",
-"If user is frustrated or needs escalation, set requiresHuman=true.",
-"If message implies urgency (angry, delayed order), set urgency=high.",
-      '{"intent":"product_search|order_help|return_help|shipping_help|store_question|general_chat","category":"optional normalized english category","language":"optional language code like en or zh","userGoal":"brief summary","filters":{"minPrice":number?,"maxPrice":number?,"color":"optional","style":"optional"}}',
-      "Normalize categories into simple English singular/plural-neutral labels like bicycles, books, jackets, dresses, shoes, laptops, toys, furniture.",
-      "If the message is about support rather than shopping, set category only if clearly relevant.",
-      "Infer the message language.",
-      "Be robust to multilingual input.",
-    ].join(" ");
+const systemPrompt = [
+  "You normalize customer messages for an e-commerce AI assistant.",
+  "Return strict JSON only.",
+  "Do not include markdown.",
+  "Use this JSON structure:",
+  '{"intent":"product_search|order_help|return_help|shipping_help|store_question|general_chat","category":null,"language":"en","userGoal":"brief summary","supportTopic":null,"urgency":"low","requiresHuman":false,"filters":{"minPrice":null,"maxPrice":null,"color":null,"style":null}}',
+  "Use null when a field cannot be determined.",
+  "Never return the literal words optional, unknown, none, or n/a as a field value.",
+  "For a product refinement such as 'blue ones', 'black ones', 'cheaper ones', or 'V-neck ones', do not invent a category.",
+  "For those refinement messages, set category to null and place the refinement in filters.",
+  "Detect customer support scenarios clearly:",
+  "- order_help: order status, tracking, or missing package",
+  "- return_help: return, refund, exchange, or cancellation",
+  "- shipping_help: delivery time, shipping cost, or delays",
+  "- store_question: policies, contact information, or hours",
+  "If the user is frustrated or needs escalation, set requiresHuman=true.",
+  "If the message implies urgency, set urgency=high.",
+  "Normalize explicit product categories into simple English labels such as bicycles, books, jackets, dresses, shoes, laptops, toys, or furniture.",
+  "Set category only when the current message explicitly names or clearly identifies a product category.",
+  "Infer the message language.",
+  "Be robust to multilingual input.",
+].join(" ");
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -162,11 +166,26 @@ export async function interpretIntentWithAI(
       return fallbackInterpret(message);
     }
 
-    const parsed = JSON.parse(jsonText) as InterpretedIntent;
+const parsed = JSON.parse(jsonText) as InterpretedIntent;
 
-    return {
-      intent: parsed.intent || "general_chat",
-      category: parsed.category || undefined,
+const rawCategory = String(parsed.category || "").trim();
+const invalidCategoryValues = new Set([
+  "",
+  "optional",
+  "unknown",
+  "none",
+  "null",
+  "n/a",
+  "not applicable",
+]);
+
+const safeCategory = invalidCategoryValues.has(rawCategory.toLowerCase())
+  ? undefined
+  : rawCategory;
+
+return {
+  intent: parsed.intent || "general_chat",
+  category: safeCategory,
       language: parsed.language || undefined,
       userGoal: parsed.userGoal || String(message || "").trim(),
       filters: parsed.filters || {},

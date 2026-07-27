@@ -40,26 +40,99 @@ function lower(text: string) {
 function detectCategory(text: string): string | undefined {
   const t = lower(text);
 
-  if (t.includes("jacket") || t.includes("jackets") || t.includes("coat") || t.includes("coats")) return "jackets";
-  if (t.includes("dress") || t.includes("dresses") || t.includes("gown") || t.includes("gowns")) return "dresses";
-  if (t.includes("snowboard") || t.includes("snowboards")) return "snowboards";
-  if (t.includes("bicycle") || t.includes("bicycles") || t.includes("bike") || t.includes("bikes")) return "bicycles";
-  if (t.includes("book") || t.includes("books") || t.includes("novel") || t.includes("novels")) return "books";
-  if (t.includes("toy") || t.includes("toys")) return "toys";
-  if (t.includes("clothes") || t.includes("clothing") || t.includes("apparel")) return "clothing";
-  if (t.includes("shirt") || t.includes("shirts") || t.includes("tee") || t.includes("t-shirt")) return "shirts";
-  if (t.includes("shoe") || t.includes("shoes") || t.includes("sneaker") || t.includes("sneakers")) return "shoes";
-  if (t.includes("headphone") || t.includes("headphones") || t.includes("earbud") || t.includes("earbuds")) return "headphones";
-  if (t.includes("laptop") || t.includes("laptops") || t.includes("notebook")) return "laptops";
-  if (t.includes("phone") || t.includes("phones") || t.includes("smartphone")) return "phones";
-  if (t.includes("watch") || t.includes("watches")) return "watches";
-  if (t.includes("bag") || t.includes("bags") || t.includes("backpack") || t.includes("backpacks")) return "bags";
-  if (t.includes("furniture") || t.includes("chair") || t.includes("table") || t.includes("desk")) return "furniture";
-  if (t.includes("kitchen") || t.includes("cookware") || t.includes("pan") || t.includes("pot")) return "kitchen";
-  if (t.includes("beauty") || t.includes("skincare") || t.includes("makeup")) return "beauty";
-  if (t.includes("fitness") || t.includes("dumbbell") || t.includes("yoga") || t.includes("exercise")) return "fitness";
+  const categoryTerms: Array<{
+    category: string;
+    terms: string[];
+  }> = [
+    {
+      category: "jackets",
+      terms: ["jacket", "jackets", "coat", "coats"],
+    },
+    {
+      category: "dresses",
+      terms: ["dress", "dresses", "gown", "gowns"],
+    },
+    {
+      category: "snowboards",
+      terms: ["snowboard", "snowboards"],
+    },
+    {
+      category: "bicycles",
+      terms: ["bicycle", "bicycles", "bike", "bikes"],
+    },
+    {
+      category: "books",
+      terms: ["book", "books", "novel", "novels"],
+    },
+    {
+      category: "toys",
+      terms: ["toy", "toys"],
+    },
+    {
+      category: "clothing",
+      terms: ["clothes", "clothing", "apparel"],
+    },
+    {
+      category: "shirts",
+      terms: ["shirt", "shirts", "tee", "t-shirt"],
+    },
+    {
+      category: "shoes",
+      terms: ["shoe", "shoes", "sneaker", "sneakers"],
+    },
+    {
+      category: "headphones",
+      terms: ["headphone", "headphones", "earbud", "earbuds"],
+    },
+    {
+      category: "laptops",
+      terms: ["laptop", "laptops", "notebook"],
+    },
+    {
+      category: "phones",
+      terms: ["phone", "phones", "smartphone"],
+    },
+    {
+      category: "watches",
+      terms: ["watch", "watches"],
+    },
+    {
+      category: "bags",
+      terms: ["bag", "bags", "backpack", "backpacks"],
+    },
+    {
+      category: "furniture",
+      terms: ["furniture", "chair", "table", "desk"],
+    },
+    {
+      category: "kitchen",
+      terms: ["kitchen", "cookware", "pan", "pot"],
+    },
+    {
+      category: "beauty",
+      terms: ["beauty", "skincare", "makeup"],
+    },
+    {
+      category: "fitness",
+      terms: ["fitness", "dumbbell", "yoga", "exercise"],
+    },
+  ];
 
-  return undefined;
+  let detectedCategory: string | undefined;
+  let latestPosition = -1;
+
+  for (const entry of categoryTerms) {
+    for (const term of entry.terms) {
+      const position = t.lastIndexOf(term);
+
+      if (position > latestPosition) {
+        latestPosition = position;
+        detectedCategory = entry.category;
+      }
+    }
+  }
+
+  return detectedCategory;
 }
 
 function normalizeCategoryName(category?: string) {
@@ -379,6 +452,14 @@ async function searchProducts(
     searchState,
     normalizedCategory
   );
+
+  console.log("BRAIN_SEARCH_TERMS", {
+    message,
+    searchState,
+    normalizedCategory,
+    query,
+    keywords,
+  });
 
   const attempts = Array.from(
     new Set(
@@ -1101,14 +1182,33 @@ function inferSearchStateFromHistory(
 export async function runTikoBrain(
   input: RunTikoBrainInput
 ): Promise<RunTikoBrainOutput> {
+const detectedCurrentCategory = detectCategory(input.message);
+
 const nextIntent = extractSearchIntent(input.message);
+
+const nextIntentWithExplicitCategory = detectedCurrentCategory
+  ? {
+      ...nextIntent,
+      category: detectedCurrentCategory,
+    }
+  : nextIntent;
 
 const inferredState = {
   ...inferSearchStateFromHistory(input.history || []),
   ...(input.searchState || {}),
 };
 
-const nextState = mergeSearchState(inferredState, nextIntent);
+const nextState = mergeSearchState(
+  inferredState,
+  nextIntentWithExplicitCategory
+);
+
+console.log("BRAIN_SEARCH_STATE", {
+  message: input.message,
+  inferredState,
+  nextIntent: nextIntentWithExplicitCategory,
+  nextState,
+});
 
   const interpreted = await interpretIntentWithAI(input.message);
 
@@ -1122,6 +1222,12 @@ const category = normalizeCategoryName(
   nextState.lastCategory ||
   detectCategory(nextState.lastQuery || "")
 );
+
+console.log("BRAIN_CATEGORY", {
+  explicitCategory,
+  interpretedCategory: interpreted.category,
+  finalCategory: category,
+});
 
   let products: ProductSearchResult[] = [];
 
