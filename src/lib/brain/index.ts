@@ -286,20 +286,25 @@ const extraKeywords = raw
     return { query: "kitchen", keywords: ["kitchen", "cookware", "pan", "pot"] };
   }
 
-return {
-  query: "beauty",
-  keywords: Array.from(
-    new Set([
-      ...extraKeywords,
-      "beauty",
-      "skincare",
-      "makeup",
-    ])
-  ),
-};
+  if (category === "beauty") {
+    return {
+      query: "beauty",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "beauty",
+          "skincare",
+          "makeup",
+        ])
+      ),
+    };
+  }
 
   if (category === "fitness") {
-    return { query: "fitness", keywords: ["fitness", "dumbbell", "yoga", "exercise"] };
+    return {
+      query: "fitness",
+      keywords: ["fitness", "dumbbell", "yoga", "exercise"],
+    };
   }
 
   const fallbackQuery = searchState?.lastQuery?.trim() || raw;
