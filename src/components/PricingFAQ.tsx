@@ -4,28 +4,32 @@
 
 const faqs = [
   {
-    q: "Monthly vs yearly — what's the difference?",
-    a: "Yearly saves you money (shown as a lower monthly equivalent) and is billed annually upfront. Monthly is pay-as-you-go with no long-term commitment.",
-  },
-  {
     q: 'Can I cancel anytime?',
-    a: 'Yes. You can cancel effective at the end of your current billing period. You can also switch plans at any time.',
+    a: 'Yes. There are no long-term contracts. You can change or cancel your subscription whenever you like.',
   },
   {
-    q: 'What happens if I exceed my conversation limits?',
-    a: 'We’ll notify you and keep serving conversations with a soft overage. You can upgrade or set a cap in settings.',
+    q: "What's the difference between monthly and yearly plans?",
+    a: 'Monthly plans offer flexibility, while yearly plans save money with discounted pricing.',
   },
   {
-    q: 'Do you support Shopify / WooCommerce?',
-    a: 'Yes. We provide native integrations to pull orders, tracking, and customer info so your assistant can resolve questions instantly.',
+    q: 'What happens if I reach my conversation limit?',
+    a: "We'll let you know before you reach your limit and provide simple options to upgrade or add more capacity.",
   },
   {
-    q: 'Is my data secure? GDPR?',
-    a: 'We follow security best practices, offer GDPR-friendly features, and provide audit logs on higher tiers. Data processing is covered by our DPA.',
+    q: 'Can I change plans later?',
+    a: 'Absolutely. Upgrade or downgrade your plan anytime as your business grows.',
   },
   {
-    q: 'Do you offer support SLAs?',
-    a: 'Priority support and SLAs are available on Pro and above. Contact sales for details.',
+    q: 'Do I need technical skills to set up TikoZap?',
+    a: 'No. Most merchants can get started without coding. If you have a website, simply add our widget. If not, use Starter Link to begin immediately.',
+  },
+  {
+    q: 'Does TikoZap work with Shopify?',
+    a: 'Yes. Shopify is fully supported, with support for additional ecommerce platforms continuing to expand.',
+  },
+  {
+    q: 'Is my data secure?',
+    a: 'Yes. Every plan includes built-in security, privacy protection, and full ownership of your business data.',
   },
 ];
 

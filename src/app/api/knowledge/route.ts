@@ -10,7 +10,8 @@ const DEFAULT_SECTIONS = [
   "Store info",
   "Shipping policy",
   "Return policy",
-  "Sizing / fit guide",
+  "Product Knowledge",
+  "Special Instructions",
   "FAQs",
 ];
 

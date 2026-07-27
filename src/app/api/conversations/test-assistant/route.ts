@@ -4,10 +4,16 @@ import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
+import { resolveProductProvider } from "@/lib/resolveProductProvider";
 import {
   appendDemoInboxMessage,
   findOrCreateDemoInboxConversation,
 } from "@/lib/demoInboxStore";
+import {
+  getAssistantIdentity,
+  getAssistantLearning,
+  getStoreKnowledge,
+} from "@/lib/assistantContext";
 
 export const runtime = "nodejs";
 
@@ -56,10 +62,61 @@ export async function POST(req: Request) {
     const realTenantId = auth.tenant.id;
     const conversationId = normalize(body?.conversationId);
 
-    const result = await runTikoBrain({
-      message: text,
-      history: [],
-    });
+let convoId = conversationId;
+
+if (convoId) {
+  const existing = await prisma.conversation.findFirst({
+    where: {
+      id: convoId,
+      tenantId: realTenantId,
+    },
+    select: { id: true },
+  });
+
+  if (!existing) convoId = "";
+}
+
+const recentMessages = convoId
+  ? await prisma.message.findMany({
+      where: {
+        conversationId: convoId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      take: 12,
+      select: {
+        role: true,
+        content: true,
+      },
+    })
+  : [];
+
+const [
+  assistantIdentity,
+  assistantLearning,
+  productProvider,
+] = await Promise.all([
+  getAssistantIdentity(realTenantId),
+  getAssistantLearning(realTenantId),
+  resolveProductProvider(realTenantId),
+]);
+
+const storeKnowledge = await getStoreKnowledge(
+  realTenantId,
+  assistantIdentity.name
+);
+
+const result = await runTikoBrain({
+  message: text,
+  history: recentMessages.map((message) => ({
+    role: message.role,
+    content: message.content,
+  })),
+  storeKnowledge,
+  assistantLearning,
+  productProvider,
+});
 
     // DEMO FALLBACK
     if (!realTenantId) {
@@ -86,19 +143,6 @@ export async function POST(req: Request) {
     }
 
     // REAL PRISMA
-let convoId = conversationId;
-
-if (convoId) {
-  const existing = await prisma.conversation.findFirst({
-    where: {
-      id: convoId,
-      tenantId: realTenantId,
-    },
-    select: { id: true },
-  });
-
-  if (!existing) convoId = "";
-}
 
 if (!convoId) {
   const convo = await prisma.conversation.create({

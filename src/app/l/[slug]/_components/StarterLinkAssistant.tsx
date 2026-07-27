@@ -36,9 +36,13 @@ type WidgetVoiceSettings = {
   periodStart: string | null;
 };
 
+type LauncherAppearance = "orb" | "avatar" | "bubble";
+type AssistantAppearance = "orb" | "avatar";
+
 type Props = {
   publicKey: string;
   assistantName: string;
+  assistantIdentity?: string;
   greeting?: string;
   premium?: boolean;
   brandColor?: string;
@@ -110,6 +114,9 @@ function getVisitorName(publicKey: string) {
 function getContrastTextColor(hex: string) {
   const clean = hex.replace("#", "").trim();
 
+  // Keep the bright TikoZap blue paired with white text.
+  if (clean.toUpperCase() === "38BDF8") return "#ffffff";
+
   if (!/^[0-9A-Fa-f]{6}$/.test(clean)) return "#ffffff";
 
   const r = parseInt(clean.slice(0, 2), 16);
@@ -124,6 +131,7 @@ function getContrastTextColor(hex: string) {
 export default function StarterLinkAssistant({
   publicKey,
   assistantName,
+  assistantIdentity = "Female",
   greeting,
   premium = false,
   brandColor = "#111827",
@@ -144,7 +152,6 @@ export default function StarterLinkAssistant({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [composerMode, setComposerMode] = useState<"type" | "speak">("type");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [holdingToTalk, setHoldingToTalk] = useState(false);
@@ -155,8 +162,24 @@ const [liveTranscript, setLiveTranscript] = useState("");
 const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
 const [voiceQuotaNotice, setVoiceQuotaNotice] = useState(""); 
-const [keyboardActive, setKeyboardActive] = useState(false);
 const [widgetVoice, setWidgetVoice] = useState<WidgetVoiceSettings | null>(null);
+const [assistantAvatarUrl, setAssistantAvatarUrl] = useState("");
+const [launcherAppearance, setLauncherAppearance] =
+  useState<LauncherAppearance>("orb");
+const [chatAppearance, setChatAppearance] =
+  useState<AssistantAppearance>("orb");
+const [voiceAppearance, setVoiceAppearance] =
+  useState<AssistantAppearance>("orb");
+
+const canUseAvatar = Boolean(assistantAvatarUrl.trim());
+const resolvedLauncherAppearance =
+  launcherAppearance === "avatar" && !canUseAvatar
+    ? "orb"
+    : launcherAppearance;
+const resolvedChatAppearance =
+  chatAppearance === "avatar" && !canUseAvatar ? "orb" : chatAppearance;
+const resolvedVoiceAppearance =
+  voiceAppearance === "avatar" && !canUseAvatar ? "orb" : voiceAppearance;
 
 const hasOrbTranscript =
   !!liveTranscript.trim() ||
@@ -165,12 +188,15 @@ const hasOrbTranscript =
 
 const messagesRef = useRef<HTMLDivElement | null>(null);
 const endRef = useRef<HTMLDivElement | null>(null);
-const inputRef = useRef<HTMLInputElement | null>(null);
+const inputRef = useRef<HTMLTextAreaElement | null>(null);
+const panelRef = useRef<HTMLElement | null>(null);
+const keepSpeakModeRef = useRef(false);
 const abortRef = useRef<AbortController | null>(null);
 const revealTimerRef = useRef<number | null>(null);
 const pendingTextRef = useRef("");
 const recognitionRef = useRef<any>(null);
 const transcriptRef = useRef("");
+const recognitionTimeoutRef = useRef<number | null>(null);
 const orbOpenRef = useRef(false);
 const voiceCountedThisSessionRef = useRef(false);
 const lastUserVoiceSavePromiseRef = useRef<Promise<string | null> | null>(null);
@@ -250,6 +276,20 @@ useEffect(() => {
       if (data.widget?.voice) {
         setWidgetVoice(data.widget.voice);
       }
+
+      setAssistantAvatarUrl(data.widget?.assistantAvatarUrl || "");
+      setLauncherAppearance(
+        data.widget?.launcherAppearance === "avatar" ||
+          data.widget?.launcherAppearance === "bubble"
+          ? data.widget.launcherAppearance
+          : "orb"
+      );
+      setChatAppearance(
+        data.widget?.chatAppearance === "avatar" ? "avatar" : "orb"
+      );
+      setVoiceAppearance(
+        data.widget?.voiceAppearance === "avatar" ? "avatar" : "orb"
+      );
     } catch {}
   }
 
@@ -304,11 +344,9 @@ useEffect(() => {
   if (!open) return;
 
   const t1 = window.setTimeout(() => scrollToBottom("auto"), 40);
-  const t2 = window.setTimeout(() => inputRef.current?.focus(), 80);
 
   return () => {
     window.clearTimeout(t1);
-    window.clearTimeout(t2);
   };
 }, [open]);
 
@@ -327,17 +365,7 @@ useEffect(() => {
 useEffect(() => {
   if (!open) return;
 
-  const el = messagesRef.current;
-  if (!el) return;
-
-  const distanceFromBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight;
-
-  const nearBottom = distanceFromBottom < 260;
-
-  if (nearBottom || sending) {
-    scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
-  }
+  scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
 }, [messages, open, sending]);
 
   useEffect(() => {
@@ -359,6 +387,8 @@ if (stored && !stored.startsWith("conv_")) {
   let cancelled = false;
 
   async function pollThread() {
+    if (sending) return;
+
     try {
       const res = await fetch(
   `/api/widget/public/thread?key=${encodeURIComponent(publicKey)}&conversationId=${encodeURIComponent(conversationId || "")}&t=${Date.now()}`,
@@ -395,7 +425,14 @@ if (stored && !stored.startsWith("conv_")) {
     cancelled = true;
     window.clearInterval(timer);
   };
-}, [open, conversationId, publicKey]);
+}, [open, conversationId, publicKey, sending]);
+
+function clearRecognitionTimeout() {
+  if (recognitionTimeoutRef.current !== null) {
+    window.clearTimeout(recognitionTimeoutRef.current);
+    recognitionTimeoutRef.current = null;
+  }
+}
 
 useEffect(() => {
   if (typeof window === "undefined") return;
@@ -424,10 +461,16 @@ useEffect(() => {
     setLiveTranscript(next);
   };
 
+
+  clearRecognitionTimeout();
   recognition.onend = () => {
     const spoken = transcriptRef.current.trim();
 
     setHoldingToTalk(false);
+
+    try {
+  recognition.abort?.();
+} catch {}
 
     if (!spoken) {
       setLiveTranscript("");
@@ -437,6 +480,7 @@ useEffect(() => {
     setLastInputMethod("speak");
     setInput(spoken);
     setLiveTranscript(spoken);
+    keepSpeakModeRef.current = true;
 
     if (orbOpenRef.current) {
       setComposerMode("speak");
@@ -451,6 +495,7 @@ useEffect(() => {
     }
   };
 
+  clearRecognitionTimeout();
   recognition.onerror = (event: any) => {
     console.log("[speech] error:", event?.error);
     setHoldingToTalk(false);
@@ -465,44 +510,67 @@ useEffect(() => {
 
     recognitionRef.current = null;
   };
-}, [conversationId, publicKey, lastInputMethod, sending]);
+}, [conversationId, publicKey]);
 
-  useEffect(() => {
-  if (!open) {
-    setKeyboardOffset(0);
-    return;
-  }
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  if (!open || window.innerWidth >= 900) return;
 
-  const vv = window.visualViewport;
-if (!vv) return;
+  const html = document.documentElement;
+  const body = document.body;
 
-function updateViewportOffset() {
-  if (!vv) return;
+  const previousHtmlOverflow = html.style.overflow;
+  const previousBodyOverflow = body.style.overflow;
+  const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
 
-  const offset = Math.max(
-    0,
-    window.innerHeight - vv.height - vv.offsetTop
-  );
-
-  const inputFocused = document.activeElement === inputRef.current;
-
-setKeyboardOffset((prev) => {
-  if (inputFocused) {
-    return Math.max(prev, offset);
-  }
-
-  return offset;
-});
-}
-
-  updateViewportOffset();
-
-  vv.addEventListener("resize", updateViewportOffset);
-  vv.addEventListener("scroll", updateViewportOffset);
+  html.style.overflow = "hidden";
+  body.style.overflow = "hidden";
+  body.style.overscrollBehavior = "none";
 
   return () => {
-    vv.removeEventListener("resize", updateViewportOffset);
-    vv.removeEventListener("scroll", updateViewportOffset);
+    html.style.overflow = previousHtmlOverflow;
+    body.style.overflow = previousBodyOverflow;
+    body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+  };
+}, [open]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  if (!open || window.innerWidth >= 900) return;
+
+  const panel = panelRef.current;
+  const viewport = window.visualViewport;
+
+  if (!panel || !viewport) return;
+
+  function syncPanelToVisibleViewport() {
+    const currentPanel = panelRef.current;
+    const currentViewport = window.visualViewport;
+
+    if (!currentPanel || !currentViewport) return;
+
+    currentPanel.style.setProperty(
+      "--sl-visible-top",
+      `${currentViewport.offsetTop}px`
+    );
+
+    currentPanel.style.setProperty(
+      "--sl-visible-height",
+      `${currentViewport.height}px`
+    );
+  }
+
+  syncPanelToVisibleViewport();
+
+  viewport.addEventListener("resize", syncPanelToVisibleViewport);
+  viewport.addEventListener("scroll", syncPanelToVisibleViewport);
+
+  return () => {
+    viewport.removeEventListener("resize", syncPanelToVisibleViewport);
+    viewport.removeEventListener("scroll", syncPanelToVisibleViewport);
+
+    panel.style.removeProperty("--sl-visible-top");
+    panel.style.removeProperty("--sl-visible-height");
   };
 }, [open]);
 
@@ -585,23 +653,47 @@ const orbState = useMemo(() => {
 
 
 function startVoiceCapture() {
-  if (!recognitionRef.current || sending) return;
+  const recognition = recognitionRef.current;
+
+  if (!recognition || sending) return;
+
+  clearRecognitionTimeout();
 
   transcriptRef.current = "";
   setLiveTranscript("");
   setHoldingToTalk(true);
 
   try {
-    recognitionRef.current.start();
-  } catch {}
+    recognition.start();
+
+    recognitionTimeoutRef.current = window.setTimeout(() => {
+      try {
+        recognition.stop();
+      } catch {
+        try {
+          recognition.abort?.();
+        } catch {}
+      }
+    }, 8000);
+  } catch (error) {
+    console.error("[speech] start failed:", error);
+    setHoldingToTalk(false);
+  }
 }
 
 function stopVoiceCapture() {
+  clearRecognitionTimeout();
   setHoldingToTalk(false);
 
+  const recognition = recognitionRef.current;
+
   try {
-    recognitionRef.current?.stop();
-  } catch {}
+    recognition?.stop();
+  } catch {
+    try {
+      recognition?.abort?.();
+    } catch {}
+  }
 }
 
 function toggleTextSpeechCapture() {
@@ -768,9 +860,15 @@ async function startRealtimeVoiceSession() {
 setAssistantVoiceTranscript("");
 
   try {
-    const res = await fetch("/api/realtime/session", {
-      method: "POST",
-    });
+const res = await fetch("/api/realtime/session", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+  mode: "merchant",
+  publicKey,
+  assistantIdentity,
+}),
+});
 
     const data = await res.json().catch(() => ({}));
 
@@ -935,6 +1033,10 @@ function toggleRealtimeVoiceSession() {
 
     setSending(true);
 setInput("");
+if (keepSpeakModeRef.current) {
+  setComposerMode("speak");
+  keepSpeakModeRef.current = false;
+}
 setLiveTranscript("");
 
     setMessages((prev) => [
@@ -1066,16 +1168,11 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
       pendingTextRef.current = "";
       setSending(false);
 
-      if (lastInputMethod === "speak") {
-        setComposerMode("speak");
-
-        if (!orbOpenRef.current) {
-          setTimeout(() => inputRef.current?.focus(), 0);
-        }
-      } else {
-        setComposerMode("type");
-        setTimeout(() => inputRef.current?.focus(), 0);
-      }
+if (lastInputMethod === "speak") {
+  setComposerMode("speak");
+} else {
+  setComposerMode("type");
+}
     }
   }
 
@@ -1096,9 +1193,36 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
     onClick={() => setOpen(true)}
     style={{ ["--sl-brand" as any]: brandColor }}
   >
-<div className="sl-assistantOrbWrap">
-  <Orb state={orbState as any} />
-</div>
+{resolvedLauncherAppearance === "bubble" ? (
+  <span className="sl-assistantBubbleIcon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.2a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 10h8M8 13.5h5"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+) : resolvedLauncherAppearance === "avatar" ? (
+  <img
+    src={assistantAvatarUrl}
+    alt=""
+    aria-hidden="true"
+    className="sl-assistantLauncherAvatar"
+  />
+) : (
+  <div className="sl-assistantOrbWrap">
+    <Orb state={orbState as any} />
+  </div>
+)}
   </button>
 ) : null}
 
@@ -1109,17 +1233,22 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
         type="button"
         className="sl-assistantBackdrop"
         aria-label="Close assistant"
-        onClick={() => setOpen(false)}
+onClick={() => {
+  dismissKeyboard();
+  setOpen(false);
+}}
       />
     ) : null}
 
-          <section
-  className={`sl-assistantPanel ${desktopDocked ? "sl-assistantPanel--docked" : ""} ${premium ? "sl-assistantPanel--premium" : ""} ${keyboardActive ? "is-keyboard-active" : ""}`}
+<section
+  ref={panelRef}
+  className={`sl-assistantPanel ${desktopDocked ? "sl-assistantPanel--docked" : ""} ${premium ? "sl-assistantPanel--premium" : ""}`}
   aria-label={assistantName}
-  style={{
-  ["--sl-kb" as any]: `${keyboardOffset}px`,
+style={{
   ["--sl-brand" as any]: brandColor || "#111827",
-  ["--sl-brand-text" as any]: getContrastTextColor(brandColor || "#111827"),
+  ["--sl-brand-text" as any]: getContrastTextColor(
+    brandColor || "#111827"
+  ),
 }}
 >
             <div className="sl-assistantHeader">
@@ -1151,9 +1280,18 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
     aria-label={orbOpen ? "Close orb mode" : "Open orb mode"}
   >
     {!orbOpen ? (
-      <span className="sl-assistantTitleOrbMini">
-        <Orb state={orbState as any} />
-      </span>
+      resolvedChatAppearance === "avatar" ? (
+        <img
+          src={assistantAvatarUrl}
+          alt=""
+          aria-hidden="true"
+          className="sl-assistantTitleAvatarMini"
+        />
+      ) : (
+        <span className="sl-assistantTitleOrbMini">
+          <Orb state={orbState as any} />
+        </span>
+      )
     ) : null}
     <span className="sl-assistantTitleText">{assistantName}</span>
   </button>
@@ -1163,7 +1301,10 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
     type="button"
     className="sl-assistantClose"
     aria-label="Close assistant"
-    onClick={() => setOpen(false)}
+onClick={() => {
+  dismissKeyboard();
+  setOpen(false);
+}}
   >
     ×
   </button>
@@ -1224,8 +1365,26 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
   setOrbOpen(false);
 }}
     >
-      <div className="sl-orbModeOrb">
-        <OrbLarge state={orbState as any} />
+      <div
+  className={[
+    "sl-orbModeOrb",
+    resolvedVoiceAppearance === "avatar"
+      ? "sl-orbModeOrb--avatar"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ")}
+>
+        {resolvedVoiceAppearance === "avatar" ? (
+          <img
+            src={assistantAvatarUrl}
+            alt=""
+            aria-hidden="true"
+            className="sl-orbModeAvatar"
+          />
+        ) : (
+          <OrbLarge state={orbState as any} />
+        )}
       </div>
     </button>
 
@@ -1323,9 +1482,8 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
     <div
   ref={messagesRef}
   className="sl-assistantMessages"
-  onPointerDown={() => {
+onPointerDown={() => {
   dismissKeyboard();
-  setKeyboardActive(false);
 }}
 >
 
@@ -1507,22 +1665,22 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
           )}
         </button>
       ) : (
-        <input
+        <textarea
           ref={inputRef}
           value={input}
           onChange={(e) => {
             setLastInputMethod("type");
             setInput(e.target.value);
           }}
-          onFocus={() => {
-  setLastInputMethod("type");
-  setComposerMode("type");
-  setKeyboardActive(true);
-  setTimeout(() => window.scrollTo(0, 0), 0);
-}}
-onBlur={() => {
-  setKeyboardActive(false);
-  setKeyboardOffset(0);
+onFocus={() => {
+  if (!keepSpeakModeRef.current) {
+    setLastInputMethod("type");
+    setComposerMode("type");
+  }
+
+  window.setTimeout(() => {
+    scrollToBottom("auto");
+  }, 250);
 }}
 onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -1536,7 +1694,6 @@ onKeyDown={(e) => {
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
-          enterKeyHint="send"
         />
       )}
 
@@ -1615,9 +1772,76 @@ onKeyDown={(e) => {
         }
 
         .sl-assistantBubbleIcon{
-          font-size:24px;
-          line-height:1;
+          width:56px;
+          height:56px;
+          border-radius:999px;
+          background:var(--sl-brand, #111827);
+          color:var(--sl-brand-text, #ffffff);
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 12px 28px rgba(15,23,42,.22);
         }
+
+        .sl-assistantBubbleIcon svg{
+          width:28px;
+          height:28px;
+          display:block;
+        }
+
+        .sl-assistantLauncherAvatar{
+          width:58px;
+          height:58px;
+          border-radius:999px;
+          object-fit:cover;
+          display:block;
+          border:2px solid rgba(255,255,255,.95);
+          box-shadow:0 12px 28px rgba(15,23,42,.22);
+          background:#ffffff;
+        }
+
+        .sl-assistantTitleAvatarMini{
+          width:24px;
+          height:24px;
+          border-radius:999px;
+          object-fit:cover;
+          display:block;
+          flex:0 0 24px;
+          border:1px solid rgba(255,255,255,.7);
+          background:#ffffff;
+        }
+
+.sl-orbModeAvatar {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.14);
+  background: #ffffff;
+}
+
+.sl-orbModeOrb {
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sl-orbModeOrb--avatar {
+  width: min(190px, 54vw);
+  height: min(190px, 54vw);
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
 
         .sl-assistantBackdrop{
           position:fixed;
@@ -1633,7 +1857,7 @@ onKeyDown={(e) => {
           right:12px;
           left:12px;
           top:88px;
-          bottom:var(--sl-kb, 0px);
+          bottom:12px;
           background:#fff;
           border:1px solid #e5e7eb;
           border-radius:24px;
@@ -1644,18 +1868,6 @@ onKeyDown={(e) => {
           box-shadow:0 20px 50px rgba(15,23,42,.16);
         }
 
-@media (max-width: 899px){
-  .sl-assistantPanel{
-    left:0;
-    right:0;
-    top:0;
-    bottom:var(--sl-kb, 0px);
-    width:100vw;
-    height:calc(100svh - var(--sl-kb, 0px));
-    border-radius:0;
-    border:none;
-  }
-}
 
         .sl-assistantHeader{
   display:grid;
@@ -1748,15 +1960,16 @@ onKeyDown={(e) => {
           justify-items:end;
         }
 
-        .sl-assistantMsg{
-         max-width:85%;
-         border-radius:18px;
-         padding:11px 13px;
-         font-size:14px;
-         line-height:1.5;
-         white-space:pre-wrap;
-         border:1px solid #e5e7eb;
-        }
+.sl-assistantMsg{
+  max-width:85%;
+  border-radius:18px;
+  padding:14px 18px;
+  font-size:16px;
+  line-height:1.45;
+  font-weight:400;
+  white-space:pre-wrap;
+  border:1px solid #e5e7eb;
+}
 
 .sl-assistantMsg--user{
   background:var(--sl-brand, #111827);
@@ -1936,22 +2149,19 @@ onKeyDown={(e) => {
   margin-bottom:-4px;
 }
 
-@media (max-width: 899px){
-  .sl-assistantComposer{
-    position:sticky;
-    bottom:0;
-    z-index:20;
-  }
-}
-
 .sl-assistantInput{
   flex:1;
   min-width:0;
-  height:44px;
+  min-height:44px;
+  max-height:108px;
   border:1px solid #d1d5db;
   border-radius:14px;
-  padding:0 14px;
+  padding:11px 14px;
   background:#fff;
+  font-size:16px;
+  line-height:1.4;
+  resize:none;
+  overflow-y:auto;
 }
 
 .sl-assistantInput:focus{
@@ -1972,7 +2182,7 @@ onKeyDown={(e) => {
   border-radius:999px;
 border:1px solid var(--sl-brand, #111827);
 background:var(--sl-brand, #111827);
-  color:#fff;
+color:var(--sl-brand-text, #fff);
 
   display:flex;
   align-items:center;
@@ -2245,20 +2455,22 @@ background:var(--sl-brand, #111827);
   padding:18px 20px 14px;
 }
 
-.sl-orbModeOrbBtn{
-  border:none;
-  background:transparent;
-  padding:0;
-  margin-top:2px;
-  cursor:pointer;
+.sl-orbModeOrbBtn {
+  display: block;
+  border: none;
+  background: transparent;
+  padding: 5px;
+  margin-top: 2px;
+  margin-bottom: 16px;
+  overflow: visible;
+  cursor: pointer;
 }
 
-.sl-orbModeOrb{
-  width:92px;
-  height:92px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.sl-orbModeOrb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
 }
 
 .sl-orbModeBody{
@@ -2384,6 +2596,11 @@ background:var(--sl-brand, #111827);
     height:112px;
   }
 
+  .sl-orbModeOrb--avatar {
+  width: 190px;
+  height: 190px;
+}
+
   .sl-orbModeBody{
     max-width:100%;
     gap:18px;
@@ -2482,30 +2699,69 @@ background:var(--sl-brand, #111827);
     min-height:0 !important;
     max-height:none !important;
     border-radius:24px !important;
-  
-    @media (max-width: 899px){
-  .sl-assistantPanel.is-keyboard-active{
-    top:0 !important;
+  }
+}
+
+@media (max-width: 899px){
+  .sl-assistantPanel{
+    position:fixed !important;
+
+    top:var(--sl-visible-top, 0px) !important;
     left:0 !important;
     right:0 !important;
-    bottom:var(--sl-kb, 0px) !important;
-    height:calc(100svh - var(--sl-kb, 0px)) !important;
+    bottom:auto !important;
+
+    width:100% !important;
+    max-width:none !important;
+
+    height:var(--sl-visible-height, 100dvh) !important;
+    min-height:0 !important;
+    max-height:none !important;
+
+    border-radius:0 !important;
     overflow:hidden !important;
+
+    display:flex !important;
+    flex-direction:column !important;
+
+    overscroll-behavior:none;
   }
 
-  .sl-assistantPanel.is-keyboard-active .sl-assistantHeader{
+  .sl-assistantHeader{
     flex:0 0 auto !important;
+    position:relative;
+    z-index:30;
   }
 
-  .sl-assistantPanel.is-keyboard-active .sl-assistantMessages{
-    overflow:hidden !important;
-    touch-action:none !important;
+  .sl-assistantMessages{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
   }
 
-  .sl-assistantPanel.is-keyboard-active .sl-assistantComposer{
+  .sl-assistantComposer{
     flex:0 0 auto !important;
     position:relative !important;
     bottom:auto !important;
+    z-index:30;
+  }
+}
+
+.sl-orbModeOrb--avatar {
+  width: min(190px, 54vw);
+  height: min(190px, 54vw);
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 899px) {
+  .sl-orbModeOrb--avatar {
+    width: min(220px, 58vw);
+    height: min(220px, 58vw);
   }
 }
       `}</style>

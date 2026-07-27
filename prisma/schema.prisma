@@ -4,20 +4,20 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"   // ← change from "sqlite" to "postgresql"
+  provider = "postgresql" // ← change from "sqlite" to "postgresql"
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  passwordHash  String?
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String?
+  passwordHash        String?
   passwordResetTokens PasswordResetToken[]
-  createdAt DateTime @default(now())
+  createdAt           DateTime             @default(now())
 
   sessions     Session[]
   memberships  Membership[]
-  ownedTenants Tenant[] @relation("TenantOwner")
+  ownedTenants Tenant[]     @relation("TenantOwner")
 }
 
 model Session {
@@ -34,48 +34,48 @@ model Session {
 }
 
 model Tenant {
-  id                        String   @id @default(cuid())
-  slug                      String   @unique
-  storeName                 String
-  billingPlan               String   @default("starter")
-  billingInterval           String   @default("monthly")
-  starterLinkSlug           String?  @unique
-  starterLinkEnabled        Boolean  @default(true)
-  
+  id                 String  @id @default(cuid())
+  slug               String  @unique
+  storeName          String
+  billingPlan        String  @default("starter")
+  billingInterval    String  @default("monthly")
+  starterLinkSlug    String? @unique
+  starterLinkEnabled Boolean @default(true)
+
   stripeCustomerId          String?
   stripeSubscriptionId      String?
   billingStatus             String?
   stripeVoiceCustomerId     String?
   stripeVoiceSubscriptionId String?
   voiceBillingStatus        String?
-  voiceCancelAtPeriodEnd    Boolean  @default(false)
+  voiceCancelAtPeriodEnd    Boolean   @default(false)
   voiceCurrentPeriodEnd     DateTime?
-  stripeCancelAtPeriodEnd   Boolean  @default(false)
+  stripeCancelAtPeriodEnd   Boolean   @default(false)
   stripeCurrentPeriodEnd    DateTime?
 
-  voiceEnabled              Boolean  @default(false)
+  voiceEnabled Boolean @default(false)
 
-  voicePack                 String?
-  voiceMinutesLimit         Int      @default(0)
-  voiceMinutesUsed          Int      @default(0)
+  voicePack         String?
+  voiceMinutesLimit Int     @default(0)
+  voiceMinutesUsed  Int     @default(0)
 
-  voiceUsagePeriodStart     DateTime?
+  voiceUsagePeriodStart DateTime?
 
-  voiceQuestionsToday       Int      @default(0)
-  voiceQuestionsDate        DateTime?
-  voiceQuestionsTotal       Int      @default(0)
+  voiceQuestionsToday Int       @default(0)
+  voiceQuestionsDate  DateTime?
+  voiceQuestionsTotal Int       @default(0)
 
-  websiteUrl                String?
-  settingsJson              String?
+  websiteUrl   String?
+  settingsJson String?
 
-  ownerId                   String
-  owner                     User     @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+  owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  isDeleted                 Boolean  @default(false)
-  archivedAt                DateTime?
+  isDeleted  Boolean   @default(false)
+  archivedAt DateTime?
 
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   memberships               Membership[]
   widget                    Widget?
@@ -88,13 +88,15 @@ model Tenant {
   phoneAgentSettings        PhoneAgentSettings?
   callSessions              CallSession[]
   answerMachineItems        AnswerMachineItem[]
+  assistantLearnings        AssistantLearning[]
+  shopifyConnection         ShopifyConnection?
 }
 
 model Membership {
-  id        String   @id @default(cuid())
-  role      String   // owner | staff
+  id           String   @id @default(cuid())
+  role         String // owner | staff
   settingsJson String?
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   userId   String
   tenantId String
@@ -127,34 +129,126 @@ model StarterLinkPage {
 }
 
 model Widget {
-  id            String    @id @default(cuid())
-  tenantId      String    @unique
-  publicKey     String    @unique
-  createdAt     DateTime  @default(now())
-  installedAt   DateTime?
-  enabled       Boolean   @default(true)
+  id          String    @id @default(cuid())
+  tenantId    String    @unique
+  publicKey   String    @unique
+  createdAt   DateTime  @default(now())
+  installedAt DateTime?
+  enabled     Boolean   @default(true)
 
-  assistantName String?
-  greeting      String?
-  brandColor    String?
+  assistantName     String?
+  assistantIdentity String? @default("female")
+  greeting          String?
+  brandColor        String?
 
   allowedDomains String[] @default([])
 
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model ShopifyConnection {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  shopDomain                String  @unique
+  adminAccessTokenEncrypted String
+  apiVersion                String?
+
+  status         String    @default("connected")
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model AssistantLearning {
+  id String @id @default(cuid())
+
+  tenantId       String
+  conversationId String?
+
+  instruction String  @db.Text
+  summary     String? @db.Text
+
+  source String  @default("merchant_correction")
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, active])
+  @@index([tenantId, createdAt])
+}
+
+model EmmaObservation {
+  id       String @id @default(cuid())
+  tenantId String
+
+  summary    String
+  category   String?
+  confidence Float   @default(0)
+
+  occurrences Int      @default(1)
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @updatedAt
+
+  status String @default("observing")
+  // observing | learning_ready | archived
+
+  evidence Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, summary])
+}
+
+model MentoringThread {
+  id              String             @id @default(cuid())
+  tenantId        String
+  observationId   String?
+  title           String
+  status          String             @default("open")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  messages        MentoringMessage[]
+  confirmedAt     DateTime?
+  appliedCount    Int                @default(0)
+  experienceReady Boolean            @default(false)
+}
+
+model MentoringMessage {
+  id        String          @id @default(cuid())
+  threadId  String
+  role      String
+  // "emma"
+  // "merchant"
+  content   String
+  createdAt DateTime        @default(now())
+  thread    MentoringThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 }
 
 model KnowledgeDoc {
@@ -172,25 +266,26 @@ model KnowledgeDoc {
 }
 
 model Conversation {
-  id                String   @id @default(cuid())
-  tenantId          String
-  channel           String   @default("web")
-  status            String   @default("open")
-  aiEnabled         Boolean  @default(true)
-  customerName      String   @default("Customer")
-  customerEmail     String?
-  subject           String   @default("Support")
-  tags              String   @default("")
-  createdAt         DateTime @default(now())
-  lastMessageAt     DateTime @default(now())
-  archivedAt        DateTime?
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages          Message[]
-  callSessions      CallSession[]             // ← NEW
-  answerMachineItems AnswerMachineItem[]      // ← NEW
+  id                 String              @id @default(cuid())
+  tenantId           String
+  channel            String              @default("web")
+  status             String              @default("open")
+  aiEnabled          Boolean             @default(true)
+  customerName       String              @default("Customer")
+  customerEmail      String?
+  subject            String              @default("Support")
+  tags               String              @default("")
+  createdAt          DateTime            @default(now())
+  lastMessageAt      DateTime            @default(now())
+  archivedAt         DateTime?
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages           Message[]
+  callSessions       CallSession[] // ← NEW
+  answerMachineItems AnswerMachineItem[] // ← NEW
   // --- Inbox UX state ---
-  needsHuman      Boolean  @default(false) // red dot + bubble-to-top
-  lastSeenAt      DateTime @default(now()) // MVP: single-staff seen timestamp
+  needsHuman         Boolean             @default(false) // red dot + bubble-to-top
+  lastSeenAt         DateTime            @default(now()) // MVP: single-staff seen timestamp
+
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, archivedAt])
 }
@@ -198,7 +293,7 @@ model Conversation {
 model Message {
   id             String   @id @default(cuid())
   conversationId String
-  role           String   // customer | assistant | staff | note
+  role           String // customer | assistant | staff | note
   content        String
   productsJson   String?
   createdAt      DateTime @default(now())
@@ -223,20 +318,20 @@ model MetricEvent {
 }
 
 model TwilioVoiceEvent {
-  id             String   @id @default(cuid())
-  tenantId       String?
-  provider       String   @default("twilio")
-  eventType      String
-  verification   String
-  callSid        String?
-  accountSid     String?
-  streamSid      String?
-  mos            Float?
-  jitterMs       Float?
-  packetLossPct  Float?
-  roundTripMs    Float?
-  rawPayload     String
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  tenantId      String?
+  provider      String   @default("twilio")
+  eventType     String
+  verification  String
+  callSid       String?
+  accountSid    String?
+  streamSid     String?
+  mos           Float?
+  jitterMs      Float?
+  packetLossPct Float?
+  roundTripMs   Float?
+  rawPayload    String
+  createdAt     DateTime @default(now())
 
   tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 
@@ -260,7 +355,7 @@ model PhoneAgentSettings {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model CallSession {
@@ -276,43 +371,43 @@ model CallSession {
   endedAt             DateTime?
   createdAt           DateTime  @default(now())
 
-  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  answerMachineItems  AnswerMachineItem[]
-  callTurns           CallTurn[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation       Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  answerMachineItems AnswerMachineItem[]
+  callTurns          CallTurn[]
 }
 
 model AnswerMachineItem {
-  id                String           @id @default(cuid())
-  tenantId          String
-  conversationId    String
-  callSessionId     String?
-  type              AnswerMachineType
-  fromNumber        String?
-  reason            String
-  callbackNumber    String?
-  callbackNotes     String?
-  recordingUrl      String?
-  transcriptText    String?
-  status            AnswerMachineStatus @default(NEW)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String              @id @default(cuid())
+  tenantId       String
+  conversationId String
+  callSessionId  String?
+  type           AnswerMachineType
+  fromNumber     String?
+  reason         String
+  callbackNumber String?
+  callbackNotes  String?
+  recordingUrl   String?
+  transcriptText String?
+  status         AnswerMachineStatus @default(NEW)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  callSession       CallSession?     @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  callSession  CallSession? @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
 }
 
 model CallTurn {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   callSessionId String
   idx           Int
   sttText       String?
   assistantText String?
   llmMs         Int?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
 
-  callSession   CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
 
   @@unique([callSessionId, idx])
 }

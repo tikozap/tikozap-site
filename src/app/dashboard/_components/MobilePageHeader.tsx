@@ -2,23 +2,36 @@
 
 'use client';
 
+import type { ReactNode } from 'react';
+
 type Props = {
   title: string;
+  rightAction?: ReactNode;
 };
 
-export default function MobilePageHeader({ title }: Props) {
+export default function MobilePageHeader({
+  title,
+  rightAction,
+}: Props) {
   return (
     <>
       <div className="db-mobilePageTop">
         <button
           type="button"
           className="db-pageIconBtn"
-          aria-label="Open menu"
+          aria-label="Open dashboard menu"
           onClick={() => {
-            window.dispatchEvent(new CustomEvent('tz-dashboard-toggle-nav'));
+            window.dispatchEvent(
+              new CustomEvent('tz-dashboard-toggle-nav')
+            );
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <svg
+            width="24"
+            height="30"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <rect
               x="3"
               y="5"
@@ -42,74 +55,89 @@ export default function MobilePageHeader({ title }: Props) {
 
         <div className="db-mobilePageTitle">{title}</div>
 
-        <div className="db-pageIconBtn db-pageIconBtn--ghost" aria-hidden="true" />
+        <div className="db-mobilePageAction">
+          {rightAction || (
+            <div
+              className="db-pageIconBtn db-pageIconBtn--ghost"
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
 
       <style>{`
-        .db-mobilePageTop{
-          display:none;
+        .db-mobilePageTop {
+          display: none;
         }
 
-        .db-mobilePageTop .db-pageIconBtn{
-  width:48px;
-  height:48px;
-  min-width:48px;
-  min-height:48px;
-  border-radius:14px;
-  border:none;
-  background:transparent;
-  color:#111827;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  flex:0 0 48px;
-  box-shadow:none;
-  padding:0;
-}
-
-        .db-pageIconBtn svg{
-          display:block;
+        .db-mobilePageTop .db-pageIconBtn {
+          width: 48px;
+          height: 48px;
+          min-width: 48px;
+          min-height: 48px;
+          border-radius: 14px;
+          border: none;
+          background: transparent;
+          color: #111827;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 48px;
+          box-shadow: none;
+          padding: 0;
         }
 
-        .db-pageIconBtn--ghost{
-          visibility:hidden;
+        .db-pageIconBtn svg {
+          display: block;
         }
 
-@media (max-width: 1000px){
-  .db-mobilePageTop{
-    display:grid;
-    grid-template-columns:48px 1fr 48px;
-    align-items:center;
-    gap:10px;
+        .db-pageIconBtn--ghost {
+          visibility: hidden;
+        }
 
-    position:sticky;
-    top:0;
-    z-index:100;
+        .db-mobilePageAction {
+          width: 48px;
+          min-width: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
 
-    width:100vw;
-    margin-left:calc(50% - 50vw);
-    margin-right:calc(50% - 50vw);
+        @media (max-width: 1000px) {
+          .db-mobilePageTop {
+            display: grid;
+            grid-template-columns: 48px 1fr 48px;
+            align-items: center;
+            gap: 10px;
 
-    background:#f8fafc;
-    border-bottom:1px solid #e5e7eb;
-    box-shadow:0 1px 0 rgba(15,23,42,.03);
+            position: sticky;
+            top: 0;
+            z-index: 100;
 
-    padding:8px 16px 12px;
-    margin-bottom:12px;
-    box-sizing:border-box;
-  }
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            margin-right: calc(50% - 50vw);
 
-  .db-mobilePageTitle{
-    text-align:center;
-    font-size:18px;
-    font-weight:800;
-    color:#111827;
-  }
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 
-  .db-title{
-    display:none;
-  }
-}
+            padding: 8px 16px 12px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+          }
+
+          .db-mobilePageTitle {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 800;
+            color: #111827;
+          }
+
+          .db-title {
+            display: none;
+          }
+        }
       `}</style>
     </>
   );

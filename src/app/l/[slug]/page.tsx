@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 import StarterLinkAssistant from "./_components/StarterLinkAssistant";
+import { Orb } from "@/components/Orb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,13 @@ const DEMO_BEST_SELLER = {
   image:
     "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80",
 };
+const EMPTY_BEST_SELLER = {
+  id: "",
+  title: "",
+  price: "",
+  image: "",
+};
+
 const DEMO_FEATURED = [
   {
     id: "feat-1",
@@ -56,13 +64,6 @@ const DEMO_FEATURED = [
   },
 ];
 
-const DEMO_PROMPTS = [
-  "Show me best sellers",
-  "Find something under $50",
-  "Track my order",
-];
-
-const TRUST_PILLS = ["Fast answers", "Easy support", "Product help"];
 
 export default async function StarterLinkPage({
   params,
@@ -97,6 +98,7 @@ select: {
   publicKey: true,
   installedAt: true,
   assistantName: true,
+  assistantIdentity: true,
   brandColor: true,
   greeting: true,
 }
@@ -104,22 +106,23 @@ select: {
 },
   });
 
-  if (!tenant && !isDemoSlug) {
-    return (
-      <div style={{ maxWidth: 760, margin: "48px auto", padding: 16 }}>
-        <h1>Link not found</h1>
-        <p>This TikoZap Starter Link doesn’t exist (or is disabled).</p>
-      </div>
-    );
-  }
+if (!tenant && !isDemoSlug) {
+  return (
+    <div style={{ maxWidth: 760, margin: "48px auto", padding: 16 }}>
+      <h1>Link not found</h1>
+      <p>This TikoZap Starter Link doesn’t exist (or is disabled).</p>
+    </div>
+  );
+}
 
 let storeName = "My Store";
-let tagline = "Tagline for store";
+let tagline = "or store";
 let subheading = "Store’s subheading";
 let assistantName = "Demo Boutique Assistant";
+let assistantIdentity = "Female";
 let greeting =
   "Hi! I can help with products, order tracking, shipping, and returns.";
-let footerLine = "My Store";
+let aboutText = "";
 
 let widgetPublicKey = "tz_demo_demo";
 let brandColor = "#111827";
@@ -131,10 +134,8 @@ let returnNote = "";
 
 let showProductsNav = true;
 let showContactNav = true;
-let showFooterBrand = true;
-
-let bestSeller = DEMO_BEST_SELLER;
-let featuredProducts = DEMO_FEATURED;
+let bestSeller = isDemoSlug ? DEMO_BEST_SELLER : EMPTY_BEST_SELLER;
+let featuredProducts = isDemoSlug ? DEMO_FEATURED : [];
 
 const showMerchantLogin = false;
 
@@ -151,6 +152,7 @@ const showMerchantLogin = false;
   publicKey: true,
   installedAt: true,
   assistantName: true,
+  assistantIdentity: true,
   brandColor: true,
   greeting: true,
 }
@@ -182,7 +184,12 @@ if (page) {
   storeLogoUrl = page.logoUrl || "";
   tagline = page.tagline || tagline;
   subheading = page.subheading || subheading;
-  footerLine = page.footerLine || footerLine;
+  // Reuse the existing footerLine database field as the merchant's About us text.
+  const savedAboutText = page.footerLine?.trim() || "";
+
+aboutText = /powered by tikozap/i.test(savedAboutText)
+  ? ""
+  : savedAboutText;
 
   contactEmail = page.contactEmail || "";
   shippingNote = page.shippingNote || "";
@@ -190,10 +197,14 @@ if (page) {
 
   showProductsNav = page.showProductsNav;
   showContactNav = page.showContactNav;
-  showFooterBrand = page.showFooterBrand;
-
-  bestSeller = parseJson(page.bestSellerJson, DEMO_BEST_SELLER);
-  featuredProducts = parseJson(page.productsJson, DEMO_FEATURED);
+  bestSeller = parseJson(
+    page.bestSellerJson,
+    isDemoSlug ? DEMO_BEST_SELLER : EMPTY_BEST_SELLER
+  );
+  featuredProducts = parseJson(
+    page.productsJson,
+    isDemoSlug ? DEMO_FEATURED : []
+  );
 }
 
 assistantName =
@@ -201,14 +212,15 @@ assistantName =
   widgetRow.assistantName?.trim() ||
   `${storeName} Assistant`;
 
+assistantIdentity =
+  settings.tz_assistant_identity?.trim() ||
+  widgetRow.assistantIdentity?.trim() ||
+  "Female";
+
 greeting =
   settings.tz_assistant_greeting?.trim() ||
   widgetRow.greeting?.trim() ||
   "Hi! I can help with products, order tracking, shipping, and returns.";
-
-if (!page?.footerLine) {
-  footerLine = storeName;
-}
 
 brandColor =
   settings.tz_brand_color?.trim() ||
@@ -216,7 +228,22 @@ brandColor =
   "#111827";
   }
 
-return (
+  const hasBestSeller = Boolean(
+    bestSeller.title?.trim() ||
+      bestSeller.price?.trim() ||
+      bestSeller.image?.trim()
+  );
+
+  const visibleProducts = featuredProducts.filter(
+    (product) =>
+      product.title?.trim() ||
+      product.price?.trim() ||
+      product.image?.trim()
+  );
+
+  const hasProducts = hasBestSeller || visibleProducts.length > 0;
+
+  return (
   <div className="sl-page">
     <div className="sl-shell">
       <header className="sl-nav">
@@ -230,12 +257,12 @@ return (
 
   <div className="sl-navRight">
     <nav className="sl-desktopNav" aria-label="Store">
-      {showProductsNav ? (
+      {showProductsNav && hasProducts ? (
         <a href="#products" className="sl-navLink">Products</a>
       ) : null}
 
-      {showContactNav ? (
-        <a href="#footer" className="sl-navLink">Contact</a>
+      {showContactNav && contactEmail ? (
+        <a href="#contact" className="sl-navLink">Contact</a>
       ) : null}
     </nav>
   </div>
@@ -247,61 +274,116 @@ return (
 <p className="sl-subheading">{subheading}</p>
 </section>
 
-<section className="sl-bestSeller">
-  <div className="sl-sectionTitle">Best Seller</div>
+<div id="products">
+  {hasBestSeller ? (
+    <section className="sl-bestSeller">
+      <div className="sl-sectionTitle">Best Seller</div>
 
-  <article className="sl-bestCard">
-    <img
-      src={bestSeller.image}
-      alt={bestSeller.title}
-      className="sl-bestImage"
-    />
+      <article className="sl-bestCard">
+        {bestSeller.image ? (
+          <img
+            src={bestSeller.image}
+            alt={bestSeller.title || "Best seller"}
+            className="sl-bestImage"
+          />
+        ) : null}
 
-    <div className="sl-bestMeta">
-      <div>
-        <div className="sl-bestBadge">Customer favorite</div>
-        <div className="sl-bestTitle">{bestSeller.title}</div>
-        <div className="sl-bestPrice">{bestSeller.price}</div>
-      </div>
-
-      <button type="button" className="sl-bestBtn">
-        Ask about this
-      </button>
-    </div>
-  </article>
-</section>
-
-<section id="products" className="sl-products">
-  <div className="sl-sectionTitle">In Stock</div>
-
-  <div className="sl-productGrid">
-    {featuredProducts.slice(0, 9).map((item) => (
-      <article key={item.id} className="sl-productCard">
-        <img
-          src={item.image}
-          alt={item.title}
-          className="sl-productImage"
-        />
-        <div className="sl-productMeta">
-          <div className="sl-productTitle">{item.title}</div>
-          <div className="sl-productPrice">{item.price}</div>
+        <div className="sl-bestMeta">
+          <div>
+            <div className="sl-bestBadge">Customer favorite</div>
+            {bestSeller.title ? (
+              <div className="sl-bestTitle">{bestSeller.title}</div>
+            ) : null}
+            {bestSeller.price ? (
+              <div className="sl-bestPrice">{bestSeller.price}</div>
+            ) : null}
+          </div>
         </div>
       </article>
-    ))}
-  </div>
-</section>
+    </section>
+  ) : null}
+
+  {visibleProducts.length > 0 ? (
+    <section className="sl-products">
+      <div className="sl-sectionTitle">In Stock</div>
+
+      <div className="sl-productGrid">
+        {visibleProducts.slice(0, 9).map((item) => (
+          <article key={item.id} className="sl-productCard">
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={item.title || "Product"}
+                className="sl-productImage"
+              />
+            ) : null}
+            <div className="sl-productMeta">
+              {item.title ? (
+                <div className="sl-productTitle">{item.title}</div>
+              ) : null}
+              {item.price ? (
+                <div className="sl-productPrice">{item.price}</div>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  ) : null}
+</div>
 
         <footer id="footer" className="sl-footer">
-          <div className="sl-footerLine">
-  {footerLine || storeName}
-</div>
+          <nav className="sl-footerNav" aria-label="Store information">
+            {aboutText ? <a href="#about">About us</a> : null}
+            {hasProducts ? <a href="#products">Products</a> : null}
+            {contactEmail ? <a href="#contact">Contact</a> : null}
+            {shippingNote ? <a href="#shipping">Shipping</a> : null}
+            {returnNote ? <a href="#returns">Returns</a> : null}
+          </nav>
 
-<div className="sl-poweredLine">
-  Powered by TikoZap
-</div>
-{contactEmail ? <div className="sl-footerLine">{contactEmail}</div> : null}
-{shippingNote ? <div className="sl-footerLine">{shippingNote}</div> : null}
-{returnNote ? <div className="sl-footerLine">{returnNote}</div> : null}
+          <div className="sl-footerDetails">
+            {aboutText ? (
+              <section id="about" className="sl-footerDetail">
+                <h2>About us</h2>
+                <p>{aboutText}</p>
+              </section>
+            ) : null}
+
+            {contactEmail ? (
+              <section id="contact" className="sl-footerDetail">
+                <h2>Contact</h2>
+                <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+              </section>
+            ) : null}
+
+            {shippingNote ? (
+              <section id="shipping" className="sl-footerDetail">
+                <h2>Shipping</h2>
+                <p>{shippingNote}</p>
+              </section>
+            ) : null}
+
+            {returnNote ? (
+              <section id="returns" className="sl-footerDetail">
+                <h2>Returns</h2>
+                <p>{returnNote}</p>
+              </section>
+            ) : null}
+          </div>
+
+          <a
+            className="sl-poweredLine"
+            href="https://tikozap.com"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Powered by TikoZap"
+          >
+            <span>Powered by</span>
+            <span className="sl-poweredOrb" aria-hidden="true">
+              <Orb state="idle" tiltX={0} tiltY={0} />
+            </span>
+            <strong>TikoZap</strong>
+          </a>
         </footer>
 
     </main>
@@ -310,6 +392,7 @@ return (
       <StarterLinkAssistant
   publicKey={widgetPublicKey}
   assistantName={assistantName}
+  assistantIdentity={assistantIdentity}
   greeting={greeting}
   premium={false}
   brandColor={brandColor}
@@ -579,8 +662,8 @@ return (
 
 .sl-bestMeta{
   display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
+  align-items:flex-start;
+  justify-content:flex-start;
   gap:16px;
   padding:16px;
 }
@@ -610,16 +693,6 @@ return (
   color:#6b7280;
 }
 
-.sl-bestBtn{
-  border:1px solid #111827;
-  background:#111827;
-  color:#fff;
-  border-radius:999px;
-  padding:12px 14px;
-  font-size:13px;
-  font-weight:800;
-  white-space:nowrap;
-}
 
         .sl-products{
           margin-top:26px;
@@ -674,13 +747,85 @@ return (
 
         .sl-footer{
           margin-top:36px;
-          padding:18px 0 28px;
+          padding:24px 0 28px;
           border-top:1px solid #e5e7eb;
         }
 
-        .sl-footerLine{
+        .sl-footerNav{
+          display:flex;
+          flex-wrap:wrap;
+          gap:10px 20px;
+        }
+
+        .sl-footerNav a{
+          color:#374151;
           font-size:13px;
+          font-weight:700;
+          text-decoration:none;
+        }
+
+        .sl-footerNav a:hover{
+          color:#111827;
+          text-decoration:underline;
+        }
+
+        .sl-footerDetails{
+          display:grid;
+          gap:18px;
+          margin-top:22px;
+        }
+
+        .sl-footerDetail{
+          scroll-margin-top:24px;
+        }
+
+        .sl-footerDetail h2{
+          margin:0;
+          color:#111827;
+          font-size:13px;
+          font-weight:800;
+        }
+
+        .sl-footerDetail p,
+        .sl-footerDetail a{
+          margin:6px 0 0;
           color:#6b7280;
+          font-size:13px;
+          line-height:1.6;
+        }
+
+        .sl-footerDetail a{
+          display:inline-block;
+          text-decoration:none;
+        }
+
+        .sl-footerDetail a:hover{
+          text-decoration:underline;
+        }
+
+        .sl-poweredLine{
+          width:max-content;
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          margin-top:24px;
+          color:#9ca3af;
+          font-size:12px;
+          text-decoration:none;
+        }
+
+        .sl-poweredLine strong{
+          color:#6b7280;
+          font-weight:800;
+        }
+
+        .sl-poweredOrb{
+          width:20px;
+          height:20px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          flex:0 0 20px;
         }
 
 .sl-desktopLayout{
@@ -746,12 +891,10 @@ return (
     grid-template-columns:repeat(3, minmax(0, 1fr));
   }
 
-  .sl-poweredLine{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:700;
-  color:#9ca3af;
-}
+  .sl-footerDetails{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
 }
       `}</style>
     </div>

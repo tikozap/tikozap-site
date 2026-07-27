@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAssistantIdentity } from '../../assistant/_components/useAssistantIdentity';
 
 const KEY_SELECTED = 'tz_db_conversations_selected';
 const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
@@ -122,11 +123,14 @@ function getAvatarStyle(name: string) {
   };
 }
 
-function roleLabel(role: string) {
+function roleLabel(role: string, assistantName: string) {
   if (role === 'customer') return 'Customer';
-  if (role === 'assistant') return STORE_ASSISTANT_NAME;
+  if (role === 'assistant') return assistantName;
   if (role === 'staff') return `Staff ${STAFF_NAME}`;
-  if (role === 'note') return 'Internal note · only visible to your team';
+  if (role === 'note') {
+    return 'Internal note · only visible to your team';
+  }
+
   return role;
 }
 
@@ -149,14 +153,24 @@ function extractDraftSuggestion(noteText: string) {
   return out.join('\n').trim();
 }
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || !data?.ok) throw new Error(data?.error || `Request failed (${r.status})`);
-  return data as T;
+async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    const res = await fetch(path, {
+      ...init,
+      cache: "no-store",
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(data?.error || data?.detail || `HTTP ${res.status}`);
+    }
+
+    return data as T;
+  } catch (err: any) {
+    console.error("[conversations api] failed:", path, err);
+    throw new Error(err?.message || "Failed to fetch");
+  }
 }
 
 function normalizeChannel(ch: string) {
@@ -190,6 +204,14 @@ function getInitials(name: string) {
 }
 
 export default function ConversationsClient() {
+  const { assistantName } = useAssistantIdentity();
+
+  const fullAssistantName = assistantName?.trim() || 'Emma';
+
+  const coachButtonName =
+  fullAssistantName.length > 14
+    ? `${fullAssistantName.slice(0, 14)}…`
+    : fullAssistantName;
 
   const [list, setList] = useState<ListItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -210,6 +232,10 @@ export default function ConversationsClient() {
   const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'open' | 'waiting' | 'closed'>('all');
+
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteToast, setNoteToast] = useState('');
 
   const [draft, setDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
@@ -529,6 +555,20 @@ useEffect(() => {
   }
 }, [searchParams]);
 
+const returnToInboxList = () => {
+  setPane('list');
+  setDragX(0);
+  setIsClosingThread(false);
+  setIsOpeningThread(false);
+
+  requestAnimationFrame(() => {
+    document.querySelector('.cx-mobileScreen')?.scrollTo({ top: 0 });
+    document.querySelector('.cx-mobileStage')?.scrollTo({ top: 0 });
+    document.querySelector('.cx-mobileList')?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  });
+};
+
 const scrollInboxToTop = () => {
   requestAnimationFrame(() => {
     desktopListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -727,10 +767,17 @@ useEffect(() => {
 
 const selectConversation = async (id: string) => {
   setSelectedId(id);
+  console.clear();
 
   api(`/api/conversations/${id}/seen`, { method: "POST" }).catch(() => {});
 
-  await refreshThread(id);
+  try {
+    await refreshThread(id);
+  } catch (err: any) {
+    console.error("[selectConversation] failed:", err);
+   alert(err?.message || "Failed to load conversation.");
+    return;
+  }
 
   if (isMobile) {
     setIsOpeningThread(true);
@@ -1096,23 +1143,44 @@ setSuggestedDraft('');
   await refreshList();
 };
 
-  const addInternalNote = async () => {
-    if (!thread) return;
-    const note = window.prompt('Internal note (only visible to your team):');
-    if (!note || !note.trim()) return;
-    await api(`/api/conversations/${thread.id}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ role: 'note', content: note.trim() }),
-    });
-    await refreshThread(thread.id);
-    await refreshList();
-    setTimeout(() => {
-  messagesRef.current?.scrollTo({
-    top: messagesRef.current.scrollHeight,
-    behavior: "smooth",
+const saveAssistantCoaching = async () => {
+  if (!thread) return;
+
+  const guidance = noteDraft.trim();
+  if (!guidance) return;
+
+  await api(`/api/conversations/${thread.id}/message`, {
+    method: 'POST',
+body: JSON.stringify({
+  role: 'note',
+  content: guidance,
+  isAssistantCoaching: true,
+  saveAsInternalNote: true,
+  assistantName: fullAssistantName,
+}),
   });
-}, 80);
-  };
+
+  setNoteDraft('');
+  setNoteModalOpen(false);
+
+  setNoteToast(
+    `✓ ${fullAssistantName} learned from your coaching.`
+  );
+
+  window.setTimeout(() => {
+    setNoteToast('');
+  }, 2600);
+
+  await refreshThread(thread.id);
+  await refreshList();
+
+  window.setTimeout(() => {
+    messagesRef.current?.scrollTo({
+      top: messagesRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, 80);
+};
 
 const generateDraft = async () => {
   if (!thread) return;
@@ -1204,11 +1272,9 @@ const onTouchEnd = () => {
     setIsClosingThread(true);
     setDragX(window.innerWidth);
 
-    window.setTimeout(() => {
-      setPane('list');
-      setDragX(0);
-      setIsClosingThread(false);
-    }, 180);
+window.setTimeout(() => {
+  returnToInboxList();
+}, 180);
 
     return;
   }
@@ -1498,15 +1564,15 @@ const renderThreadMenuSheet = () => {
     </button>
   )}
 
-  <button
-    className="db-btn"
-    onClick={async () => {
-      setThreadMenuOpen(false);
-      await addInternalNote();
-    }}
-  >
-    Add note
-  </button>
+<button
+  className="db-btn cx-coachBtn"
+  onClick={() => {
+    setNoteDraft('');
+    setNoteModalOpen(true);
+  }}
+>
+  {`Coach ${coachButtonName}`}
+</button>
 </div>
 
         <div className="cx-sheetTags">
@@ -1662,7 +1728,7 @@ const visibleTags = (thread.tags || []).filter(
     <button
       type="button"
       className="db-btn cx-mobileTopBtn cx-backBtn"
-      onClick={() => setPane('list')}
+      onClick={returnToInboxList}
       aria-label="Back"
     >
       <svg
@@ -1739,9 +1805,15 @@ const visibleTags = (thread.tags || []).filter(
               </div>
 
               <div className="cx-threadActionsGrid">
-                <button className="db-btn" onClick={addInternalNote}>
-                  Add note
-                </button>
+<button
+  className="db-btn"
+onClick={() => {
+  setNoteDraft('');
+  setNoteModalOpen(true);
+}}
+>
+  {`Coach ${coachButtonName}`}
+</button>
 
                 {thread.status !== 'closed' ? (
                   <button className="db-btn" onClick={() => setConvStatus('closed')}>
@@ -1783,21 +1855,24 @@ const visibleTags = (thread.tags || []).filter(
 
       <div ref={messagesRef} className="cx-threadMessages">
         <div className="cx-msgList">
-          {orderedThreadMessages(thread.messages, thread.channel).map((m: any) => {
-            const showInsert = m.role === 'note' && isDraftNote(m.content);
+{orderedThreadMessages(thread.messages, thread.channel).map((m: any) => {
+  const showInsert = m.role === 'note' && isDraftNote(m.content);
+  const isEmmaNoted =
+    m.role === 'note' && m.content.startsWith('`${assistantName} noted:`');
 
-            return (
+  return (
               <div key={m.id} style={{ display: 'grid', gap: 6 }}>
                 <div className="cx-msgMeta">
-                  <strong>{roleLabel(m.role)}</strong> · {fmtTime(m.createdAt)}
+                  <strong>{roleLabel(m.role, assistantName)}</strong> · {fmtTime(m.createdAt)}
                 </div>
 
                 <div
-                  className={[
+className={[
   'cx-bubble',
   m.role === 'assistant' ? 'assistant' : '',
   m.role === 'staff' ? 'agent' : '',
   m.role === 'note' ? 'note' : '',
+  isEmmaNoted ? 'emmaNoted' : '',
 ].filter(Boolean).join(' ')}
                 >
                   <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
@@ -2235,9 +2310,15 @@ const renderDesktopLayout = () => (
 </div>
 
         <div className="cx-topThreadActions">
-          <button className="db-btn" onClick={addInternalNote}>
-            Add note
-          </button>
+<button
+  className="db-btn"
+onClick={() => {
+  setNoteDraft('');
+  setNoteModalOpen(true);
+}}
+>
+  {`Coach ${coachButtonName}`}
+</button>
 
           {thread.status !== 'closed' ? (
             <button className="db-btn" onClick={() => setConvStatus('closed')}>
@@ -2405,9 +2486,11 @@ const renderWelcomeTestModal = () => {
         }}
       >
         <div>
-          <div style={{ fontSize: 15, fontWeight: 800 }}>Test your assistant</div>
+          <div style={{ fontSize: 15, fontWeight: 800 }}>
+  {`Practice with ${fullAssistantName}`}
+</div>
           <p style={{ marginTop: 8, fontSize: 13, color: '#64748b', lineHeight: 1.55 }}>
-            Send a shopper-style message. The new conversation will appear in the inbox.
+            Ask a shopper-style question and practice with {fullAssistantName}. The conversation will appear in the inbox.
           </p>
         </div>
 
@@ -2485,7 +2568,7 @@ const renderWelcomeTestModal = () => {
           disabled={welcomeTestBusy || !welcomeTestText.trim()}
           onClick={() => sendWelcomeTest()}
         >
-          {welcomeTestBusy ? 'Sending…' : 'Send test'}
+          {welcomeTestBusy ? 'Starting…' : 'Start practice'}
         </button>
       </div>
 
@@ -2498,7 +2581,7 @@ const renderWelcomeTestModal = () => {
   );
 };
 
-  return (
+return (
   <div className={["cx-mobileRoot", blinkRedDot ? "" : "cx-noBlink"].filter(Boolean).join(" ")}>
     {isMobile ? renderMobileLayout() : renderDesktopLayout()}
 
@@ -2507,6 +2590,60 @@ const renderWelcomeTestModal = () => {
     {renderMobileInboxMenu()}
     {renderThreadMenuSheet()}
     {renderWelcomeTestModal()}
+
+    {noteModalOpen ? (
+      <div className="cx-modalOverlay" onClick={() => setNoteModalOpen(false)}>
+        <div className="cx-modal" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="cx-modalClose"
+            onClick={() => setNoteModalOpen(false)}
+          >
+            ×
+          </button>
+
+<div className="cx-modalTitle">
+  {`Coach ${fullAssistantName}`}
+</div>
+
+<p className="cx-noteSub">
+  {`Tell ${fullAssistantName} how to handle similar situations in the future.`}
+</p>
+
+<textarea
+  className="cx-noteTextarea"
+  value={noteDraft}
+  onChange={(e) => setNoteDraft(e.target.value)}
+  placeholder={`Explain what ${fullAssistantName} should do differently or add next time…`}
+  autoFocus
+/>
+
+<p className="cx-notePrivacy">
+  Visible only to your team in this conversation.
+</p>
+
+<div className="cx-noteActions">
+  <button
+    className="db-btn"
+    onClick={() => setNoteModalOpen(false)}
+  >
+    Cancel
+  </button>
+
+  <button
+    className="db-btn primary"
+    onClick={saveAssistantCoaching}
+    disabled={!noteDraft.trim()}
+  >
+    Save coaching
+  </button>
+</div>
+        </div>
+      </div>
+    ) : null}
+
+    {noteToast ? (
+      <div className="cx-noteToast">{noteToast}</div>
+    ) : null}
   </div>
 );
 }

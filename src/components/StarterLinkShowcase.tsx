@@ -7,9 +7,9 @@ export default function StarterLinkShowcase() {
         <div className="starter-showcase-copy">
           <h2>No website? No problem.</h2>
 <ul className="starter-bullets">
-  <li>Launch your store in minutes</li>
-  <li>Share one link anywhere</li>
-  <li>AI helps customers 24/7</li>
+  <li>Launch your business page in minutes</li>
+  <li>Use one link to drive sales on any platform</li>
+  <li>Your AI employee helps customers 24/7</li>
 </ul>
         </div>
 
@@ -40,13 +40,18 @@ export default function StarterLinkShowcase() {
           padding: 4rem 0 4.5rem;
         }
 
-        .starter-showcase-inner {
-          display: grid;
-          gap: 2.25rem;
-          align-items: center;
-          justify-items: center;
-          text-align: center;
-        }
+.starter-showcase-inner {
+  display: grid;
+  gap: 2.25rem;
+  align-items: center;
+  justify-items: center;
+  text-align: left;
+}
+
+.starter-showcase-copy {
+  width: 100%;
+  max-width: 520px;
+}
 
 .starter-showcase-copy h2 {
   margin: 0;

@@ -190,7 +190,7 @@ const hideGlobalNav =
         .nav__links {
           display: none;
           align-items: center;
-          gap: 1.5rem;
+          gap: 2rem;
         }
 
         .nav__link {
@@ -228,8 +228,8 @@ const hideGlobalNav =
           justify-content: center;
           gap: 0.25rem;
           border-radius: 800px;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
+          border: 0;
+          background: transparent;
         }
 
         .nav__toggle-bar {
@@ -239,30 +239,30 @@ const hideGlobalNav =
         /* Mobile dropdown */
         .nav__overlay {
           position: absolute;
-          top: 3.5rem;
+          top: 4.5rem;
           right: 0;
-          left: 0;
+          left: 2;
           z-index: 35;
           display: flex;
           justify-content: flex-end;
-          padding-right: 0.75rem;
+          padding-right: 0rem;
           pointer-events: none;
         }
 
         .nav__menu {
           pointer-events: auto;
-          width: 5rem; /* narrow menu */
+          width: 6.5rem; /* narrow menu */
           border-radius: 1rem;
           background: #ffffff;
           box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-          padding: 0.3rem 0.2rem;
+          padding: 0.45rem;
           display: flex;
           flex-direction: column;
         }
 
         .nav__menu-item {
-          padding: 0.55rem 0.9rem;
-          font-size: 0.94rem;
+          padding: 3rem 2rem;
+          font-size: 3rem;
           text-decoration: none;
         }
 

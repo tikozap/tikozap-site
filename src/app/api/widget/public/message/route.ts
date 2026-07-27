@@ -145,7 +145,6 @@ export async function POST(req: Request) {
     const clientConversationId = normalizeText(body?.conversationId) || "";
     const channel = normalizeText(body?.channel) || "web";
     const subject = normalizeText(body?.subject) || "Website chat";
-    const history = extractHistory(body?.history);
     const customerName =
       normalizeText(body?.visitor?.name) || "Website visitor";
 
@@ -257,6 +256,32 @@ select: {
       });
     }
 
+const previousMessages = await prisma.message.findMany({
+  where: {
+    conversationId: conversation.id,
+  },
+  orderBy: {
+    createdAt: "asc",
+  },
+  take: 30,
+  select: {
+    role: true,
+    content: true,
+  },
+});
+
+const serverHistory: ChatMessage[] = previousMessages
+  .filter(
+    (message) =>
+      message.role === "customer" ||
+      message.role === "assistant" ||
+      message.role === "staff"
+  )
+  .map((message) => ({
+    role: message.role as ChatRole,
+    content: message.content,
+  }));
+
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -349,7 +374,7 @@ const storeKnowledge = await getStoreKnowledge(widget.tenantId);
 
 const result = await runTikoBrain({
   message: text,
-  history,
+  history: serverHistory,
   storeKnowledge,
 });
 

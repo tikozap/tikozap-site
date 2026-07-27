@@ -13,15 +13,20 @@ export default function Page() {
       <section className="section-band-gray hero-new">
         <div className="container-xl hero-grid">
           <div className="hero-left">
-            <h1 className="hero-title">
-              Instant AI support
-              <br />
-              for your store
-            </h1>
+<h1 className="hero-title">
+  <span className="hero-title-main">A trained AI employee</span>
+  <span className="hero-title-sub">for your store</span>
+</h1>
 
-            <p className="hero-sub">
-              Easy setup. Affordable pricing. 24/7 on-call.
-            </p>
+<p className="hero-sub hero-sub-desktop">
+  Answers customers 24/7, learns your business,<br />
+  works with your team, and improves through coaching.
+</p>
+
+<p className="hero-sub hero-sub-mobile">
+  Answers customers 24/7, works with your team,<br />
+  learns your business, &amp; improves through coaching.
+</p>
 
             <div className="hero-ctaBlock">
               <a className="button" href="/signup?plan=pro">
@@ -50,7 +55,7 @@ export default function Page() {
 </h2>
 
 <p className="stay-control-sub">
-  One inbox for AI conversation monitoring and human takeovers.
+  Monitor and coach your AI employee in one inbox.
 </p>
 
 <Image
@@ -77,7 +82,7 @@ export default function Page() {
     ★★★★<span className="star-half">★</span>
   </span>
   <span className="rating-score">4.6</span>
-  <span className="rating-text">(398+ reviews)</span>
+  <span className="rating-text">(218+ reviews)</span>
 </div>
   </div>
 </section>
@@ -135,11 +140,11 @@ export default function Page() {
         }
 
 .stay-control-sub {
-  max-width: 680px;
-  margin: 0 0 2rem;
-  font-size: 1.125rem;
-  line-height: 1.6;
-  color: #64748b;
+  max-width: none;
+  margin: 0.65rem 0 2rem;
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: #475569;
 }
 
         .stay-control-image {

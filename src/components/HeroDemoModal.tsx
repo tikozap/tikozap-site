@@ -232,12 +232,18 @@ async function handleVoiceClick() {
   setVoiceState("thinking");
   setAssistantTranscript("Microphone ready. Creating secure voice session...");
 
-  try {
-    const res = await fetch("/api/realtime/session", {
-      method: "POST",
-    });
+try {
+  const res = await fetch("/api/realtime/session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      mode: "marketing",
+    }),
+  });
 
-    const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data?.ok) {
       setVoiceState("error");
@@ -402,7 +408,11 @@ function switchToVoice() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, conversationId }),
+        body: JSON.stringify({
+  message: trimmed,
+  conversationId,
+  mode: "marketing",
+}),
         signal: controller.signal,
       });
 

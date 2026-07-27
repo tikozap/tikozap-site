@@ -1,8 +1,9 @@
 // src/app/api/realtime/session/route.ts
 
 import { NextResponse } from "next/server";
+import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -15,6 +16,48 @@ export async function POST() {
         { status: 500 }
       );
     }
+
+const body = await req.json().catch(() => ({}));
+
+const mode =
+  body?.mode === "marketing"
+    ? "marketing"
+    : "merchant";
+
+const assistantIdentity = String(
+  body?.assistantIdentity || "Female"
+);
+
+    const voice =
+      assistantIdentity === "Male"
+        ? "verse"
+        : assistantIdentity === "Neutral"
+          ? "alloy"
+          : "marin";
+
+const instructions =
+  mode === "marketing"
+    ? buildTikoMarketingInstructions()
+    : [
+        "You are the AI customer support employee for an online store.",
+        "Speak calmly, clearly, honestly, and naturally.",
+        "You represent the merchant's store, not TikoZap.",
+        "Do not introduce yourself as Tiko unless the merchant explicitly chose that name.",
+        "Your role is to welcome, guide, recommend, and help shoppers think through choices.",
+        "Do not perform product search, inventory lookup, or price lookup yourself.",
+        "Do not say you are checking the store, pulling products, or looking up inventory.",
+        "If the shopper wants exact products, prices, filters, or availability, tell them to use chat.",
+        "Keep answers concise and helpful.",
+        "Communicate in the shopper's preferred language whenever you can confidently do so. If the shopper changes languages, naturally switch with them. Keep each response in one language unless requested otherwise. Never claim that you can only communicate in one language.",
+        "Ignore background noise, breathing, coughs, mic bumps, TV or radio sound, and side conversations not directed at you.",
+        "Only respond when the shopper is clearly speaking to the assistant with a meaningful question or request.",
+        "If the input is unclear, too short, or sounds accidental, stay silent when possible. If a response is required, briefly say: I didn't catch that.",
+      ].join(" ");
+console.log("[realtime/session mode]", {
+  requestedMode: body?.mode,
+  resolvedMode: mode,
+  instructionsStart: instructions.slice(0, 180),
+});
 
     const response = await fetch(
       "https://api.openai.com/v1/realtime/client_secrets",
@@ -29,23 +72,11 @@ export async function POST() {
             anchor: "created_at",
             seconds: 600,
           },
-          session: {
-            type: "realtime",
-            model: process.env.OPENAI_REALTIME_MODEL || "gpt-realtime",
-            instructions: [
-              "You are tikozap.ai.",
-              "Speak calmly, clearly, honestly, and naturally.",
-              "You are a voice concierge for an online store.",
-              "Your role is to welcome, guide, recommend, and help shoppers think through choices.",
-              "Do not perform product search, inventory lookup, or price lookup yourself.",
-              "Do not say you are checking the store, pulling products, or looking up inventory.",
-              "If the shopper wants exact products, prices, filters, or availability, tell them to use chat and tap 'Show in chat'.",
-              "Keep answers concise, but when the user asks about features, value, or how the product works, give a fuller spoken explanation.",
-              "If the user asks a broad question, you may answer in multiple sentences and continue naturally until the explanation is complete.",
-              "Always reply in English unless the user clearly switches to another language.",
-              "If the input is only noise, breathing, cough, mic bump, silence, or meaningless sound, do not answer contentfully.",
-              "If the audio is unclear, briefly say: 'I didn't catch that.'",
-            ].join(" "),
+session: {
+  type: "realtime",
+  model: process.env.OPENAI_REALTIME_MODEL || "gpt-realtime",
+  instructions,
+
             audio: {
               input: {
                 format: {
@@ -54,15 +85,14 @@ export async function POST() {
                 },
                 turn_detection: {
                   type: "server_vad",
-                  threshold: 0.85,
-                  prefix_padding_ms: 400,
+                  threshold: 0.8,
+                  prefix_padding_ms: 250,
                   silence_duration_ms: 1200,
                   create_response: true,
                   interrupt_response: false,
                 },
                 transcription: {
                   model: "gpt-4o-mini-transcribe",
-                  language: "en",
                 },
               },
               output: {
@@ -70,7 +100,7 @@ export async function POST() {
                   type: "audio/pcm",
                   rate: 24000,
                 },
-                voice: "marin",
+                voice,
                 speed: 1,
               },
             },

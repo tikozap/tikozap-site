@@ -7,10 +7,11 @@ import {
   mergeSearchState,
   type SearchState,
 } from "./searchState";
+import type { ProductProvider } from "@/lib/productProvider";
 import {
-  normalizeShopifyProducts,
-  shopifyAdminGraphQL,
-} from "@/lib/shopify";
+  formatEvidencePack,
+  type EvidenceItem,
+} from "./evidence";
 
 export type BrainHistoryMessage = {
   role: string;
@@ -22,6 +23,9 @@ export type RunTikoBrainInput = {
   history?: BrainHistoryMessage[];
   searchState?: SearchState;
   storeKnowledge?: string;
+  assistantLearning?: string;
+  allowProductSearch?: boolean;
+  productProvider?: ProductProvider | null;
 };
 
 export type RunTikoBrainOutput = {
@@ -29,42 +33,6 @@ export type RunTikoBrainOutput = {
   products: ProductSearchResult[];
   searchState: SearchState;
 };
-
-const PRODUCTS_QUERY = `
-  query SearchProducts($first: Int!, $query: String!) {
-    products(first: $first, query: $query) {
-      edges {
-        node {
-          id
-          title
-          handle
-          description
-          productType
-          tags
-          vendor
-          totalInventory
-          featuredMedia {
-            preview {
-              image {
-                url
-              }
-            }
-          }
-          variants(first: 1) {
-            edges {
-              node {
-                id
-                title
-                price
-                inventoryQuantity
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
 
 function lower(text: string) {
   return String(text || "").toLowerCase();
@@ -109,11 +77,33 @@ function normalizeCategoryName(category?: string) {
   return c;
 }
 
+function isKnowledgeOrServiceQuestion(message: string) {
+  const t = lower(message);
+
+  return (
+    t.includes("what does") ||
+    t.includes("how does") ||
+    t.includes("how do i use") ||
+    t.includes("is it good") ||
+    t.includes("can i return") ||
+    t.includes("shipping") ||
+    t.includes("delivery") ||
+    t.includes("payment") ||
+    t.includes("apple pay") ||
+    t.includes("paypal") ||
+    t.includes("damaged") ||
+    t.includes("order number")
+  );
+}
+
 function wantsProductSearch(
   message: string,
   interpretedIntent?: string,
   interpretedCategory?: string
 ) {
+  if (isKnowledgeOrServiceQuestion(message)) {
+  return false;
+}
   if (interpretedIntent === "product_search") return true;
 
   const t = lower(message).trim();
@@ -128,8 +118,6 @@ function wantsProductSearch(
     t.includes("buy") ||
     t.includes("browse") ||
     t.includes("search products") ||
-    t.includes("product") ||
-    t.includes("products") ||
     t.includes("do you have") ||
     t.includes("in stock");
 
@@ -298,9 +286,17 @@ const extraKeywords = raw
     return { query: "kitchen", keywords: ["kitchen", "cookware", "pan", "pot"] };
   }
 
-  if (category === "beauty") {
-    return { query: "beauty", keywords: ["beauty", "skincare", "makeup"] };
-  }
+return {
+  query: "beauty",
+  keywords: Array.from(
+    new Set([
+      ...extraKeywords,
+      "beauty",
+      "skincare",
+      "makeup",
+    ])
+  ),
+};
 
   if (category === "fitness") {
     return { query: "fitness", keywords: ["fitness", "dumbbell", "yoga", "exercise"] };
@@ -315,13 +311,14 @@ const extraKeywords = raw
   };
 }
 
-async function runProductQuery(query: string, keywords: string[]) {
-  const raw = await shopifyAdminGraphQL(PRODUCTS_QUERY, {
-  first: 12,
-  query: `${query} status:active`,
-});
-
-  const products = normalizeShopifyProducts(raw as any);
+async function runProductQuery(
+  productProvider: ProductProvider,
+  query: string,
+  keywords: string[]
+) {
+  const products = await productProvider.searchProducts(query, {
+    limit: 12,
+  });
 
   return products
     .map((p: ProductSearchResult) => {
@@ -367,6 +364,7 @@ async function runProductQuery(query: string, keywords: string[]) {
 }
 
 async function searchProducts(
+  productProvider: ProductProvider,
   message: string,
   searchState?: SearchState,
   normalizedCategory?: string
@@ -389,7 +387,11 @@ async function searchProducts(
 
   for (const attempt of attempts) {
     try {
-      const found = await runProductQuery(attempt, keywords);
+      const found = await runProductQuery(
+  productProvider,
+  attempt,
+  keywords
+);
       merged = [...merged, ...found];
     } catch (err) {
       console.error("BRAIN_SEARCH_ATTEMPT_FAILED", attempt, err);
@@ -450,14 +452,29 @@ const keywordMatchCount = (p: any) => {
   return keywords.filter((k) => searchable.includes(k.toLowerCase())).length;
 };
 
+// Minimum relevance required before a product card is shown.
+// Prevent unrelated products (for example sneakers for skincare).
+const minimumMatches =
+  keywords.length >= 2
+    ? 2
+    : 1;
+
+deduped = deduped.filter(
+  (p: any) => keywordMatchCount(p) >= minimumMatches
+);
+
+if (deduped.length === 0) {
+  return [];
+}
+
 const isSpecificSearch = keywords.length >= 3;
 
 if (isSpecificSearch) {
   const requiredMatches = keywords.length >= 3 ? 3 : 2;
 
-const strongMatches = deduped.filter(
-  (p: any) => keywordMatchCount(p) >= requiredMatches
-);
+  const strongMatches = deduped.filter(
+    (p: any) => keywordMatchCount(p) >= requiredMatches
+  );
 
   if (strongMatches.length > 0) {
     return strongMatches.slice(0, 4);
@@ -819,64 +836,157 @@ function buildRuleBasedReply(
   return "I can help with product search, customer support, shipping, returns, and general store questions.";
 }
 
+function buildBrainEvidencePack(
+  products: ProductSearchResult[],
+  storeKnowledge?: string,
+  assistantLearning?: string
+) {
+  const evidence: EvidenceItem[] = [];
+
+  if (Array.isArray(products) && products.length > 0) {
+    const productFacts = products
+      .map((product) => {
+        const price =
+          typeof product.price === "number"
+            ? `$${product.price.toFixed(2)}`
+            : product.price
+              ? String(product.price)
+              : "Price unavailable";
+
+        return [
+          `Product: ${product.title || "Unnamed product"}`,
+          `Price: ${price}`,
+        ].join("\n");
+      })
+      .join("\n\n");
+
+    evidence.push({
+      source: "live_product",
+      priority: "authoritative",
+      title: "Current catalog results",
+      content: productFacts,
+    });
+  }
+
+  if (assistantLearning?.trim()) {
+    evidence.push({
+      source: "merchant_coaching",
+      priority: "high",
+      title: "Instructions the assistant learned directly from the merchant",
+      content: assistantLearning,
+    });
+  }
+
+  if (storeKnowledge?.trim()) {
+    evidence.push({
+      source: "store_knowledge",
+      priority: "normal",
+      title: "Merchant-provided store information and policies",
+      content: storeKnowledge,
+    });
+  }
+
+  return formatEvidencePack(evidence);
+}
+
 function buildSystemPrompt(
   message: string,
-  products: ProductSearchResult[],
-  storeKnowledge?: string
+  evidencePack: string
 ) {
-  const isChinese =
-    lower(message).includes("中文") ||
-    lower(message).includes("chinese") ||
-    lower(message).includes("说中文");
-
-  const productSummary =
-    products.length > 0
-      ? products
-          .map((p) => {
-            const price =
-              typeof p.price === "number"
-                ? `$${p.price.toFixed(2)}`
-                : p.price
-                  ? String(p.price)
-                  : "price unavailable";
-            return `${p.title || "Product"} (${price})`;
-          })
-          .join("; ")
-      : "No direct product matches found.";
-
   return [
-    "You are TikoZap, a smart AI sales and customer support assistant for an online store.",
-storeKnowledge
-  ? `Store knowledge and policies:\n${storeKnowledge}`
-  : "No merchant-provided store knowledge is available yet.",
-"Use merchant-provided store knowledge as the source of truth for policies, FAQs, shipping, returns, sizing, and store details.",
-"If merchant knowledge conflicts with generic assumptions, follow merchant knowledge.",
-    "Sound like a confident store sales associate, not a generic chatbot.",
-"Be brief, warm, and specific.",
-"Do not ask for clarification if product context is already available.",
-"Use the shown products to answer directly.",
-"Never say 'Could you please provide more details' when the shopper is clearly refining a previous product search.",
-    "Do not sound robotic or repeat the same sentence patterns.",
-    "Do not invent products, prices, policies, or order details.",
-    "If product matches are provided, use them naturally in the response.",
-    "If no product matches are provided, be honest and suggest a more specific search.",
-    "For greetings, respond briefly and naturally.",
-    "For support questions, sound capable and reassuring.",
-isChinese
-  ? "Reply in Simplified Chinese."
-  : "Reply ONLY in English unless the shopper explicitly writes in Chinese.",
-"If products are provided, NEVER say the store does not have matching items.",
-"Use the returned products as the source of truth.",
-"If at least one product matches, recommend it confidently.",
-    `Available product matches: ${productSummary}`,
-  ].join(" ");
+    "You are the merchant's AI customer support employee.",
+    "Your assistant name and store identity are provided in the evidence below.",
+    "Represent the merchant's store, not TikoZap.",
+    "Never introduce yourself as TikoZap.",
+
+    "",
+    "TIKOZAP EMPLOYEE HANDBOOK",
+    "",
+    "MISSION",
+    "Help every customer with professionalism, honesty, warmth, and good judgment. Represent the merchant with pride. Leave every customer feeling respected, understood, and well served.",
+    "",
+    "CHARACTER",
+    "Be honest, trustworthy, respectful, calm, patient, curious, helpful, professional, intellectually confident, and socially graceful.",
+    "Respect people. Follow evidence. Explain to help, never to win.",
+    "",
+    "PROFESSIONAL STANDARDS",
+    "Give every customer your full attention. Listen before answering. Understand before recommending. Never pretend to know something you do not know. Accuracy builds trust.",
+    "",
+    "CUSTOMER PHILOSOPHY",
+    "Adapt naturally to each customer's needs. Some want speed, others want guidance. Stay professional in every conversation.",
+    "",
+    "COMMUNICATION",
+    "Speak naturally. Be clear before clever. Keep answers concise, warm, and easy to understand. Adapt naturally to the shopper's preferred language whenever possible. Avoid sounding scripted or robotic.",
+    "Maintain conversational continuity.",
+    "Interpret brief replies such as 'yes', 'yes please', 'okay', 'sure', 'go on', 'tell me more', or 'continue' in the context of the immediately preceding conversation whenever the meaning is reasonably clear.",
+    "Continue from the previous topic instead of restarting the conversation or asking the shopper to repeat information already available in the conversation.",
+    "",
+    "JUDGMENT",
+    "Think before answering. Follow the best available evidence. Never invent facts. When uncertain, be honest and provide the most helpful next step.",
+    "",
+    "SELLING PHILOSOPHY",
+    "Help customers make good decisions, not just purchases. Recommend products that genuinely fit their needs. Never pressure, exaggerate, or manipulate.",
+    "",
+    "GROWTH",
+    "Accept merchant coaching. Learn each store's knowledge and style. Learning changes your knowledge, never your character.",
+    "",
+    "IDENTITY",
+    "You are a trained customer support employee representing the merchant. Your goal is to make the merchant proud to have hired you.",
+    "",
+
+    "EVIDENCE PRIORITY RULES:",
+    "1. Use authoritative live product facts for current product names, prices, availability, inventory, variants, and other catalog facts.",
+    "2. Use high-priority merchant coaching for policies, recommendations, customer handling, sales behavior, tone, and corrections learned directly from the merchant.",
+    "3. Merchant coaching overrides conflicting store knowledge when the subject is controlled by the merchant.",
+    "4. If multiple merchant coaching instructions conflict, follow the newest instruction.",
+    "5. Use store knowledge when it does not conflict with merchant coaching.",
+    "6. Use general reasoning only when the provided evidence does not answer the question.",
+    "7. Never replace merchant-specific evidence with a generic industry assumption.",
+    "8. Never combine conflicting evidence. Follow the highest applicable source.",
+    "9. Merchant coaching must not invent or override live product prices, inventory, variants, or availability.",
+    "10. Live product data applies only to product facts. It does not override merchant coaching about service, policy, or how products should be recommended.",
+
+    "MERCHANT EVIDENCE:",
+    evidencePack,
+
+"RESPONSE RULES:",
+"Sound like a confident, experienced store employee, not a generic chatbot.",
+"Answer the shopper's actual question first.",
+"Respond naturally in your own words instead of reciting the evidence.",
+"Match the length of the answer to the complexity of the question.",
+"For a simple factual question, give a short and direct answer.",
+"For a more complex question, explain enough to be genuinely helpful.",
+"Be warm, calm, specific, and concise.",
+"Do not sound robotic or repeatedly use the same openings, closings, or sentence patterns.",
+"Do not automatically praise the question.",
+"Do not automatically end every answer with another question.",
+"Ask a follow-up question only when it would genuinely clarify the shopper's needs or improve the recommendation.",
+"When the answer is complete, end naturally and stop.",
+"Use conversation history to understand references such as 'it', 'that one', 'the bag', or 'the set'.",
+"Do not ask for clarification when the necessary product or conversation context is already available.",
+"Never say 'Could you please provide more details' when the shopper is clearly referring to something already established.",
+"Do not invent products, prices, policies, inventory, availability, ingredients, skin suitability, or order details.",
+"If live product matches are provided, use only relevant matches naturally and recommend them confidently when appropriate.",
+"Do not mention unrelated live product matches.",
+"If live product matches are provided, never say the store does not have those matching items.",
+"If no live product evidence is provided, do not claim that the store has or does not have a product unless store knowledge or merchant coaching explicitly says so.",
+"For greetings, respond briefly and naturally.",
+"For support questions, sound capable and reassuring.",
+"If reliable information is unavailable, say so honestly and offer the most useful next step when appropriate.",
+
+"LANGUAGE:",
+"Communicate in the shopper's preferred language whenever you can confidently do so.",
+"If the shopper changes languages, naturally switch with them.",
+"Keep each response in one language unless the shopper requests otherwise. Never claim that you can only communicate in one language.",
+"Never claim that you can only communicate in one language.",
+  ].join("\n\n");
 }
 
 async function composeNaturalReply(
   message: string,
   products: ProductSearchResult[],
-  normalizedCategory?: string,
-  storeKnowledge?: string
+  normalizedCategory: string | undefined,
+  evidencePack: string
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   const hasProducts = Array.isArray(products) && products.length > 0;
@@ -899,7 +1009,10 @@ async function composeNaturalReply(
         messages: [
           {
             role: "system",
-            content: buildSystemPrompt(message, products, storeKnowledge),
+content: buildSystemPrompt(
+  message,
+  evidencePack
+),
           },
           {
             role: "user",
@@ -965,32 +1078,51 @@ const nextState = mergeSearchState(inferredState, nextIntent);
 
   const interpreted = await interpretIntentWithAI(input.message);
 
+// Explicit category words in the shopper's current message
+// must override AI interpretation and prior conversation state.
+const explicitCategory = detectCategory(input.message);
+
 const category = normalizeCategoryName(
+  explicitCategory ||
   interpreted.category ||
-  detectCategory(input.message) ||
   nextState.lastCategory ||
   detectCategory(nextState.lastQuery || "")
 );
 
   let products: ProductSearchResult[] = [];
 
-  if (wantsProductSearch(input.message, interpreted.intent, category)) {
+if (
+  input.allowProductSearch !== false &&
+  input.productProvider &&
+  wantsProductSearch(input.message, interpreted.intent, category)
+) {
     try {
-      products = await searchProducts(input.message, nextState, category);
+      products = await searchProducts(
+  input.productProvider,
+  input.message,
+  nextState,
+  category
+);
     } catch (err) {
       console.error("RUN_TIKO_BRAIN_SEARCH_ERROR", err);
     }
 
-    if ((!products || products.length === 0) && category) {
-      products = getFallbackProducts(category);
-    }
+if ((!products || products.length === 0)) {
+    products = [];
+}
   }
 
-  const reply = await composeNaturalReply(
+const evidencePack = buildBrainEvidencePack(
+  products,
+  input.storeKnowledge,
+  input.assistantLearning
+);
+
+const reply = await composeNaturalReply(
   input.message,
   products,
   category,
-  input.storeKnowledge
+  evidencePack
 );
 
   return {

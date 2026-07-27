@@ -110,13 +110,13 @@ export default function SafetyShields() {
           color: #111827;
         }
 
-        .shields-head p {
-          max-width: 620px;
-          margin: 1rem 0 0;
-          font-size: 1.125rem;
-          line-height: 1.6;
-          color: #64748b;
-        }
+.shields-head p {
+  max-width: none;
+  margin: 1.2rem 0 0;
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: #475569;
+}
 
 .shields-grid {
   display: grid;

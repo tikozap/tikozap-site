@@ -2,9 +2,37 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import MobilePageHeader from '../../_components/MobilePageHeader';
+
+type TestMessage = {
+  id: string;
+  role: 'customer' | 'assistant';
+  content: string;
+};
+
+type PanelPosition = {
+  x: number;
+  y: number;
+};
+
+type DragState = {
+  dragging: boolean;
+  startX: number;
+  startY: number;
+  startPanelX: number;
+  startPanelY: number;
+};
+
+function createMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export default function WidgetTestClient({
   widgetPublicKey,
@@ -14,16 +42,60 @@ export default function WidgetTestClient({
   allowedDomains: string[];
 }) {
   const [origin, setOrigin] = useState('');
-  const [domainsText, setDomainsText] = useState((allowedDomains || []).join('\n'));
+
+  const [domainsText, setDomainsText] = useState(
+    (allowedDomains || []).join('\n')
+  );
   const [savingDomains, setSavingDomains] = useState(false);
   const [domainsMsg, setDomainsMsg] = useState('');
+
+  const [testOpen, setTestOpen] = useState(false);
+  const [testMinimized, setTestMinimized] = useState(false);
+  const [testText, setTestText] = useState('');
+  const [testBusy, setTestBusy] = useState(false);
+  const [testError, setTestError] = useState('');
+  const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
+  const [assistantName, setAssistantName] = useState('Assistant');
+
+  const [testPanelPos, setTestPanelPos] = useState<PanelPosition>({
+    x: 24,
+    y: 110,
+  });
+
+  const dragRef = useRef<DragState>({
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    startPanelX: 0,
+    startPanelY: 0,
+  });
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
+  useEffect(() => {
+    if (!testOpen || testMinimized) return;
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+    });
+  }, [testMessages, testBusy, testOpen, testMinimized]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', moveTestDrag);
+      window.removeEventListener('mouseup', stopTestDrag);
+    };
+  }, []);
+
   const installScript = useMemo(() => {
-    const src = origin ? `${origin}/widget.js` : 'https://js.tikozap.com/widget.js';
+    const src = origin
+      ? `${origin}/widget.js`
+      : 'https://js.tikozap.com/widget.js';
 
     return `<script
   src="${src}"
@@ -31,7 +103,7 @@ export default function WidgetTestClient({
 ></script>`;
   }, [origin, widgetPublicKey]);
 
-const designerInstructions = `Please install TikoZap on our website.
+  const designerInstructions = `Please install TikoZap on our website.
 
 Add this script to the website footer, just before the closing </body> tag:
 
@@ -41,10 +113,10 @@ If the website uses a builder, place it in Custom Code / Footer Code / Body End.
 
 After publishing, please confirm the TikoZap chat bubble appears in the bottom-right corner of the website.`;
 
-  async function copyText(text: string, msg: string) {
+  async function copyText(text: string, message: string) {
     try {
       await navigator.clipboard.writeText(text);
-      alert(msg);
+      alert(message);
     } catch {
       alert('Could not copy.');
     }
@@ -57,12 +129,21 @@ After publishing, please confirm the TikoZap chat bubble appears in the bottom-r
     try {
       const res = await fetch('/api/widget/settings', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowedDomainsText: domainsText }),
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          allowedDomainsText: domainsText,
+        }),
       });
 
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not save allowed domains.');
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not save allowed domains.'
+        );
+      }
 
       const nextDomains = Array.isArray(data?.widget?.allowedDomains)
         ? data.widget.allowedDomains
@@ -70,11 +151,451 @@ After publishing, please confirm the TikoZap chat bubble appears in the bottom-r
 
       setDomainsText(nextDomains.join('\n'));
       setDomainsMsg('Allowed domains saved.');
-    } catch (err: any) {
-      setDomainsMsg(err?.message || 'Could not save allowed domains.');
+    } catch (error: any) {
+      setDomainsMsg(
+        error?.message || 'Could not save allowed domains.'
+      );
     } finally {
       setSavingDomains(false);
     }
+  }
+
+  function openWidgetTest() {
+    const panelWidth = 380;
+    const availableWidth =
+      typeof window === 'undefined' ? 1200 : window.innerWidth;
+
+    setTestPanelPos({
+      x: Math.max(16, availableWidth - panelWidth - 24),
+      y: 110,
+    });
+
+    setTestOpen(true);
+    setTestMinimized(false);
+    setTestError('');
+  }
+
+  function closeWidgetTest() {
+    setTestOpen(false);
+    setTestMinimized(false);
+    setTestText('');
+    setTestError('');
+    setTestBusy(false);
+    setTestMessages([]);
+    setAssistantName('Assistant');
+  }
+
+  async function sendWidgetTest(customText?: string) {
+    const text = (customText ?? testText).trim();
+
+    if (!text || testBusy) return;
+
+    const existingHistory = testMessages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+
+    const customerMessage: TestMessage = {
+      id: createMessageId(),
+      role: 'customer',
+      content: text,
+    };
+
+    setTestMessages((current) => [
+      ...current,
+      customerMessage,
+    ]);
+    setTestText('');
+    setTestError('');
+    setTestBusy(true);
+
+    try {
+      const res = await fetch('/api/widget/test', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          history: existingHistory,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not test the widget.'
+        );
+      }
+
+      if (data?.assistantName) {
+        setAssistantName(String(data.assistantName));
+      }
+
+      const assistantMessage: TestMessage = {
+        id: createMessageId(),
+        role: 'assistant',
+        content: String(data?.reply || '').trim(),
+      };
+
+      setTestMessages((current) => [
+        ...current,
+        assistantMessage,
+      ]);
+    } catch (error: any) {
+      setTestError(
+        error?.message || 'Could not test the widget.'
+      );
+    } finally {
+      setTestBusy(false);
+    }
+  }
+
+  function moveTestDrag(event: MouseEvent) {
+    if (!dragRef.current.dragging) return;
+
+    const nextX =
+      dragRef.current.startPanelX +
+      event.clientX -
+      dragRef.current.startX;
+
+    const nextY =
+      dragRef.current.startPanelY +
+      event.clientY -
+      dragRef.current.startY;
+
+    const panelWidth = Math.min(380, window.innerWidth - 32);
+    const panelHeight = 300;
+
+    setTestPanelPos({
+      x: Math.min(
+        Math.max(16, nextX),
+        Math.max(16, window.innerWidth - panelWidth - 16)
+      ),
+      y: Math.min(
+        Math.max(16, nextY),
+        Math.max(16, window.innerHeight - panelHeight)
+      ),
+    });
+  }
+
+  function stopTestDrag() {
+    dragRef.current.dragging = false;
+
+    window.removeEventListener('mousemove', moveTestDrag);
+    window.removeEventListener('mouseup', stopTestDrag);
+  }
+
+  function startTestDrag(event: ReactMouseEvent<HTMLDivElement>) {
+    dragRef.current = {
+      dragging: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPanelX: testPanelPos.x,
+      startPanelY: testPanelPos.y,
+    };
+
+    window.addEventListener('mousemove', moveTestDrag);
+    window.addEventListener('mouseup', stopTestDrag);
+  }
+
+  function renderWidgetTest() {
+    if (!testOpen) return null;
+
+    if (testMinimized) {
+      return (
+        <button
+          type="button"
+          onClick={() => setTestMinimized(false)}
+          style={{
+            position: 'fixed',
+            right: 24,
+            bottom: 24,
+            zIndex: 9999,
+            border: '1px solid rgba(255,255,255,.18)',
+            borderRadius: 999,
+            padding: '12px 16px',
+            background: '#111827',
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 800,
+            boxShadow:
+              '0 16px 40px rgba(15, 23, 42, 0.28)',
+            cursor: 'pointer',
+          }}
+        >
+          Test widget
+        </button>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          left: testPanelPos.x,
+          top: testPanelPos.y,
+          zIndex: 9999,
+          width: 380,
+          maxWidth: 'calc(100vw - 32px)',
+maxHeight: 'calc(100vh - 32px)',
+          overflow: 'hidden',
+          borderRadius: 22,
+          border: '1px solid #e5e7eb',
+          background: '#fff',
+          boxShadow:
+            '0 24px 70px rgba(15, 23, 42, 0.22)',
+          padding: 18,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          onMouseDown={startTestDrag}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+            cursor: 'grab',
+            userSelect: 'none',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 800,
+              }}
+            >
+              Test your widget
+            </div>
+
+            <p
+              style={{
+                marginTop: 8,
+                marginBottom: 0,
+                fontSize: 13,
+                color: '#64748b',
+                lineHeight: 1.55,
+              }}
+            >
+              Ask a shopper-style question and preview
+              exactly what customers will experience on
+              your website.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={closeWidgetTest}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#64748b',
+              fontSize: 20,
+              cursor: 'pointer',
+              padding: 4,
+              lineHeight: 1,
+            }}
+            aria-label="Close"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
+
+{testMessages.length > 0 || testBusy ? (
+  <div
+    style={{
+      marginTop: 14,
+      height: 220,
+      overflowY: 'auto',
+      overscrollBehavior: 'contain',
+      border: '1px solid #e5e7eb',
+      borderRadius: 16,
+      background: '#f8fafc',
+      padding: 12,
+      flexShrink: 0,
+    }}
+  >
+            {testMessages.map((message) => {
+              const isCustomer = message.role === 'customer';
+
+              return (
+                <div
+                  key={message.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: isCustomer
+                      ? 'flex-end'
+                      : 'flex-start',
+                    marginBottom: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '86%',
+                    }}
+                  >
+                    <div
+                      style={{
+                        marginBottom: 4,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#64748b',
+                        textAlign: isCustomer
+                          ? 'right'
+                          : 'left',
+                      }}
+                    >
+                      {isCustomer
+                        ? 'Customer'
+                        : assistantName}
+                    </div>
+
+                    <div
+                      style={{
+                        borderRadius: 14,
+                        padding: '10px 12px',
+                        background: isCustomer
+                          ? '#111827'
+                          : '#ffffff',
+                        color: isCustomer
+                          ? '#ffffff'
+                          : '#111827',
+                        border: isCustomer
+                          ? 'none'
+                          : '1px solid #e5e7eb',
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {testBusy ? (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-start',
+                  marginBottom: 10,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      marginBottom: 4,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#64748b',
+                    }}
+                  >
+                    {assistantName}
+                  </div>
+
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      padding: '10px 12px',
+                      background: '#ffffff',
+                      color: '#64748b',
+                      border: '1px solid #e5e7eb',
+                      fontSize: 13,
+                    }}
+                  >
+                    Thinking…
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div ref={messagesEndRef} />
+          </div>
+        ) : null}
+
+        <textarea
+          value={testText}
+          onChange={(event) =>
+            setTestText(event.target.value)
+          }
+          onKeyDown={(event) => {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey
+            ) {
+              event.preventDefault();
+              void sendWidgetTest();
+            }
+          }}
+          placeholder="Type as a customer…"
+          rows={2}
+style={{
+  marginTop: 14,
+  height: 72,
+  minHeight: 72,
+  maxHeight: 72,
+  overflowY: 'auto',
+  overscrollBehavior: 'contain',
+  border: '1px solid #e5e7eb',
+  borderRadius: 16,
+  background: '#f8fafc',
+  padding: 12,
+  flexShrink: 0,
+}}
+        />
+
+        {testError ? (
+          <p
+            style={{
+              marginTop: 10,
+              marginBottom: 0,
+              fontSize: 13,
+              color: '#b91c1c',
+            }}
+          >
+            {testError}
+          </p>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => setTestMinimized(true)}
+          >
+            Minimize
+          </button>
+
+          <button
+            type="button"
+            className="db-btn primary"
+            disabled={testBusy || !testText.trim()}
+            onClick={() => sendWidgetTest()}
+          >
+            {testBusy
+              ? 'Sending…'
+              : testMessages.length > 0
+                ? 'Send'
+                : 'Start test'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -84,6 +605,7 @@ After publishing, please confirm the TikoZap chat bubble appears in the bottom-r
       <div className="db-top">
         <div>
           <h1 className="db-title">Widget</h1>
+
           <p className="db-sub">
             Add web chat widget to your website.
           </p>
@@ -92,98 +614,177 @@ After publishing, please confirm the TikoZap chat bubble appears in the bottom-r
 
       <div className="db-pageStack">
         <section className="db-card">
-          <div className="db-cardTitle">Option 1 - Add widget by yourself</div>
+          <div className="db-cardTitle">
+            Option 1 - Add widget by yourself
+          </div>
+
           <p className="db-cardText">
-  Copy the script below and paste it into your website footer, just before the closing &lt;/body&gt; tag.
-</p>
+            Copy the script below and paste it into your
+            website footer, just before the closing
+            &lt;/body&gt; tag.
+          </p>
 
-<p className="db-cardText" style={{ marginTop: 8 }}>
-  If you use Shopify, WordPress, Wix, Squarespace, or another website builder, look for Custom Code, Footer Code, or Body End.
-</p>
+          <p
+            className="db-cardText"
+            style={{
+              marginTop: 8,
+            }}
+          >
+            If you use Shopify, WordPress, Wix,
+            Squarespace, or another website builder, look
+            for Custom Code, Footer Code, or Body End.
+          </p>
 
-          <pre style={{ marginTop: 14, overflow: 'auto', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: 12, fontSize: 12, whiteSpace: 'pre-wrap' }}>
+          <pre
+            style={{
+              marginTop: 14,
+              overflow: 'auto',
+              background: '#f8fafc',
+              border: '1px solid #e5e7eb',
+              borderRadius: 12,
+              padding: 12,
+              fontSize: 12,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
             {installScript}
           </pre>
 
-          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="db-btn primary" onClick={() => copyText(installScript, 'Install script copied.')}>
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              className="db-btn primary"
+              onClick={() =>
+                copyText(
+                  installScript,
+                  'Install script copied.'
+                )
+              }
+            >
               Copy install script
             </button>
           </div>
 
-          <p className="db-cardText" style={{ marginTop: 12 }}>
-            Need help? Send the installation instructions to your web designer below.
+          <p
+            className="db-cardText"
+            style={{
+              marginTop: 12,
+            }}
+          >
+            Need help? Send the installation instructions
+            to your web designer below.
           </p>
         </section>
 
         <section className="db-card">
-          <div className="db-cardTitle">Option 2 - Send to your web designer</div>
+          <div className="db-cardTitle">
+            Option 2 - Send to your web designer
+          </div>
+
           <p className="db-cardText">
-            Copy simple instructions you can forward to the person who manages your website.
+            Copy simple instructions you can forward to
+            the person who manages your website.
           </p>
+
           <button
             className="db-btn primary"
-            style={{ marginTop: 14 }}
-            onClick={() => copyText(designerInstructions, 'Instructions copied.')}
+            style={{
+              marginTop: 14,
+            }}
+            onClick={() =>
+              copyText(
+                designerInstructions,
+                'Instructions copied.'
+              )
+            }
           >
             Copy instructions
           </button>
         </section>
 
-
         <section className="db-card">
           <div className="db-cardTitle">Shopify</div>
+
           <p className="db-cardText">
             One-click Shopify installation is coming soon.
           </p>
-          <button className="db-btn" style={{ marginTop: 14 }}>
+
+          <button
+            className="db-btn"
+            style={{
+              marginTop: 14,
+            }}
+          >
             Join waitlist
           </button>
         </section>
 
         <section className="db-card">
-          <div className="db-cardTitle">Allowed domains</div>
+          <div className="db-cardTitle">
+            Allowed domains
+          </div>
+
           <p className="db-cardText">
-            Add the websites where this widget is allowed to run. Use one domain per line.
+            Add the websites where this widget is allowed
+            to run. Use one domain per line.
           </p>
 
           <textarea
             value={domainsText}
-            onChange={(e) => setDomainsText(e.target.value)}
+            onChange={(event) =>
+              setDomainsText(event.target.value)
+            }
             rows={4}
             placeholder={`yourstore.com\nwww.yourstore.com`}
-            style={{ marginTop: 14, width: '100%' }}
+            style={{
+              marginTop: 14,
+              width: '100%',
+            }}
           />
 
-<div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-  <button
-    type="button"
-    className="db-btn primary"
-    onClick={saveAllowedDomains}
-    disabled={savingDomains}
-  >
-    {savingDomains ? 'Saving…' : 'Save domains'}
-  </button>
+          <div
+            style={{
+              marginTop: 12,
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              type="button"
+              className="db-btn primary"
+              onClick={saveAllowedDomains}
+              disabled={savingDomains}
+            >
+              {savingDomains
+                ? 'Saving…'
+                : 'Save domains'}
+            </button>
 
-<Link
-  className="db-btn"
-  href="/dashboard/conversations?testAssistant=1"
-  style={{
-    height: 44,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 13,
-    fontWeight: 700,
-  }}
->
-  Test installation
-</Link>
-</div>
+            <button
+              type="button"
+              className="db-btn"
+              onClick={openWidgetTest}
+            >
+              Test widget
+            </button>
+          </div>
 
-          {domainsMsg ? <p className="db-cardText">{domainsMsg}</p> : null}
+          {domainsMsg ? (
+            <p className="db-cardText">
+              {domainsMsg}
+            </p>
+          ) : null}
         </section>
       </div>
+
+      {renderWidgetTest()}
     </div>
   );
 }

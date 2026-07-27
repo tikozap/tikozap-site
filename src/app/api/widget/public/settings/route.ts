@@ -34,6 +34,7 @@ const widget = await prisma.widget.findUnique({
     enabled: true,
     brandColor: true,
     assistantName: true,
+    assistantIdentity: true,
     greeting: true,
     tenantId: true,
     tenant: {
@@ -68,23 +69,54 @@ try {
       ok: true,
       widget: {
         enabled: widget.enabled,
-brandColor:
-  settings.tz_brand_color?.trim() ||
-  widget.brandColor ||
-  "#111827",
 
-assistantName:
-  settings.tz_assistant_name?.trim() ||
-  widget.assistantName ||
-  "Store Assistant",
+        brandColor:
+          settings.tz_brand_color?.trim() ||
+          widget.brandColor ||
+          "#111827",
 
-greeting:
-  settings.tz_assistant_greeting?.trim() ||
-  widget.greeting ||
-  "Hi! I can help you find products, orders, and more.",
+        assistantName:
+          settings.tz_assistant_name?.trim() ||
+          widget.assistantName ||
+          "Store Assistant",
+
+        assistantIdentity:
+          settings.tz_assistant_identity?.trim() ||
+          widget.assistantIdentity ||
+          "Female",
+
+        assistantAvatarUrl:
+          settings.tz_assistant_icon_data_url?.trim() || "",
+
+        launcherAppearance:
+          settings.tz_launcher_appearance === "avatar" ||
+          settings.tz_launcher_appearance === "bubble"
+            ? settings.tz_launcher_appearance
+            : "orb",
+
+        chatAppearance:
+          settings.tz_chat_appearance === "avatar"
+            ? "avatar"
+            : "orb",
+
+        voiceAppearance:
+          settings.tz_voice_appearance === "avatar"
+            ? "avatar"
+            : "orb",
+
+        greeting:
+          settings.tz_assistant_greeting?.trim() ||
+          widget.greeting ||
+          "Hi! I can help you find products, orders, and more.",
+
         voice,
       },
     },
-    { headers: { ...corsHeaders, "cache-control": "no-store" } }
+    {
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
   );
 }

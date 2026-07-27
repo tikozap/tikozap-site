@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { extractSearchIntent, mergeSearchState } from "@/lib/demoBrain";
-
+import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 export const runtime = "nodejs";
 
 type DemoProduct = {
@@ -15,31 +15,23 @@ type DemoProduct = {
   url?: string;
 };
 
+type ChatBody = {
+  message?: string;
+  conversationId?: string | null;
+  image?: string | null;
+  publicKey?: string | null;
+  channel?: string | null;
+  mode?: "marketing" | "merchant";
+  tags?: string[] | null;
+  visitor?: {
+    name?: string | null;
+  } | null;
+};
+
 type HistoryMessage = {
   role: "user" | "assistant";
   content: string;
 };
-
-const SYSTEM_PROMPT = `
-You are Tiko, an AI sales and customer support assistant for Shopify merchants.
-
-Your behavior:
-- You are intelligent, natural, and conversational like ChatGPT
-- You understand context, not just keywords
-- You help both with:
-  1) Product discovery (for shoppers)
-  2) Business value (for merchants)
-
-Rules:
-- Never hallucinate products
-- If products are returned, refer to them naturally (do NOT invent new ones)
-- Be concise but insightful
-- Always guide toward value or next step
-
-Tone:
-- Professional, confident, slightly energetic
-- East Coast business tone
-`;
 
 function detectIntent(
   text: string
@@ -203,37 +195,26 @@ Want me to simulate a real customer interaction?`,
   });
 } else if (intent === "revenue") {
   return NextResponse.json({
-    reply: `Most Shopify stores see:
+    reply: `TikoZap is designed to help stores respond faster, reduce unanswered customer questions, and guide shoppers more consistently.
 
-- 10-25% increase in conversion
-- More products discovered per session
-- Fewer abandoned visits
+The business impact depends on factors such as store traffic, products, customer questions, and how the merchant trains the assistant, so I should not promise a specific revenue increase.
 
-For a 50K/month store:
-
-That is roughly 5K-12K extra monthly revenue.
-
-And I only take 1% when I generate sales.
-
-So if I do not help you make money, you do not pay.
-
-Want me to estimate based on your store?`,
+I can explain how TikoZap supports sales and customer service workflows if that would help.`,
     source: "rule",
     safePreview: true,
     products: [],
   });
 } else if (intent === "activation") {
   return NextResponse.json({
-    reply: `Getting started is simple:
+    reply: `Getting started with TikoZap is straightforward:
 
-1. Connect your Shopify store
-2. I learn your catalog instantly
-3. Add the chat widget
-4. Start converting visitors
+1. Create your store workspace.
+2. Name and configure your AI assistant.
+3. Add products, policies, FAQs, and other store knowledge.
+4. Install the website widget, or use Starter Link if you do not have a website.
+5. Review conversations and coach the assistant when needed.
 
-No complex setup.
-
-Want me to walk you through it live?`,
+Would you like help choosing between the website widget and Starter Link?`,
     source: "rule",
     safePreview: true,
     products: [],
@@ -247,7 +228,7 @@ Want me to walk you through it live?`,
         input: [
           {
             role: "system",
-            content: SYSTEM_PROMPT,
+            content: buildTikoMarketingInstructions(),
           },
           ...history,
           {
@@ -267,7 +248,8 @@ Want me to walk you through it live?`,
     }
 
     return NextResponse.json({
-      reply: "I’m here to help with products, Shopify, and growing your store.",
+      reply:
+  "I’m Tiko, TikoZap’s product representative. I can explain setup, Starter Link, the website widget, voice, coaching, pricing, and how your AI assistant works.",
       source: "canned",
       safePreview: true,
       products: [],

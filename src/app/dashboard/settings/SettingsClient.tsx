@@ -17,7 +17,11 @@ const sections: { key: SectionKey; label: string; desc: string }[] = [
 
   { key: "notifications", label: "Inbox & Notifications", desc: "Alerts, dots, sounds, and escalation signals" },
 
-  { key: "ai", label: "AI Assistant & Widget", desc: "Assistant identity, greeting, branding, and widget appearance" },
+  {
+  key: "ai",
+  label: "AI Assistant & Widget",
+  desc: "Branding, assistant behavior, and widget appearance",
+},
   { key: "voice", label: "Voice & Orb", desc: "Voice style, orb behavior, and speaking mode" },
 ];
 
@@ -25,18 +29,20 @@ const BRAND_PRESETS = [
   "#111111",
   "#4C4C54",
   "#2563EB",
-  "#73BC71",
   "#7C3AED",
+  "#38BDF8",
 
-  "#F0F0EB",
+  "#76D273",
+  "#C9E7D3",
   "#F4E99B",
-  "#E0E8D8",
-  "#BAE6FD",
+  "#E8E8E8",
   "#FAF9F6",
 ];
 
 function getContrastTextColor(hex: string) {
   const clean = hex.replace("#", "").trim();
+
+   if (clean.toUpperCase() === "38BDF8") return "#ffffff";
 
   if (!/^[0-9A-Fa-f]{6}$/.test(clean)) return "#ffffff";
 
@@ -273,12 +279,14 @@ export default function SettingsClient() {
   const raw = localStorage.getItem("tz_settings_cache");
   const cached = raw ? JSON.parse(raw) : {};
 
-  const nextSettings = {
-    ...cached,
-    tz_assistant_name: assistantName,
-    tz_assistant_greeting: assistantGreeting,
-    tz_brand_color: brandColor || "#111111",
-  };
+const assistantIdentity =
+  localStorage.getItem("tz_assistant_identity") || "Female";
+
+const nextSettings = {
+  ...cached,
+  tz_brand_color: brandColor || "#111111",
+  tz_assistant_identity: assistantIdentity,
+};
 
   localStorage.setItem("tz_settings_cache", JSON.stringify(nextSettings));
 
@@ -288,7 +296,7 @@ export default function SettingsClient() {
 
   await saveSavedSettings(nextSettings);
   window.dispatchEvent(new Event("tz-settings-change"));
-  alert("Assistant branding saved.");
+  alert("Widget branding saved.");
 };
 
   const hasVoiceSubscription = false;
@@ -306,7 +314,14 @@ useEffect(() => {
 
       const settings = data.settings || {};
       const profile = data.profile || {};
+setAssistantName(
+  settings.tz_assistant_name?.trim() || "Store Assistant"
+);
 
+setAssistantGreeting(
+  settings.tz_assistant_greeting?.trim() ||
+    "Hi! I'm here if you need help with products, orders, shipping, or returns."
+);
       localStorage.setItem(
         "tz_settings_cache",
         JSON.stringify(settings)
@@ -643,16 +658,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 {active === "ai" ? (
   <div className="st-cardGrid">
     <section className="st-card">
-  <h3>Branding</h3>
-
-  <label className="st-field">
-    <span className="st-label">Assistant name</span>
-<input
-  value={assistantName}
-  onChange={(e) => setAssistantName(e.target.value)}
-  placeholder="Name your assistant"
-/>
-  </label>
+  <h3>Widget branding</h3>
 
 <ChoiceGroup
   label="Assistant identity"
@@ -660,16 +666,6 @@ const toggleMemberNotifications = async (member: TeamMember) => {
   defaultValue="Female"
   storageKey="tz_assistant_identity"
 />
-
-  <label className="st-field">
-    <span className="st-label">Assistant greeting</span>
- <textarea
-  className="st-textarea"
-  value={assistantGreeting}
-  onChange={(e) => setAssistantGreeting(e.target.value)}
-  placeholder="Hi! I'm here if you need help with products, orders, shipping, or returns."
-/>
-  </label>
 
   <div className="st-brandingGrid">
 <label className="st-field">

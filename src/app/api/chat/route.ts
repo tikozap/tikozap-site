@@ -4,8 +4,16 @@ export const runtime = "nodejs";
 
 import { wantsHuman } from "@/lib/handoffIntent";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
+import { resolveProductProvider } from "@/lib/resolveProductProvider";
+import {
+  getAssistantIdentity,
+  getAssistantLearning,
+  getStoreKnowledge,
+} from "@/lib/assistantContext";
+import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 import {
   appendDemoInboxMessage,
   findOrCreateDemoInboxConversation,
@@ -17,28 +25,12 @@ type ChatBody = {
   image?: string | null;
   publicKey?: string | null;
   channel?: string | null;
+  mode?: "marketing" | "merchant";
   tags?: string[] | null;
   visitor?: {
     name?: string | null;
   } | null;
 };
-
-async function getStoreKnowledge(tenantId: string) {
-  const docs = await prisma.knowledgeDoc.findMany({
-    where: { tenantId },
-    orderBy: { updatedAt: "desc" },
-    take: 12,
-    select: {
-      title: true,
-      content: true,
-    },
-  });
-
-  return docs
-    .filter((d) => d.content.trim())
-    .map((d) => `## ${d.title}\n${d.content.trim()}`)
-    .join("\n\n");
-}
 
 function streamSSE(payload: unknown) {
   return `data: ${JSON.stringify(payload)}\n\n`;
@@ -84,6 +76,10 @@ function pickHumanFollowupReply() {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatBody;
+    const mode =
+  body.mode === "marketing"
+    ? "marketing"
+    : "merchant";
 
     const message = normalizeText(body.message);
     const publicKey = normalizeText(
@@ -104,6 +100,96 @@ const clientConversationId = rawConversationId.startsWith("conv_")
         { status: 400 }
       );
     }
+
+if (mode === "marketing") {
+  const client = process.env.OPENAI_API_KEY
+    ? new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      })
+    : null;
+
+  if (!client) {
+    return NextResponse.json(
+      {
+        error: "Tiko is temporarily unavailable.",
+      },
+      { status: 503 }
+    );
+  }
+
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "system",
+        content: buildTikoMarketingInstructions(),
+      },
+      {
+        role: "user",
+        content: message,
+      },
+    ],
+    max_output_tokens: 500,
+  });
+
+  const answer =
+    response.output_text?.trim() ||
+    "I’m Tiko, TikoZap’s product representative. What would you like to know about TikoZap?";
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(
+          streamSSE({
+            type: "meta",
+            conversationId: "tiko-marketing",
+            remaining: 999,
+            dailyLimit: 999,
+            userType: "anonymous",
+          })
+        )
+      );
+
+      for (const chunk of splitIntoChunks(answer, 18)) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            streamSSE({
+              type: "delta",
+              delta: chunk,
+            })
+          )
+        );
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, 35)
+        );
+      }
+
+      controller.enqueue(
+        new TextEncoder().encode(
+          streamSSE({
+            type: "final",
+            conversationId: "tiko-marketing",
+            remaining: 999,
+            dailyLimit: 999,
+            userType: "anonymous",
+            products: [],
+          })
+        )
+      );
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
+}
 
 const shouldAlertHuman = wantsHuman(message);
 
@@ -209,7 +295,7 @@ appendDemoInboxMessage(conversation.id, "assistant", answer, products);
     }
 
     // REAL PRISMA PATH
-    const widget = await prisma.widget.findFirst({
+const widget = await prisma.widget.findFirst({
   where: {
     publicKey,
   },
@@ -229,6 +315,11 @@ if (!resolvedWidget) {
     { status: 404 }
   );
 }
+const assistantIdentity = await getAssistantIdentity(
+  resolvedWidget.tenantId
+);
+
+const resolvedAssistantName = assistantIdentity.name;
 
     let conversation =
       clientConversationId
@@ -341,7 +432,18 @@ const recentMessages = await prisma.message.findMany({
   },
 });
 
-const storeKnowledge = await getStoreKnowledge(resolvedWidget.tenantId);
+const storeKnowledge = await getStoreKnowledge(
+  resolvedWidget.tenantId,
+  resolvedAssistantName
+);
+
+const assistantLearning = await getAssistantLearning(
+  resolvedWidget.tenantId
+);
+
+const productProvider = await resolveProductProvider(
+  resolvedWidget.tenantId
+);
 
 const brain = await runTikoBrain({
   message,
@@ -350,6 +452,8 @@ const brain = await runTikoBrain({
     content: m.content,
   })),
   storeKnowledge,
+  assistantLearning,
+  productProvider,
 });
 
   answer = brain.reply;

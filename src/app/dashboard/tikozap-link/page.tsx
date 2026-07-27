@@ -56,20 +56,15 @@ const [greeting, setGreeting] = useState(
   "Hi! I can help with products, order tracking, shipping, and returns."
 );
 
-const [footerLine, setFooterLine] = useState("");
+const [aboutText, setAboutText] = useState("");
 const [contactEmail, setContactEmail] = useState("");
   const [shippingNote, setShippingNote] = useState("");
   const [returnNote, setReturnNote] = useState("");
 
   const [showProductsNav, setShowProductsNav] = useState(true);
   const [showContactNav, setShowContactNav] = useState(true);
-  const [showFooterBrand, setShowFooterBrand] = useState(true);
 
-  const [bestSeller, setBestSeller] = useState<ProductForm>({
-    title: "Lush Active Skincare Set",
-    price: "$58",
-    image: "",
-  });
+  const [bestSeller, setBestSeller] = useState<ProductForm>(emptyProduct());
 
   const [products, setProducts] = useState<ProductForm[]>(
     Array.from({ length: 9 }, () => emptyProduct())
@@ -106,21 +101,17 @@ const [contactEmail, setContactEmail] = useState("");
       setLogoUrl(page.logoUrl || "");
       setTagline(page.tagline || "Tagline for store");
       setSubheading(page.subheading || "Store’s subheading");
-      setFooterLine(page.footerLine || data.storeName || "");
+      // The existing footerLine field now stores the merchant's About us text.
+      setAboutText(page.footerLine || "");
       setContactEmail(page.contactEmail || "");
       setShippingNote(page.shippingNote || "");
       setReturnNote(page.returnNote || "");
 
       setShowProductsNav(page.showProductsNav ?? true);
       setShowContactNav(page.showContactNav ?? true);
-      setShowFooterBrand(page.showFooterBrand ?? true);
 
       setBestSeller(
-        safeJsonParse<ProductForm>(page.bestSellerJson, {
-          title: "Lush Active Skincare Set",
-          price: "$58",
-          image: "",
-        })
+        safeJsonParse<ProductForm>(page.bestSellerJson, emptyProduct())
       );
 
       const parsedProducts = safeJsonParse<ProductForm[]>(page.productsJson, []);
@@ -158,7 +149,7 @@ const [contactEmail, setContactEmail] = useState("");
             logoUrl,
             tagline,
             subheading,
-            footerLine,
+            footerLine: aboutText,
             contactEmail,
             shippingNote,
             returnNote,
@@ -166,7 +157,7 @@ const [contactEmail, setContactEmail] = useState("");
             productsJson: JSON.stringify(cleanProducts),
             showProductsNav,
             showContactNav,
-            showFooterBrand,
+            showFooterBrand: true,
           },
         }),
       });
@@ -570,38 +561,59 @@ const [contactEmail, setContactEmail] = useState("");
         </div>
 
         <div className="db-card">
-          <div className="db-cardTitle">Footer & contact</div>
+          <div className="db-cardTitle">Store information</div>
+          <p className="db-cardText">
+            Add the information customers can open from your storefront footer.
+          </p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             <label style={fieldWrap}>
-              <span style={fieldLabel}>Footer text</span>
-              <input className="db-btn" value={footerLine} onChange={(e) => setFooterLine(e.target.value)} />
+              <span style={fieldLabel}>About us</span>
+              <textarea
+                className="db-btn"
+                value={aboutText}
+                onChange={(e) => setAboutText(e.target.value)}
+                placeholder="Tell customers about your store, products, and what makes your business special."
+                style={{ minHeight: 96, paddingTop: 10, resize: "vertical" }}
+              />
             </label>
-
-          <p
-           style={{
-            margin: 0,
-            fontSize: 12,
-            color: "#6b7280",
-          }}
-       >
-          Your store name, owner name, or short message. Powered by TikoZap is added automatically.
-       </p>
 
             <label style={fieldWrap}>
               <span style={fieldLabel}>Contact email</span>
-              <input className="db-btn" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+              <input
+                type="email"
+                className="db-btn"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="support@yourstore.com"
+              />
             </label>
 
             <label style={fieldWrap}>
-              <span style={fieldLabel}>Shipping note</span>
-              <input className="db-btn" value={shippingNote} onChange={(e) => setShippingNote(e.target.value)} />
+              <span style={fieldLabel}>Shipping information</span>
+              <textarea
+                className="db-btn"
+                value={shippingNote}
+                onChange={(e) => setShippingNote(e.target.value)}
+                placeholder="Tell customers where you ship and how long delivery usually takes."
+                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
+              />
             </label>
 
             <label style={fieldWrap}>
-              <span style={fieldLabel}>Return note</span>
-              <input className="db-btn" value={returnNote} onChange={(e) => setReturnNote(e.target.value)} />
+              <span style={fieldLabel}>Return information</span>
+              <textarea
+                className="db-btn"
+                value={returnNote}
+                onChange={(e) => setReturnNote(e.target.value)}
+                placeholder="Explain your return window and any important conditions."
+                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
+              />
             </label>
+
+            <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>
+              Footer links appear automatically when information is added. Powered by TikoZap is always included.
+            </p>
           </div>
         </div>
 

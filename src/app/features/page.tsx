@@ -7,74 +7,78 @@ import Link from "next/link";
 
 const productFeatures = [
   {
-    title: "AI customer support",
-    body: "24/7 answers for products, orders, shipping, and returns.",
+    title: "Learns",
+    body: "Starts learning your business from day one.",
   },
   {
-    title: "Human handoff",
-    body: "Take over any conversation when a customer needs a person.",
+    title: "Helps",
+    body: "Supports your customers 24/7.",
   },
   {
-    title: "Omnichannel inbox",
-    body: "Monitor AI and human conversations in one place.",
+    title: "Communicates",
+    body: "Chats, speaks, and answers phone calls.",
   },
   {
-    title: "Website widget & Starter Link",
-    body: "Works with your website, or launch with Starter Link if you don't have one.",
+    title: "Protects",
+    body: "Keeps your business and customer data secure.",
   },
   {
-    title: "Store-aware & multilingual",
-    body: "Answers based on your products, FAQs, and policies—in your customers' language.",
+    title: "Connects",
+    body: "Speaks your customers' language.",
   },
   {
-    title: "Security & privacy",
-    body: "Your data stays yours. Guardrails, alerts, and ownership controls built in.",
+    title: "Collaborates",
+    body: "Works with your team and follows your guidance.",
   },
 ];
 
 const steps = [
   {
-    title: "Customer asks",
-    body: "Customers can chat from your website or Starter Link.",
+    title: "Create your workspace",
+    body: "Set up your company information and add your products, policies, and business knowledge.",
   },
   {
-    title: "AI responds",
-    body: "AI Assistant answers product, shipping, return, and order questions instantly.",
+    title: "Wort with your AI employee",
+    body: "Introduce your business so your AI employee is ready to help customers.",
   },
   {
-    title: "Human takes over",
-    body: "Need a person? Take over the conversation at any time.",
+    title: "Your AI employee helps",
+    body: "Chats, speaks, answers phone calls, and supports customers using what you've instructed.",
   },
   {
-    title: "One inbox",
-    body: "AI and human conversations live together in a single workspace.",
+    title: "Grow together",
+    body: "Monitor conversations, step in when needed, and coach your AI employee over time.",
   },
 ];
 
 const faqs = [
   {
-    q: "Do I need a website?",
-    a: "No. If you do not have a website, you can launch with Starter Link and share your store link anywhere.",
+    q: 'Can your assistant answer questions about my products?',
+    a: 'Yes. Your assistant answers using your products, FAQs, store policies, and uploaded documents, so responses reflect your business—not generic AI knowledge.',
   },
   {
-    q: "Can I use TikoZap on my existing website?",
-    a: "Yes. Add the TikoZap widget to your website so customers can ask questions directly.",
+    q: 'What if the assistant gives the wrong answer?',
+    a: 'You can correct your assistant anytime. It remembers your coaching and handles similar conversations better in the future.',
   },
   {
-    q: "Can I take over conversations?",
-    a: "Yes. You can pause AI and reply as a human whenever a customer needs personal help.",
+    q: 'Can I take over conversations?',
+    a: "Absolutely. You can step into any conversation whenever needed, then let your assistant continue once you're finished.",
   },
   {
-    q: "Does TikoZap support multiple languages?",
-    a: "Yes. TikoZap can help customers in different languages based on their questions.",
+    q: 'Does it support multiple languages?',
+    a: 'Yes. Your assistant communicates with customers in their preferred language while using your store knowledge to provide accurate answers.',
   },
   {
-    q: "Can TikoZap answer from my store information?",
-    a: "Yes. It can use your products, FAQs, policies, and support content to answer more accurately.",
+    q: 'Can I use TikoZap without a website?',
+    a: "Yes. Launch instantly with Starter Link, then connect your own website whenever you're ready.",
   },
   {
-    q: "Is my data secure?",
-    a: "Your workspace data stays yours. TikoZap is designed with privacy, guardrails, and ownership controls in mind.",
+    q: 'Who owns my business data?',
+    a: 'You do. Your products, knowledge, customer conversations, and business data always remain yours.',
+  },
+  {
+    q: 'How long does setup take?',
+    a: 'Most stores can have their AI employee helping customers within minutes after connecting their store and adding basic business knowledge.',
   },
 ];
 
@@ -83,15 +87,13 @@ export default function ProductPage() {
     <main id="main" className="product-page">
       <section className="product-hero">
         <div className="container-xl product-hero-inner">
-          <h1>
-            Support your customers
-            <br />
-            around the clock
-          </h1>
+<h1>
+  Meet your AI employee
+</h1>
 
-          <p>
-            AI support 24/7, human handoff, multilingual answers, and security built in.
-          </p>
+<p>
+  Answers customers, learns your business, and works alongside your team.
+</p>
 
           <div className="product-orbit-wrap">
             <Image
@@ -122,8 +124,8 @@ export default function ProductPage() {
       <section className="product-section how-section">
         <div className="container-xl">
           <header className="section-head">
-            <h2>How TikoZap works</h2>
-            <p>From customer questions to human support—all in one workflow.</p>
+<h2>Working together is simple</h2>
+<p>Your AI employee works while you monitor and coach.</p>
           </header>
 
           <div className="steps-grid">

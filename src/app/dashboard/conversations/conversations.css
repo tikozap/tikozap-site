@@ -442,9 +442,10 @@
   background:#fff;
   color:#111827;
   border-radius:14px;
-  padding:12px;
-  font-size:13px;
+  padding:14px 18px;
+  font-size:16px;
   line-height:1.45;
+  font-weight:400;
   min-width:0;
   overflow-wrap:anywhere;
   word-break:break-word;
@@ -2710,7 +2711,7 @@ textarea{
 
   .cx-topThreadActions{
     display:grid !important;
-    grid-template-columns:86px 86px 96px !important;
+    grid-template-columns:max-content 86px 96px !important;
     gap:6px !important;
     justify-self:end !important;
     visibility:visible !important;
@@ -2923,4 +2924,171 @@ textarea{
 .cx-rightDrawer .cx-tagAddBtn{
   width:88px !important;
   justify-content:center !important;
+}
+
+/* =========================
+   Final mobile Inbox width match
+========================= */
+
+@media (max-width: 900px){
+.cx-mobileRoot,
+.cx-mobileStage,
+.cx-mobileInboxLayer,
+.cx-mobileScreen{
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+
+  .cx-mobileScreen{
+    padding-left:0 !important;
+    padding-right:0 !important;
+  }
+
+  .cx-mobileInboxTop{
+    grid-template-columns:48px 1fr 48px !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn{
+    width:48px !important;
+    height:48px !important;
+    min-width:48px !important;
+    min-height:48px !important;
+  }
+
+.cx-mobileSearchWrap{
+  padding-left:6px !important;
+  padding-right:6px !important;
+}
+
+.cx-mobileList{
+  padding-left:6px !important;
+  padding-right:6px !important;
+}
+}
+
+@media (max-width: 900px){
+  .cx-mobileScreen .cx-mobileSearchWrap{
+    padding-left:0px !important;
+    padding-right:0px !important;
+  }
+
+  .cx-mobileScreen .cx-mobileList{
+    padding-left:0px !important;
+    padding-right:0px !important;
+  }
+
+  .cx-mobileScreen .cx-item{
+    width:100% !important;
+    max-width:100% !important;
+  }
+}
+
+/* =========================
+   Final mobile Inbox wider shell
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileRoot{
+    margin-left:-18px !important;
+    margin-right:-18px !important;
+    width:calc(100% + 36px) !important;
+    max-width:calc(100% + 36px) !important;
+  }
+
+  .cx-mobileScreen{
+    padding-left:0 !important;
+    padding-right:0 !important;
+  }
+
+  .cx-mobileSearchWrap,
+  .cx-mobileList{
+    padding-left:10px !important;
+    padding-right:10px !important;
+  }
+}
+
+.cx-noteSub {
+  margin: 4px 0 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.cx-notePrivacy {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.cx-noteTextarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.cx-teachEmmaCheck {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #111827;
+  font-size: 13px;
+}
+
+.cx-teachEmmaCheck small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.cx-noteActions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cx-noteToast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10000;
+  background: #111827;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+}
+
+.cx-bubble.note.emmaNoted {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e3a8a !important;
+}
+
+@media (max-width: 900px) {
+  .cx-noteToast {
+    left: 16px;
+    right: 16px;
+    bottom: 18px;
+    text-align: center;
+  }
+}
+
+.cx-coachBtn {
+  width: auto;
+  min-width: max-content;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }

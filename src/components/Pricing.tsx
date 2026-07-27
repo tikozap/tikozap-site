@@ -296,21 +296,20 @@ export default function Pricing() {
           gap: 1.6rem;
         }
 
-        .plan {
-          display: flex;
-          flex-direction: column;
-          border-radius: 1rem;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
-          padding: 1.5rem 1.5rem 1.8rem;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
-          min-height: 42rem;
-        }
+.plan {
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 1.5rem 1.5rem 1.8rem;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+  min-height: 42rem;
+}
 
-        .plan--focus {
-          border-color: #e5e7eb; /* same border color as other plans */
-          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06); /* soft neutral shadow */
-        }
+.plan--focus {
+  border-color: #e5e7eb;
+}
 
         .plan-header {
           gap: 0.5rem;

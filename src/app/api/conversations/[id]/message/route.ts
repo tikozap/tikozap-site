@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { saveAssistantCoaching } from "@/lib/assistantCoaching";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,15 @@ export async function POST(
       typeof body.content === "string" ? body.content.trim() : "";
 
     const products = Array.isArray(body.products) ? body.products : [];
+
+    const saveAsInternalNote = body.saveAsInternalNote === true;
+    const isAssistantCoachingRequest =
+     body.isAssistantCoaching === true;
+
+const assistantName =
+  typeof body.assistantName === "string" && body.assistantName.trim()
+    ? body.assistantName.trim().slice(0, 80)
+    : "Store Assistant";
 
     if (!content && products.length === 0) {
       return NextResponse.json(
@@ -54,28 +64,58 @@ export async function POST(
       );
     }
 
-    const finalRole =
-      role === "assistant" || role === "customer" || role === "note"
-        ? role
-        : "staff";
+const finalRole =
+  role === "assistant" || role === "customer" || role === "note"
+    ? role
+    : "staff";
 
-const message = await prisma.message.create({
-  data: {
+const isAssistantCoaching =
+  finalRole === "note" && isAssistantCoachingRequest;
+
+let message = null;
+let assistantNotedMessage = null;
+
+if (!isAssistantCoaching || saveAsInternalNote) {
+  message = await prisma.message.create({
+    data: {
+      conversationId: convo.id,
+      role: finalRole,
+      content,
+      productsJson: products.length > 0 ? JSON.stringify(products) : null,
+    },
+    select: {
+      id: true,
+      role: true,
+      content: true,
+      createdAt: true,
+    },
+  });
+}
+
+if (isAssistantCoaching) {
+  const guidance = content.trim();
+
+  const coachingResult = await saveAssistantCoaching({
+    tenantId: auth.tenant.id,
     conversationId: convo.id,
-    role: finalRole,
-    content,
-    productsJson:
-      products.length > 0
-        ? JSON.stringify(products)
-        : null,
-  },
-      select: {
-        id: true,
-        role: true,
-        content: true,
-        createdAt: true,
-      },
-    });
+    guidance,
+    assistantName,
+  });
+
+  assistantNotedMessage = await prisma.message.create({
+    data: {
+      conversationId: convo.id,
+      role: "note",
+      content: coachingResult.reply,
+    },
+    select: {
+      id: true,
+      role: true,
+      content: true,
+      createdAt: true,
+    },
+  });
+}
 
 await prisma.conversation.update({
   where: { id: convo.id },
@@ -84,20 +124,21 @@ await prisma.conversation.update({
     lastSeenAt: new Date(),
     needsHuman: finalRole === "staff" ? false : undefined,
 
-    // Staff is actively handling the conversation.
-    // Keep AI paused while staff replies.
     aiEnabled: finalRole === "staff" ? false : undefined,
     status: finalRole === "staff" && convo.status !== "closed" ? "waiting" : undefined,
   },
 });
 
-    return NextResponse.json({
-      ok: true,
-      message: {
+return NextResponse.json({
+  ok: true,
+  message: message
+    ? {
         ...message,
         products,
-      },
-    });
+      }
+    : null,
+  assistantNotedMessage,
+});
   } catch (error) {
     console.error("POST /api/conversations/[id]/message failed:", error);
     return NextResponse.json(

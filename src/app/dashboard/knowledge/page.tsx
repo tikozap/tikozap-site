@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import MobilePageHeader from "../_components/MobilePageHeader";
+import ProductKnowledgeCard from "./_components/ProductKnowledgeCard";
 
 type KnowledgeDoc = {
   id: string;
@@ -12,10 +13,94 @@ type KnowledgeDoc = {
   updatedAt: string;
 };
 
+type ProductKnowledgeRow = {
+  id: string;
+  product: string;
+  notes: string;
+};
+
+const PRODUCT_KNOWLEDGE_MARKER = "TIKOZAP_PRODUCT_KNOWLEDGE_V1";
+
+function createProductKnowledgeRow(): ProductKnowledgeRow {
+  return {
+    id: `pk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    product: "",
+    notes: "",
+  };
+}
+
+function parseProductKnowledge(content: string): ProductKnowledgeRow[] {
+  const trimmed = content.trim();
+
+  if (!trimmed) {
+    return [createProductKnowledgeRow()];
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+
+    if (
+      parsed?.type === PRODUCT_KNOWLEDGE_MARKER &&
+      Array.isArray(parsed?.rows)
+    ) {
+      const rows: ProductKnowledgeRow[] = parsed.rows.map((row: any) => ({
+        id:
+          typeof row?.id === "string" && row.id
+            ? row.id
+            : createProductKnowledgeRow().id,
+        product: typeof row?.product === "string" ? row.product : "",
+        notes: typeof row?.notes === "string" ? row.notes : "",
+      }));
+
+      return rows.length > 0 ? rows : [createProductKnowledgeRow()];
+    }
+  } catch {
+    // Keep older plain-text Product Knowledge usable.
+  }
+
+  return [
+    {
+      ...createProductKnowledgeRow(),
+      notes: trimmed,
+    },
+  ];
+}
+
+function serializeProductKnowledge(
+  rows: ProductKnowledgeRow[]
+): string {
+  return JSON.stringify(
+    {
+      type: PRODUCT_KNOWLEDGE_MARKER,
+      rows: rows.map((row) => ({
+        id: row.id,
+        product: row.product.trim(),
+        notes: row.notes.trim(),
+      })),
+    },
+    null,
+    2
+  );
+}
+
+function isSizingDoc(title: string) {
+  const normalized = title.toLowerCase();
+
+  return (
+    normalized.includes("siz") ||
+    normalized.includes("fit") ||
+    normalized.includes("measurement")
+  );
+}
+
 export default function KnowledgePage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [productRows, setProductRows] = useState<ProductKnowledgeRow[]>(
+    () => [createProductKnowledgeRow()]
+  );
 
   async function loadKnowledge() {
     try {
@@ -25,23 +110,29 @@ export default function KnowledgePage() {
         cache: "no-store",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!data?.ok) return;
-
-      if (Array.isArray(data.docs) && data.docs.length > 0) {
-        setDocs(data.docs);
+      if (!res.ok || !data?.ok) {
+        alert(data?.error || "Failed to load knowledge.");
         return;
       }
 
-      const starterDocs = (data.defaults || []).map((title: string) => ({
-        id: "",
-        title,
-        content: "",
-        updatedAt: "",
-      }));
+      const nextDocs: KnowledgeDoc[] = Array.isArray(data.docs)
+        ? data.docs
+        : [];
 
-      setDocs(starterDocs);
+      const productKnowledgeDoc = nextDocs.find(
+        (doc) => doc.title === "Product Knowledge"
+      );
+
+      setProductRows(
+        parseProductKnowledge(productKnowledgeDoc?.content || "")
+      );
+
+      setDocs(nextDocs);
+    } catch (error) {
+      console.error("[Knowledge] Failed to load knowledge", error);
+      alert("Failed to load knowledge.");
     } finally {
       setLoading(false);
     }
@@ -63,47 +154,168 @@ export default function KnowledgePage() {
         body: JSON.stringify(doc),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!data?.ok) {
-        alert(data?.error || "Failed to save");
+      if (!res.ok || !data?.ok) {
+        alert(data?.error || "Failed to save.");
         return;
       }
 
-      setDocs((prev) =>
-        prev.map((d) =>
-          d.title === doc.title
+      setDocs((previousDocs) =>
+        previousDocs.map((item) =>
+          item.title === doc.title
             ? {
-                ...d,
+                ...item,
                 ...data.doc,
               }
-            : d
+            : item
         )
       );
+    } catch (error) {
+      console.error("[Knowledge] Failed to save document", error);
+      alert("Failed to save.");
     } finally {
       setSaving(false);
     }
   }
 
-function isSizingDoc(title: string) {
-  const s = title.toLowerCase();
-  return s.includes("siz") || s.includes("fit") || s.includes("measurement");
-}
+  async function saveProductKnowledge(doc: KnowledgeDoc) {
+    try {
+      setSaving(true);
 
-async function uploadKnowledgeFile(file: File, idx: number) {
-  const text = await file.text();
+      const content = serializeProductKnowledge(productRows);
 
-  setDocs((prev) =>
-    prev.map((d, i) =>
-      i === idx
-        ? {
-            ...d,
-            content: `${d.content ? d.content + "\n\n" : ""}Uploaded file: ${file.name}\n\n${text}`,
-          }
-        : d
-    )
-  );
-}
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...doc,
+          content,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        alert(data?.error || "Failed to save product knowledge.");
+        return;
+      }
+
+      setDocs((previousDocs) =>
+        previousDocs.map((item) =>
+          item.title === "Product Knowledge"
+            ? {
+                ...item,
+                ...data.doc,
+              }
+            : item
+        )
+      );
+
+      alert("Product knowledge saved.");
+    } catch (error) {
+      console.error(
+        "[Knowledge] Failed to save product knowledge",
+        error
+      );
+      alert("Failed to save product knowledge.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addProductRow() {
+    setProductRows((rows) => [
+      ...rows,
+      createProductKnowledgeRow(),
+    ]);
+  }
+
+  function updateProductRow(
+    id: string,
+    field: "product" | "notes",
+    value: string
+  ) {
+    setProductRows((rows) =>
+      rows.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              [field]: value,
+            }
+          : row
+      )
+    );
+  }
+
+  function removeProductRow(id: string) {
+    setProductRows((rows) => {
+      const nextRows = rows.filter((row) => row.id !== id);
+
+      return nextRows.length > 0
+        ? nextRows
+        : [createProductKnowledgeRow()];
+    });
+  }
+
+  async function uploadProductKnowledgeFile(file: File) {
+    try {
+      const text = await file.text();
+      const trimmed = text.trim();
+
+      if (!trimmed) {
+        alert("This file does not contain readable text.");
+        return;
+      }
+
+      setProductRows((rows) => [
+        ...rows,
+        {
+          ...createProductKnowledgeRow(),
+          product: file.name.replace(/\.[^.]+$/, ""),
+          notes: trimmed,
+        },
+      ]);
+    } catch (error) {
+      console.error(
+        "[Knowledge] Failed to read product knowledge file",
+        error
+      );
+      alert("This file could not be read.");
+    }
+  }
+
+  async function uploadKnowledgeFile(
+    file: File,
+    index: number
+  ) {
+    try {
+      const text = await file.text();
+
+      setDocs((previousDocs) =>
+        previousDocs.map((doc, docIndex) =>
+          docIndex === index
+            ? {
+                ...doc,
+                content: `${
+                  doc.content
+                    ? `${doc.content}\n\n`
+                    : ""
+                }Uploaded file: ${file.name}\n\n${text}`,
+              }
+            : doc
+        )
+      );
+    } catch (error) {
+      console.error(
+        "[Knowledge] Failed to read knowledge file",
+        error
+      );
+      alert("This file could not be read.");
+    }
+  }
 
   if (loading) {
     return (
@@ -129,80 +341,140 @@ async function uploadKnowledgeFile(file: File, idx: number) {
         </div>
 
         <div className="db-knowledgeGrid">
-{docs.map((doc, idx) => (
-  <section key={`${doc.title}-${idx}`} className="db-card" style={{ padding: 0 }}>
-    <div
-      className="knowledge-rowInner"
-      style={{
-        backgroundColor: idx % 2 === 1 ? "#eef2f7" : "#ffffff",
-      }}
-    >
-      <div className="db-cardHead">
-        <div>
-          <h3 className="db-cardTitle">{doc.title}</h3>
+          {docs.map((doc, index) => {
+            if (doc.title === "Product Knowledge") {
+              return (
+                <ProductKnowledgeCard
+                  key={`${doc.title}-${index}`}
+                  doc={doc}
+                  saving={saving}
+                  productRows={productRows}
+                  onAddRow={addProductRow}
+                  onUpdateRow={updateProductRow}
+                  onRemoveRow={removeProductRow}
+                  onUploadFile={uploadProductKnowledgeFile}
+                  onSave={saveProductKnowledge}
+                />
+              );
+            }
 
-          <p className="db-cardText">
-            Information your assistant can use in replies.
-          </p>
-        </div>
+            return (
+              <section
+                key={`${doc.title}-${index}`}
+                className="db-card"
+                style={{ padding: 0 }}
+              >
+                <div
+                  className="knowledge-rowInner"
+                  style={{
+                    backgroundColor:
+                      index % 2 === 1
+                        ? "#eef2f7"
+                        : "#ffffff",
+                  }}
+                >
+                  <div className="db-cardHead">
+                    <div>
+                      <h3 className="db-cardTitle">
+                        {doc.title}
+                      </h3>
 
-        <button
-          className="db-btn primary"
-          disabled={saving}
-          onClick={() => saveDoc(doc)}
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
-      </div>
+                      <p className="db-cardText">
+                        {doc.title === "Special Instructions"
+                          ? "Every business has its own way of serving customers. Tell your assistant yours."
+                          : "Information your assistant can use in replies."}
+                      </p>
+                    </div>
 
-      {isSizingDoc(doc.title) ? (
-        <div className="db-uploadBox">
-          <div>
-            <strong>Upload size chart or measurement guide</strong>
-            <p>
-              Upload a text, CSV, or markdown file, or paste your chart below.
-            </p>
-          </div>
+                    <button
+                      type="button"
+                      className="db-btn primary"
+                      disabled={saving}
+                      onClick={() => saveDoc(doc)}
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                  </div>
 
-          <label className="db-btn" style={{ width: "fit-content" }}>
-            Choose file
-            <input
-              type="file"
-              accept=".txt,.csv,.md,text/plain,text/csv"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                uploadKnowledgeFile(file, idx);
-                e.currentTarget.value = "";
-              }}
-            />
-          </label>
-        </div>
-      ) : null}
+                  {isSizingDoc(doc.title) ? (
+                    <div className="db-uploadBox">
+                      <div>
+                        <strong>
+                          Upload size chart or measurement guide
+                        </strong>
 
-      <textarea
-        className="db-knowledgeTextarea"
-        value={doc.content}
-        placeholder={`Add ${doc.title.toLowerCase()} here...`}
-        onChange={(e) => {
-          const value = e.target.value;
+                        <p>
+                          Upload a text, CSV, or Markdown file,
+                          or paste your chart below.
+                        </p>
+                      </div>
 
-          setDocs((prev) =>
-            prev.map((d, i) =>
-              i === idx
-                ? {
-                    ...d,
-                    content: value,
-                  }
-                : d
-            )
-          );
-        }}
-      />
-    </div>
-  </section>
-))}
+                      <label
+                        className="db-btn"
+                        style={{ width: "fit-content" }}
+                      >
+                        Choose file
+
+                        <input
+                          type="file"
+                          accept=".txt,.csv,.md,text/plain,text/csv,text/markdown"
+                          style={{ display: "none" }}
+                          onChange={(event) => {
+                            const file =
+                              event.target.files?.[0];
+
+                            if (!file) return;
+
+                            uploadKnowledgeFile(
+                              file,
+                              index
+                            );
+
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+
+                  <textarea
+                    className="db-knowledgeTextarea"
+                    value={doc.content}
+                    placeholder={
+                      doc.title === "Special Instructions"
+                        ? `Examples:
+
+• We accept Apple Pay, PayPal, Visa, Mastercard, and Amex.
+
+• Never promise same-day shipping.
+
+• If you're unsure, ask for the customer's order number instead of guessing.
+
+• Keep answers concise and professional.
+
+• Recommend gift wrapping during holidays.`
+                        : `Add ${doc.title.toLowerCase()} here...`
+                    }
+                    onChange={(event) => {
+                      const value = event.target.value;
+
+                      setDocs((previousDocs) =>
+                        previousDocs.map(
+                          (item, itemIndex) =>
+                            itemIndex === index
+                              ? {
+                                  ...item,
+                                  content: value,
+                                }
+                              : item
+                        )
+                      );
+                    }}
+                  />
+                </div>
+              </section>
+            );
+          })}
         </div>
       </div>
 
@@ -223,56 +495,58 @@ async function uploadKnowledgeFile(file: File, idx: number) {
         .db-knowledgeTextarea {
           width: 100%;
           min-height: 180px;
+          box-sizing: border-box;
           resize: vertical;
-          border-radius: 14px;
           border: 1px solid #dbe3ea;
+          border-radius: 14px;
           padding: 14px;
+          background: #ffffff;
+          color: #111827;
           font-size: 14px;
           line-height: 1.5;
-          background: white;
-          color: #111827;
         }
 
         .db-knowledgeTextarea:focus {
           outline: none;
           border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
         }
 
         .db-uploadBox {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+          padding: 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 14px;
+          background: #f8fafc;
+        }
 
-.db-uploadBox p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #64748b;
-}
+        .db-uploadBox p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
 
-.knowledge-row {
-  background: #ffffff;
-}
+        .knowledge-rowInner {
+          border-radius: 16px;
+          padding: 20px;
+        }
 
-.knowledge-row.is-muted {
-  background: #f8fafc;
-}
+        @media (max-width: 760px) {
+          .db-uploadBox {
+            align-items: stretch;
+            flex-direction: column;
+          }
 
-.knowledge-row.is-muted .db-knowledgeTextarea {
-  background: #ffffff;
-}
-
-.knowledge-rowInner {
-  border-radius: 16px;
-  padding: 20px;
-}
+          .db-uploadBox .db-btn {
+            width: 100% !important;
+            justify-content: center;
+          }
+        }
       `}</style>
     </div>
   );

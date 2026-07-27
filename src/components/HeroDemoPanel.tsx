@@ -18,27 +18,35 @@ type DemoMessage = {
   text: string;
 };
 
+type VoiceTranscriptItem = {
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+};
+
 const starterMessages: DemoMessage[] = [
-  { id: "u-1", role: "user", text: "hi there" },
-  { id: "a-1", role: "assistant", text: "Hello! How can I assist you today?" },
-  { id: "u-2", role: "user", text: "I need human" },
   {
-    id: "a-2",
+    id: "a-1",
     role: "assistant",
-    text:
-      "I’ve notified the store team and left a message for them.\n\nThey’ll review this conversation and get back to you as soon as possible.\n\nWhile you wait, I’m still here if you’d like help with order status, shipping, returns, or product questions.",
+    text: "Hi! I’m Tiko. How can I help you today?",
   },
 ];
 
 export default function HeroDemoPanel() {
   const [mode, setMode] = useState<Mode>("idle");
   const [composerMode, setComposerMode] = useState<ComposerMode>("type");
+  const [orbOpen, setOrbOpen] = useState(false);
   const [messages, setMessages] = useState<DemoMessage[]>(starterMessages);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 const [conversationId, setConversationId] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const chatHoverRef = useRef(false);
+const [holdingToTalk, setHoldingToTalk] = useState(false);
+const recognitionRef = useRef<any>(null);
+const transcriptRef = useRef("");
+
 const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [userTranscript, setUserTranscript] = useState("");
 const [assistantTranscript, setAssistantTranscript] = useState("");
@@ -47,14 +55,95 @@ const realtimeConnRef = useRef<any>(null);
 const userTranscriptBufferRef = useRef("");
 const assistantTranscriptBufferRef = useRef("");
 
-  function openPanel(nextMode: ComposerMode = "type") {
-    setComposerMode(nextMode);
-    setMode("panel");
+const [voiceTranscriptEnabled, setVoiceTranscriptEnabled] = useState(false);
+const [voiceTranscriptItems, setVoiceTranscriptItems] = useState<
+  VoiceTranscriptItem[]
+>([]);
+const [transcriptCopied, setTranscriptCopied] = useState(false);
 
-    if (nextMode === "type") {
-      window.setTimeout(() => inputRef.current?.focus(), 0);
+const activeUserTranscriptIdRef = useRef<string | null>(null);
+const activeAssistantTranscriptIdRef = useRef<string | null>(null);
+const voiceTranscriptBodyRef = useRef<HTMLDivElement | null>(null);
+
+function createTranscriptId(role: "assistant" | "user") {
+  return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function updateVoiceTranscriptItem(
+  id: string,
+  role: "assistant" | "user",
+  text: string
+) {
+  setVoiceTranscriptItems((current) => {
+    const existingIndex = current.findIndex((item) => item.id === id);
+
+    if (existingIndex === -1) {
+      return [...current, { id, role, text }];
     }
+
+    return current.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            text,
+          }
+        : item
+    );
+  });
+}
+
+function clearVoiceTranscript() {
+  setVoiceTranscriptItems([]);
+  setTranscriptCopied(false);
+
+  activeUserTranscriptIdRef.current = null;
+  activeAssistantTranscriptIdRef.current = null;
+  userTranscriptBufferRef.current = "";
+  assistantTranscriptBufferRef.current = "";
+}
+
+async function copyVoiceTranscript() {
+  const transcriptText = voiceTranscriptItems
+    .filter((item) => item.text.trim())
+    .map((item) => {
+      const speaker = item.role === "user" ? "You" : "Tiko";
+      return `${speaker}:\n${item.text.trim()}`;
+    })
+    .join("\n\n");
+
+  if (!transcriptText) return;
+
+  try {
+    await navigator.clipboard.writeText(transcriptText);
+    setTranscriptCopied(true);
+
+    window.setTimeout(() => {
+      setTranscriptCopied(false);
+    }, 1600);
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = transcriptText;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+
+    setTranscriptCopied(true);
+
+    window.setTimeout(() => {
+      setTranscriptCopied(false);
+    }, 1600);
   }
+}
+
+function openPanel(nextMode: ComposerMode = "type") {
+  setComposerMode(nextMode);
+  setMode("panel");
+}
 
 function closePanel() {
   stopVoiceSession();
@@ -67,6 +156,8 @@ function stopVoiceSession() {
   setAssistantTranscript("");
   userTranscriptBufferRef.current = "";
   assistantTranscriptBufferRef.current = "";
+  activeUserTranscriptIdRef.current = null;
+activeAssistantTranscriptIdRef.current = null;
 
   if (realtimeConnRef.current) {
     try {
@@ -105,6 +196,7 @@ async function startVoiceSession() {
 
   setComposerMode("speak");
   setMode("panel");
+  setOrbOpen(true);
   setVoiceState("permission");
   setUserTranscript("");
   setAssistantTranscript("Checking microphone permission...");
@@ -121,9 +213,15 @@ async function startVoiceSession() {
   setAssistantTranscript("Connecting realtime voice...");
 
   try {
-    const res = await fetch("/api/realtime/session", {
-      method: "POST",
-    });
+const res = await fetch("/api/realtime/session", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    mode: "marketing",
+  }),
+});
 
     const data = await res.json().catch(() => ({}));
 
@@ -136,58 +234,92 @@ async function startVoiceSession() {
     }
 
     const conn = await connectRealtime(data.client_secret.value, {
-      onUserTranscript: (text: string) => {
-        const trimmed = text.trim();
-        if (!trimmed) return;
+ onUserTranscript: (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return;
 
-        userTranscriptBufferRef.current = trimmed;
-        setUserTranscript(trimmed);
-      },
+  userTranscriptBufferRef.current = trimmed;
+  setUserTranscript(trimmed);
 
-      onAssistantTranscript: (text: string) => {
-        const trimmed = text.trim();
-        if (!trimmed) return;
+  if (voiceTranscriptEnabled) {
+    if (!activeUserTranscriptIdRef.current) {
+      activeUserTranscriptIdRef.current = createTranscriptId("user");
+    }
 
-        const prev = assistantTranscriptBufferRef.current.trim();
+    updateVoiceTranscriptItem(
+      activeUserTranscriptIdRef.current,
+      "user",
+      trimmed
+    );
+  }
+},
 
-        if (!prev) {
-          assistantTranscriptBufferRef.current = trimmed;
-        } else if (trimmed === prev) {
-          return;
-        } else if (trimmed.startsWith(prev)) {
-          assistantTranscriptBufferRef.current = trimmed;
-        } else if (prev.startsWith(trimmed)) {
-          return;
-        } else {
-          assistantTranscriptBufferRef.current = trimmed;
-        }
+onAssistantTranscript: (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return;
 
-        setAssistantTranscript(assistantTranscriptBufferRef.current);
-      },
+  const previous = assistantTranscriptBufferRef.current.trim();
 
-      onUserSpeechStart: () => {
-        setVoiceState("listening");
-      },
+  if (!previous) {
+    assistantTranscriptBufferRef.current = trimmed;
+  } else if (trimmed === previous) {
+    return;
+  } else if (trimmed.startsWith(previous)) {
+    assistantTranscriptBufferRef.current = trimmed;
+  } else if (previous.startsWith(trimmed)) {
+    return;
+  } else {
+    assistantTranscriptBufferRef.current = trimmed;
+  }
 
-      onUserSpeechStop: () => {
-        setVoiceState("thinking");
-      },
+  const completedText = assistantTranscriptBufferRef.current;
+  setAssistantTranscript(completedText);
 
-      onAssistantSpeechStart: () => {
-        assistantTranscriptBufferRef.current = "";
-        setAssistantTranscript("");
-        setVoiceState("speaking");
-      },
+  if (voiceTranscriptEnabled) {
+    if (!activeAssistantTranscriptIdRef.current) {
+      activeAssistantTranscriptIdRef.current =
+        createTranscriptId("assistant");
+    }
 
-      onAssistantSpeechStop: () => {
-        setVoiceState("listening");
-      },
+    updateVoiceTranscriptItem(
+      activeAssistantTranscriptIdRef.current,
+      "assistant",
+      completedText
+    );
+  }
+},
 
-      onInterrupted: () => {
-        assistantTranscriptBufferRef.current = "";
-        setAssistantTranscript("");
-        setVoiceState("listening");
-      },
+onUserSpeechStart: () => {
+  userTranscriptBufferRef.current = "";
+  activeUserTranscriptIdRef.current = createTranscriptId("user");
+  setVoiceState("listening");
+},
+
+onUserSpeechStop: () => {
+  activeUserTranscriptIdRef.current = null;
+  setVoiceState("thinking");
+},
+
+onAssistantSpeechStart: () => {
+  assistantTranscriptBufferRef.current = "";
+  activeAssistantTranscriptIdRef.current =
+    createTranscriptId("assistant");
+
+  setAssistantTranscript("");
+  setVoiceState("speaking");
+},
+
+onAssistantSpeechStop: () => {
+  activeAssistantTranscriptIdRef.current = null;
+  setVoiceState("listening");
+},
+
+onInterrupted: () => {
+  activeAssistantTranscriptIdRef.current = null;
+  assistantTranscriptBufferRef.current = "";
+  setAssistantTranscript("");
+  setVoiceState("listening");
+},
 
       onError: (message: string) => {
         setVoiceState("error");
@@ -202,6 +334,21 @@ async function startVoiceSession() {
     setVoiceState("error");
     setAssistantTranscript(e?.message || "Voice session setup failed.");
   }
+}
+
+function dismissKeyboard() {
+  if (typeof document === "undefined") return;
+  const el = document.activeElement as HTMLElement | null;
+  el?.blur?.();
+}
+
+function toggleVoiceSession() {
+  if (realtimeConnRef.current) {
+    stopVoiceSession();
+    return;
+  }
+
+  startVoiceSession();
 }
 
 async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
@@ -228,6 +375,7 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
       body: JSON.stringify({
         message: trimmed,
         conversationId,
+        mode: "marketing",
         channel: "homepage-demo",
         tags: ["homepage-demo"],
         visitor: {
@@ -309,11 +457,65 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
 
       return copy;
     });
-  } finally {
-    setSending(false);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  }
+} finally {
+  setSending(false);
 }
+}
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+
+  setVoiceTranscriptEnabled(params.get("tikoTranscript") === "1");
+}, []);
+
+useEffect(() => {
+  const transcriptBody = voiceTranscriptBodyRef.current;
+  if (!transcriptBody) return;
+
+  transcriptBody.scrollTop = transcriptBody.scrollHeight;
+}, [voiceTranscriptItems]);
+
+useEffect(() => {
+  const scrollLatest = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+
+el.scrollTo({
+  top: el.scrollHeight,
+  behavior: "auto",
+});
+  };
+
+  scrollLatest();
+  requestAnimationFrame(scrollLatest);
+  window.setTimeout(scrollLatest, 80);
+  window.setTimeout(scrollLatest, 180);
+}, [messages]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  if (window.innerWidth >= 768) return;
+  if (mode !== "panel") return;
+
+  const html = document.documentElement;
+  const body = document.body;
+
+  const previousHtmlOverflow = html.style.overflow;
+  const previousBodyOverflow = body.style.overflow;
+  const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
+
+  html.style.overflow = "hidden";
+  body.style.overflow = "hidden";
+  body.style.overscrollBehavior = "none";
+
+  return () => {
+    html.style.overflow = previousHtmlOverflow;
+    body.style.overflow = previousBodyOverflow;
+    body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+  };
+}, [mode]);
 
   useEffect(() => {
     function handleWheel() {
@@ -327,6 +529,103 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
     window.addEventListener("wheel", handleWheel, { passive: true });
     return () => window.removeEventListener("wheel", handleWheel);
   }, [mode]);
+
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const SpeechRecognition =
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) return;
+
+  const recognition = new SpeechRecognition();
+
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (event: any) => {
+    let text = "";
+
+    for (let i = 0; i < event.results.length; i++) {
+      text += event.results[i][0].transcript;
+    }
+
+    transcriptRef.current = text.trim();
+  };
+
+  recognition.onend = () => {
+    const spoken = transcriptRef.current.trim();
+    setHoldingToTalk(false);
+
+    try {
+      recognition.abort?.();
+    } catch {}
+
+    if (!spoken) return;
+
+    setInput(spoken);
+    setComposerMode("type");
+
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  recognition.onerror = () => {
+    setHoldingToTalk(false);
+  };
+
+  recognitionRef.current = recognition;
+
+  return () => {
+    try {
+      recognition.stop();
+    } catch {}
+
+    recognitionRef.current = null;
+  };
+}, []);
+
+function startVoiceCapture() {
+  if (!recognitionRef.current || sending) return;
+
+  transcriptRef.current = "";
+  setHoldingToTalk(true);
+
+  try {
+    recognitionRef.current.start();
+  } catch {}
+}
+
+function stopVoiceCapture() {
+  setHoldingToTalk(false);
+
+  const recognition = recognitionRef.current;
+
+  try {
+    recognition?.stop();
+  } catch {}
+
+  window.setTimeout(() => {
+    try {
+      recognition?.abort?.();
+    } catch {}
+  }, 250);
+}
+
+function toggleTextSpeechCapture() {
+  if (holdingToTalk) {
+    stopVoiceCapture();
+    return;
+  }
+
+  setOrbOpen(false);
+  setComposerMode("speak");
+  inputRef.current?.blur();
+  startVoiceCapture();
+}
 
   return (
     <aside className="hero-demoPanel" aria-label="TikoZap live demo preview">
@@ -367,7 +666,7 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
               className="orb-btn"
               aria-label="Open voice demo"
               type="button"
-              onClick={startVoiceSession}
+              onClick={toggleVoiceSession}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -400,57 +699,27 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
         >
           <div className="hero-starterChat">
             <div className="hero-starterChat-head">
-              <button
-                className="hero-starterChat-menu"
-                type="button"
-                aria-label="Menu"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect
-                    x="4"
-                    y="3"
-                    width="16"
-                    height="18"
-                    rx="3"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <line
-                    x1="8"
-                    y1="8"
-                    x2="16"
-                    y2="8"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="8"
-                    y1="12"
-                    x2="16"
-                    y2="12"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="8"
-                    y1="16"
-                    x2="13"
-                    y2="16"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+<div className="hero-starterChat-menuSpacer" aria-hidden="true" />
 
-              <div className="hero-starterChat-title">
-                <span className="hero-starterChat-orb" aria-hidden="true">
-                  <Orb state="idle" tiltX={0} tiltY={0} />
-                </span>
-                Tiko
-              </div>
+<div className="hero-starterChat-title">
+  <button
+    type="button"
+    className="hero-starterChat-titleBtn"
+    aria-label={orbOpen ? "Orb mode" : "Return to orb mode"}
+    onClick={() => {
+      setOrbOpen(true);
+      setComposerMode("speak");
+      inputRef.current?.blur();
+    }}
+  >
+    {!orbOpen ? (
+      <span className="hero-starterChat-orb" aria-hidden="true">
+        <Orb state="idle" tiltX={0} tiltY={0} />
+      </span>
+    ) : null}
+    Tiko
+  </button>
+</div>
 
               <button
                 className="hero-starterChat-close"
@@ -462,11 +731,22 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
               </button>
             </div>
 
-            {composerMode === "speak" ? (
+            {orbOpen ? (
               <div className="hero-voiceBody">
-                <div className="hero-voiceOrb">
-                  <Orb state="idle" tiltX={0} tiltY={0} />
-                </div>
+<button
+  type="button"
+  className="hero-voiceOrbBtn"
+  aria-label="Open chat mode"
+  onClick={() => {
+    setOrbOpen(false);
+    setComposerMode("type");
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }}
+>
+  <div className="hero-voiceOrb">
+    <OrbLarge state="idle" />
+  </div>
+</button>
 
                 <div className="hero-voiceControls">
                   <button
@@ -474,6 +754,8 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
                     className="hero-voiceMiniBtn"
                     aria-label="Switch to typing"
                     onClick={() => {
+                      stopVoiceSession();
+                      setOrbOpen(false);
                       setComposerMode("type");
                       window.setTimeout(() => inputRef.current?.focus(), 0);
                     }}
@@ -497,7 +779,7 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
   type="button"
   className="hero-voiceMiniBtn"
   aria-label="Voice mode"
-  onClick={startVoiceSession}
+  onClick={toggleVoiceSession}
 >
                     <svg
                       viewBox="0 0 24 24"
@@ -515,9 +797,75 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
                     </svg>
                   </button>
                 </div>
+
+{voiceTranscriptEnabled ? (
+  <section
+    className="hero-voiceTranscript"
+    aria-label="Temporary voice transcript"
+  >
+    <div className="hero-voiceTranscript-head">
+      <strong>Voice transcript</strong>
+
+      <div className="hero-voiceTranscript-actions">
+        <button
+          type="button"
+          onClick={copyVoiceTranscript}
+          disabled={voiceTranscriptItems.length === 0}
+        >
+          {transcriptCopied ? "Copied" : "Copy"}
+        </button>
+
+        <button
+          type="button"
+          onClick={clearVoiceTranscript}
+          disabled={voiceTranscriptItems.length === 0}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div
+      ref={voiceTranscriptBodyRef}
+      className="hero-voiceTranscript-body"
+    >
+      {voiceTranscriptItems.length === 0 ? (
+        <p className="hero-voiceTranscript-empty">
+          Start speaking. Your conversation with Tiko will appear here.
+        </p>
+      ) : (
+        voiceTranscriptItems.map((item) => (
+          <div
+            key={item.id}
+            className={`hero-voiceTranscript-item ${
+              item.role === "user"
+                ? "hero-voiceTranscript-user"
+                : "hero-voiceTranscript-assistant"
+            }`}
+          >
+            <div className="hero-voiceTranscript-speaker">
+              {item.role === "user" ? "You" : "Tiko"}
+            </div>
+
+            <div className="hero-voiceTranscript-text">
+              {item.text}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </section>
+) : null}
+
               </div>
             ) : (
-              <div className="hero-starterChat-body">
+<div
+  ref={bodyRef}
+  className="hero-starterChat-body"
+  onPointerDown={() => {
+    dismissKeyboard();
+  }}
+>
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -533,29 +881,82 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
               </div>
             )}
 
-            {composerMode === "type" ? (
-              <form className="hero-starterChat-inputRow" onSubmit={sendMessage}>
-                <button
-                  className="hero-starterChat-sound"
-                  type="button"
-                  aria-label="Switch to voice"
-                  onClick={() => setComposerMode("speak")}
-                >
-                  <img
-                    src="/talk-waves.svg"
-                    alt=""
-                    aria-hidden="true"
-                    className="hero-starterChat-soundImg"
-                  />
-                </button>
+            {!orbOpen ? (
+  <form className="hero-starterChat-inputRow" onSubmit={sendMessage}>
+<button
+  className="hero-starterChat-sound"
+  type="button"
+  aria-label={composerMode === "speak" ? "Switch to typing" : "Switch to voice"}
+  onClick={() => {
+    if (composerMode === "speak") {
+      setComposerMode("type");
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      stopVoiceSession();
+      setOrbOpen(false);
+      setComposerMode("speak");
+      inputRef.current?.blur();
+    }
+  }}
+>
+  {composerMode === "speak" ? (
+    <svg
+      viewBox="0 0 24 24"
+      className="hero-icon"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  ) : (
+    <img
+      src="/talk-waves.svg"
+      alt=""
+      aria-hidden="true"
+      className="hero-starterChat-soundImg"
+    />
+  )}
+</button>
 
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about products..."
-                  className="hero-starterChat-input"
-                />
+{composerMode === "speak" ? (
+<button
+  type="button"
+  className={`hero-starterChat-holdField ${holdingToTalk ? "is-listening" : ""}`}
+  onClick={toggleTextSpeechCapture}
+>
+  {holdingToTalk ? "Listening..." : "Tap to speak"}
+</button>
+) : (
+<textarea
+  ref={inputRef}
+  value={input}
+  onChange={(e) => setInput(e.target.value)}
+  onFocus={() => {
+    window.setTimeout(() => {
+      const el = bodyRef.current;
+      if (!el) return;
+
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: "auto",
+      });
+    }, 250);
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(e as any);
+    }
+  }}
+  placeholder="Ask TikoZap..."
+  className="hero-starterChat-input"
+/>
+)}
 
                <button
   className="hero-starterChat-send"
@@ -650,8 +1051,8 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
         }
 
         .hero-starterChat {
-          width: min(320px, 90vw);
-          height: 500px;
+          width: min(350px, 92vw);
+          height: 540px;
           border-radius: 20px;
           overflow: hidden;
           background: #f8fafc;
@@ -706,7 +1107,7 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
         .hero-starterChat-body {
           flex: 1;
           min-height: 0;
-          padding: 1rem 0.75rem;
+          padding: 1rem 0.75rem 24px;
           overflow-y: auto;
           background: #f8fafc;
           display: flex;
@@ -714,14 +1115,15 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
           gap: 0.65rem;
         }
 
-        .hero-starterChat-msg {
-          max-width: 82%;
-          border-radius: 0.95rem;
-          padding: 0.55rem 0.7rem;
-          font-size: 0.76rem;
-          line-height: 1.35;
-          white-space: pre-wrap;
-        }
+.hero-starterChat-msg {
+  max-width: 84%;
+  border-radius: 18px;
+  padding: 14px 18px;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 400;
+  white-space: pre-wrap;
+}
 
         .hero-starterChat-msgUser {
           align-self: flex-end;
@@ -738,16 +1140,22 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
           border-bottom-left-radius: 0.35rem;
         }
 
-        .hero-voiceBody {
-          flex: 1;
-          min-height: 0;
-          background: #ffffff;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-        }
+.hero-voiceBody {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hero-voiceBody:has(.hero-voiceTranscript) {
+  justify-content: flex-start;
+  padding-top: 10px;
+}
 
         .hero-voiceOrb {
           transform: scale(0.42);
@@ -775,12 +1183,13 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
 
         .hero-starterChat-inputRow {
           flex: 0 0 auto;
-          height: 54px;
+          min-height: 62px;
+          height: auto;
+          grid-template-columns: 38px 1fr 46px;
           border-top: 1px solid #e5e7eb;
           background: #ffffff;
           display: grid;
-          grid-template-columns: 34px 1fr 42px;
-          align-items: center;
+          align-items: end;
           gap: 0.35rem;
           padding: 0.45rem 0.5rem;
         }
@@ -819,35 +1228,311 @@ async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
           cursor: pointer;
         }
 
-        .hero-starterChat-input {
-          min-width: 0;
-          height: 36px;
-          border: 1px solid #dbe3ef;
-          border-radius: 999px;
-          padding: 0 0.75rem;
-          font-size: 0.76rem;
-          outline: none;
-        }
+.hero-starterChat-input {
+  min-width: 0;
+  min-height: 42px;
+  max-height: 108px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  padding: 10px 0.75rem;
+  font-size: 16px;
+  outline: none;
+}
 
-        .hero-starterChat-input:focus {
-          border-color: #2563eb;
-        }
+.hero-starterChat-input:focus {
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
 
-        @media (max-width: 767px) {
-          .hero-demoPanel {
-            min-height: 280px;
-          }
+        .hero-starterChat-body {
+          overscroll-behavior: contain;
+        }  
 
-          .hero-starterChat {
-            width: min(340px, 92vw);
-            height: 430px;
-          }
+        .hero-voiceOrbBtn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
 
-          .hero-chatSafeZone {
-            padding: 0;
-            margin: 0;
-          }
-        }
+.hero-starterChat-titleBtn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hero-starterChat-holdField {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero-starterChat-holdField.is-listening {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.hero-voiceTranscript {
+  width: calc(100% - 28px);
+  max-height: 205px;
+  margin: 12px 14px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #f8fafc;
+  overflow: hidden;
+  text-align: left;
+}
+
+.hero-voiceTranscript-head {
+  min-height: 42px;
+  padding: 7px 10px 7px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: #111827;
+}
+
+.hero-voiceTranscript-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-voiceTranscript-actions button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero-voiceTranscript-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.hero-voiceTranscript-body {
+  max-height: 160px;
+  padding: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.hero-voiceTranscript-item {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hero-voiceTranscript-speaker {
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.hero-voiceTranscript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #111827;
+}
+
+.hero-voiceTranscript-user {
+  padding-left: 30px;
+}
+
+.hero-voiceTranscript-user .hero-voiceTranscript-speaker {
+  color: #2563eb;
+}
+
+.hero-voiceTranscript-assistant {
+  padding-right: 20px;
+}
+
+.hero-voiceTranscript-assistant .hero-voiceTranscript-speaker {
+  color: #7c3aed;
+}
+
+.hero-voiceTranscript-empty {
+  margin: 0;
+  padding: 8px 4px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+  .hero-demoPanel {
+    min-height: 540px;
+  }
+
+  .hero-starterChat {
+    width: min(400px, 96vw);
+    height: 560px;
+    border-radius: 20px;
+  }
+
+  .hero-chatSafeZone {
+    padding: 0;
+    margin: 0;
+  }
+
+  .hero-voiceBody {
+    padding: 18px 0 22px;
+  }
+
+  .hero-voiceOrb {
+    transform: scale(0.38);
+    margin-bottom: 0;
+  }
+
+  .hero-voiceControls {
+    margin-top: -1.4rem;
+    gap: 1.8rem;
+  }
+
+  .hero-starterChat-body {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-chatSafeZone {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    padding: 0;
+    margin: 0;
+    background: #ffffff;
+    display: block;
+  }
+
+  .hero-starterChat {
+    width: 100vw;
+    height: 100svh;
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .hero-starterChat-head {
+    border-radius: 0;
+    flex: 0 0 auto;
+  }
+
+  .hero-starterChat-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+.hero-starterChat-inputRow {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: env(safe-area-inset-bottom);
+  z-index: 10001;
+}
+
+.hero-starterChat-body {
+  padding-bottom: 110px;
+}
+
+.hero-voiceTranscript {
+  max-height: 250px;
+  margin-bottom: calc(14px + env(safe-area-inset-bottom));
+}
+
+.hero-voiceTranscript-body {
+  max-height: 202px;
+}
+}
+
+@media (max-width: 767px){
+  .hero-chatSafeZone{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100dvh;
+    padding:0;
+    margin:0;
+    z-index:1000;
+  }
+
+  .hero-starterChat{
+    position:absolute;
+    inset:0;
+
+    width:100%;
+    height:100%;
+    max-height:none;
+
+    border-radius:0;
+    overflow:hidden;
+
+    display:flex;
+    flex-direction:column;
+  }
+
+  .hero-starterChat-head{
+    flex:0 0 54px;
+    height:54px;
+    border-radius:0;
+    position:relative;
+    z-index:30;
+  }
+
+  .hero-starterChat-body{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+
+  .hero-starterChat-inputRow{
+    flex:0 0 auto;
+    position:relative;
+    bottom:auto;
+    z-index:30;
+  }
+}
       `}</style>
     </aside>
   );
