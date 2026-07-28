@@ -300,9 +300,18 @@ const extraKeywords = raw
 };
   }
 
-  if (category === "snowboards") {
-    return { query: "snowboard", keywords: ["snowboard", "snowboards"] };
-  }
+if (category === "snowboards") {
+  return {
+    query: "snowboard",
+    keywords: Array.from(
+      new Set([
+        ...extraKeywords,
+        "snowboard",
+        "snowboards",
+      ])
+    ),
+  };
+}
 
   if (category === "bicycles") {
   return {
@@ -327,9 +336,20 @@ const extraKeywords = raw
     return { query: "shirt", keywords: ["shirt", "shirts", "tee", "t-shirt"] };
   }
 
-  if (category === "shoes") {
-    return { query: "shoes", keywords: ["shoe", "shoes", "sneaker", "sneakers"] };
-  }
+if (category === "shoes") {
+  return {
+    query: "shoes",
+    keywords: Array.from(
+      new Set([
+        ...extraKeywords,
+        "shoe",
+        "shoes",
+        "sneaker",
+        "sneakers",
+      ])
+    ),
+  };
+}
 
   if (category === "headphones") {
     return { query: "headphones", keywords: ["headphone", "headphones", "earbud", "earbuds"] };
@@ -453,14 +473,6 @@ async function searchProducts(
     normalizedCategory
   );
 
-  console.log("BRAIN_SEARCH_TERMS", {
-    message,
-    searchState,
-    normalizedCategory,
-    query,
-    keywords,
-  });
-
   const attempts = Array.from(
     new Set(
       [query, query.toLowerCase(), query.replace(/s\b/g, ""), ...keywords]
@@ -538,12 +550,10 @@ const keywordMatchCount = (p: any) => {
   return keywords.filter((k) => searchable.includes(k.toLowerCase())).length;
 };
 
-// Minimum relevance required before a product card is shown.
-// Prevent unrelated products (for example sneakers for skincare).
-const minimumMatches =
-  keywords.length >= 2
-    ? 2
-    : 1;
+// Require at least one relevant keyword match.
+// Singular and plural synonyms represent the same category and
+// should not be counted as separate required matches.
+const minimumMatches = 1;
 
 deduped = deduped.filter(
   (p: any) => keywordMatchCount(p) >= minimumMatches
@@ -1203,13 +1213,6 @@ const nextState = mergeSearchState(
   nextIntentWithExplicitCategory
 );
 
-console.log("BRAIN_SEARCH_STATE", {
-  message: input.message,
-  inferredState,
-  nextIntent: nextIntentWithExplicitCategory,
-  nextState,
-});
-
 const interpreted = await interpretIntentWithAI(input.message);
 
 // Explicit category words in the shopper's current message
@@ -1222,12 +1225,6 @@ const category = normalizeCategoryName(
   nextState.lastCategory ||
   detectCategory(nextState.lastQuery || "")
 );
-
-console.log("BRAIN_CATEGORY", {
-  explicitCategory,
-  interpretedCategory: interpreted.category,
-  finalCategory: category,
-});
 
   let products: ProductSearchResult[] = [];
 
