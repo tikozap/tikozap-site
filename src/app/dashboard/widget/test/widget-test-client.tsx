@@ -57,6 +57,11 @@ export default function WidgetTestClient({
   const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
   const [assistantName, setAssistantName] = useState('Assistant');
 
+  const [shopifyConnectOpen, setShopifyConnectOpen] =
+  useState(false);
+
+  const [shopifyShop, setShopifyShop] =
+  useState("");
   const [testPanelPos, setTestPanelPos] = useState<PanelPosition>({
     x: 24,
     y: 110,
@@ -708,22 +713,25 @@ style={{
           </button>
         </section>
 
-        <section className="db-card">
-          <div className="db-cardTitle">Shopify</div>
+<section className="db-card">
+  <div className="db-cardTitle">Shopify</div>
 
-          <p className="db-cardText">
-            One-click Shopify installation is coming soon.
-          </p>
+  <p className="db-cardText">
+    Connect your Shopify store so your assistant can
+    answer product questions using your live catalog.
+  </p>
 
-          <button
-            className="db-btn"
-            style={{
-              marginTop: 14,
-            }}
-          >
-            Join waitlist
-          </button>
-        </section>
+  <button
+    type="button"
+    className="db-btn"
+    style={{
+      marginTop: 14,
+    }}
+    onClick={() => setShopifyConnectOpen(true)}
+  >
+    Connect Shopify
+  </button>
+</section>
 
         <section className="db-card">
           <div className="db-cardTitle">
@@ -785,6 +793,95 @@ style={{
       </div>
 
       {renderWidgetTest()}
+
+{shopifyConnectOpen ? (
+  <div
+    role="presentation"
+    onClick={() => setShopifyConnectOpen(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 10000,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20,
+      background: "rgba(15,23,42,.45)",
+    }}
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 460,
+        borderRadius: 16,
+        background: "#fff",
+        padding: 24,
+        boxShadow:
+          "0 24px 60px rgba(15,23,42,.22)",
+      }}
+    >
+      <div className="db-cardTitle">
+        Connect Shopify
+      </div>
+
+      <p
+        className="db-cardText"
+        style={{ marginTop: 12 }}
+      >
+        Enter your Shopify store domain.
+      </p>
+
+      <input
+        value={shopifyShop}
+        onChange={(e) =>
+          setShopifyShop(e.target.value)
+        }
+        placeholder="your-store.myshopify.com"
+        autoFocus
+        style={{
+          width: "100%",
+          marginTop: 16,
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 22,
+        }}
+      >
+        <button
+          className="db-btn db-btnSecondary"
+          onClick={() =>
+            setShopifyConnectOpen(false)
+          }
+        >
+          Cancel
+        </button>
+
+        <button
+          className="db-btn"
+          onClick={() => {
+            const shop = shopifyShop.trim();
+
+            if (!shop) return;
+
+            window.location.href =
+              `/api/shopify/connect?shop=${encodeURIComponent(
+                shop
+              )}`;
+          }}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
     </div>
   );
 }
