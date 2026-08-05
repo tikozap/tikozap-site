@@ -62,6 +62,9 @@ export default function WidgetTestClient({
 
   const [shopifyShop, setShopifyShop] =
   useState("");
+  const [shopifyConnectedSuccess, setShopifyConnectedSuccess] =
+  useState(false);
+
   const [testPanelPos, setTestPanelPos] = useState<PanelPosition>({
     x: 24,
     y: 110,
@@ -77,9 +80,26 @@ export default function WidgetTestClient({
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+useEffect(() => {
+  setOrigin(window.location.origin);
+
+  const url = new URL(window.location.href);
+  const shopifyResult = url.searchParams.get('shopify');
+
+  if (shopifyResult === 'connected') {
+    setShopifyConnectedSuccess(true);
+
+    url.searchParams.delete('shopify');
+
+    const cleanUrl = `${url.pathname}${url.search}${url.hash}`;
+
+    window.history.replaceState(
+      {},
+      '',
+      cleanUrl
+    );
+  }
+}, []);
 
   useEffect(() => {
     if (!testOpen || testMinimized) return;
@@ -720,6 +740,35 @@ style={{
     Connect your Shopify store so your assistant can
     answer product questions using your live catalog.
   </p>
+
+  {shopifyConnectedSuccess ? (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        marginTop: 14,
+        padding: '12px 14px',
+        border: '1px solid #bbf7d0',
+        borderRadius: 10,
+        background: '#f0fdf4',
+        color: '#166534',
+        fontSize: 14,
+        fontWeight: 600,
+        lineHeight: 1.45,
+      }}
+    >
+      Shopify connected successfully!
+      <div
+        style={{
+          marginTop: 3,
+          fontWeight: 400,
+        }}
+      >
+        Your assistant can now answer questions using
+        your live Shopify catalog.
+      </div>
+    </div>
+  ) : null}
 
   <button
     type="button"

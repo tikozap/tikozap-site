@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+
 import { requireAdmin } from "@/lib/admin";
+import { prisma } from "@/lib/prisma";
+
 import "./admin-tenants.css";
 
 export const runtime = "nodejs";
@@ -16,7 +18,19 @@ type PageProps = {
   }>;
 };
 
-export default async function AdminTenantsPage({ searchParams }: PageProps) {
+function formatVoicePack(value: string | null) {
+  if (!value) return null;
+
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) =>
+      letter.toUpperCase(),
+    );
+}
+
+export default async function AdminTenantsPage({
+  searchParams,
+}: PageProps) {
   const admin = await requireAdmin();
 
   if (!admin) {
@@ -25,29 +39,76 @@ export default async function AdminTenantsPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const q = (params?.q || "").trim();
-  const showArchived = params?.showArchived === "1";
+  const showArchived =
+    params?.showArchived === "1";
 
   const tenants = await prisma.tenant.findMany({
-  include: {
-  owner: true,
-  widget: true,
-},
-  where: {
-      ...(showArchived ? {} : { isDeleted: false }),
+    include: {
+      owner: true,
+
+      widget: {
+        select: {
+          enabled: true,
+        },
+      },
+
+      shopifyConnection: {
+        select: {
+          status: true,
+          shopDomain: true,
+        },
+      },
+
+      phoneAgentSettings: {
+        select: {
+          id: true,
+        },
+      },
+    },
+
+    where: {
+      ...(showArchived
+        ? {}
+        : {
+            isDeleted: false,
+          }),
+
       ...(q
         ? {
             OR: [
-              { storeName: { contains: q, mode: "insensitive" } },
-              { slug: { contains: q, mode: "insensitive" } },
-              { starterLinkSlug: { contains: q, mode: "insensitive" } },
-              { billingPlan: { contains: q, mode: "insensitive" } },
+              {
+                storeName: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+              {
+                slug: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+              {
+                starterLinkSlug: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+              {
+                billingPlan: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
             ],
           }
         : {}),
     },
+
     orderBy: {
       createdAt: "desc",
     },
+
     take: 100,
   });
 
@@ -55,16 +116,18 @@ export default async function AdminTenantsPage({ searchParams }: PageProps) {
     <main className="adminPage">
       <div className="adminHeader">
         <div>
-          <p className="adminEyebrow">TikoZap Internal</p>
+          <p className="adminEyebrow">
+            TikoZap Internal
+          </p>
+
           <h1>Admin Console</h1>
+
           <p className="adminSub">
-            Manage merchant accounts, test tenants, billing state, and Starter Links.
+            Manage merchant accounts, builders,
+            channels, Voice, Phone Agent, plans, and
+            account status.
           </p>
         </div>
-
-        <Link className="adminBack" href="/dashboard">
-          Back to Dashboard
-        </Link>
       </div>
 
       <section className="adminCard">
@@ -73,23 +136,36 @@ export default async function AdminTenantsPage({ searchParams }: PageProps) {
             <input
               name="q"
               defaultValue={q}
-              placeholder="Search store, slug, plan..."
+              placeholder="Search account, slug, plan..."
             />
 
-            {showArchived && <input type="hidden" name="showArchived" value="1" />}
+            {showArchived ? (
+              <input
+                type="hidden"
+                name="showArchived"
+                value="1"
+              />
+            ) : null}
 
-            <button type="submit">Search</button>
+            <button type="submit">
+              Search
+            </button>
           </form>
 
           <div className="adminFilters">
             <Link
-              className={!showArchived ? "active" : ""}
+              className={
+                !showArchived ? "active" : ""
+              }
               href="/admin/tenants"
             >
               Active
             </Link>
+
             <Link
-              className={showArchived ? "active" : ""}
+              className={
+                showArchived ? "active" : ""
+              }
               href="/admin/tenants?showArchived=1"
             >
               Archived
@@ -101,98 +177,267 @@ export default async function AdminTenantsPage({ searchParams }: PageProps) {
           <table className="adminTable">
             <thead>
               <tr>
-                <th>Store</th>
+                <th>Account</th>
                 <th>Owner</th>
-                <th>Channel</th>
+                <th>Builder</th>
                 <th>Slug</th>
                 <th>Plan</th>
-                <th>Starter Link</th>
+                <th>Channels</th>
+                <th>Voice</th>
+                <th>Phone Agent</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th className="right">Action</th>
+                <th className="right">
+                  Action
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {tenants.map((tenant) => (
-                <tr key={tenant.id}>
-                  <td>
-  <strong>{tenant.storeName || "Unnamed Store"}</strong>
-  <div className="muted">{tenant.id}</div>
-</td>
+              {tenants.map((tenant) => {
+                const hasWidget =
+                  tenant.widget?.enabled === true;
 
-<td>
-  {tenant.owner?.email || "—"}
-</td>
+                const hasStarterLink =
+                  tenant.starterLinkEnabled ===
+                    true &&
+                  Boolean(
+                    tenant.starterLinkSlug,
+                  );
 
-<td>
-  {tenant.websiteUrl ? (
-    <span className="channel website">Website</span>
-  ) : (
-    <span className="channel starter">Starter Link</span>
-  )}
-</td>
+                const channels =
+                  hasWidget && hasStarterLink
+                    ? "Widget / Link"
+                    : hasWidget
+                      ? "Widget"
+                      : hasStarterLink
+                        ? "Link"
+                        : "—";
 
-<td>{tenant.slug || "—"}</td>
+                const shopifyConnected =
+                  tenant.shopifyConnection
+                    ?.status === "connected";
 
-                  <td>
-                    <span className="pill">
-                      {tenant.billingPlan || "No plan"}
-                    </span>
-                  </td>
+                const builder =
+                  shopifyConnected
+                    ? "Shopify"
+                    : tenant.websiteUrl
+                      ? "Website"
+                      : hasStarterLink
+                        ? "Starter Link"
+                        : "Not set";
 
-                  <td>
-                    {tenant.starterLinkSlug ? (
-                      <span>
-                        /l/{tenant.starterLinkSlug}
-                        {tenant.starterLinkEnabled ? (
-                          <span className="tinyOk"> enabled</span>
-                        ) : (
-                          <span className="tinyMuted"> off</span>
-                        )}
+                const voicePack =
+                  formatVoicePack(
+                    tenant.voicePack,
+                  );
+
+const voice =
+  voicePack ||
+  (tenant.voiceEnabled
+    ? "Enabled"
+    : "20/day");
+
+                const phoneAgent =
+                  tenant.phoneAgentSettings
+                    ? "Setup"
+                    : "Off";
+
+                return (
+                  <tr key={tenant.id}>
+                    {/* Account */}
+                    <td>
+                      <strong>
+                        {tenant.storeName ||
+                          "Unnamed Store"}
+                      </strong>
+
+                      <div className="muted">
+                        {tenant.id}
+                      </div>
+                    </td>
+
+                    {/* Owner */}
+                    <td>
+                      {tenant.owner?.email ||
+                        "—"}
+                    </td>
+
+                    {/* Builder */}
+                    <td>
+                      <span
+                        className={`builder builder-${builder
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}`}
+                      >
+                        {builder}
                       </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
 
-                  <td>
-                    {tenant.isDeleted ? (
-                      <span className="status archived">Archived</span>
-                    ) : (
-                      <span className="status active">Active</span>
-                    )}
-                  </td>
+                      {shopifyConnected ? (
+                        <div className="muted">
+                          {
+                            tenant
+                              .shopifyConnection
+                              ?.shopDomain
+                          }
+                        </div>
+                      ) : tenant.websiteUrl ? (
+                        <div className="muted adminUrl">
+                          {tenant.websiteUrl}
+                        </div>
+                      ) : null}
+                    </td>
 
-                  <td>
-                    {new Date(tenant.createdAt).toLocaleDateString("en-US")}
-                  </td>
+                    {/* Slug */}
+                    <td>
+                      <div>
+                        {tenant.slug || "—"}
+                      </div>
 
-                  <td className="right">
-                    {tenant.isDeleted ? (
-                      <form action={`/api/admin/tenants/${tenant.id}/restore`} method="post">
-                        <button className="smallBtn" type="submit">
-                          Restore
-                        </button>
-                      </form>
-                    ) : (
-                      <form action={`/api/admin/tenants/${tenant.id}/archive`} method="post">
-                        <button className="dangerBtn" type="submit">
-                          Archive
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      {hasStarterLink &&
+                      tenant.starterLinkSlug ? (
+                        <div className="muted">
+                          /l/
+                          {
+                            tenant.starterLinkSlug
+                          }
+                        </div>
+                      ) : null}
+                    </td>
 
-              {tenants.length === 0 && (
+                    {/* Plan */}
+                    <td>
+                      <span className="pill">
+                        {tenant.billingPlan ||
+                          "No plan"}
+                      </span>
+
+                      {tenant.billingStatus ? (
+                        <div className="muted">
+                          {
+                            tenant.billingStatus
+                          }
+                        </div>
+                      ) : null}
+                    </td>
+
+                    {/* Channels */}
+                    <td>
+                      <span
+                        className={
+                          channels === "—"
+                            ? "featureBadge off"
+                            : "featureBadge channelBadge"
+                        }
+                      >
+                        {channels}
+                      </span>
+                    </td>
+
+                    {/* Voice */}
+                    <td>
+                      <span
+className={
+  voice === "20/day"
+    ? "featureBadge free"
+    : "featureBadge voice"
+}
+                      >
+                        {voice}
+                      </span>
+
+                      {tenant.voiceMinutesLimit >
+                      0 ? (
+                        <div className="muted">
+                          {
+                            tenant.voiceMinutesUsed
+                          }
+                          /
+                          {
+                            tenant.voiceMinutesLimit
+                          }{" "}
+                          min
+                        </div>
+                      ) : null}
+                    </td>
+
+                    {/* Phone Agent */}
+                    <td>
+                      <span
+                        className={
+                          phoneAgent === "Setup"
+                            ? "featureBadge phone"
+                            : "featureBadge off"
+                        }
+                      >
+                        {phoneAgent}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td>
+                      {tenant.isDeleted ? (
+                        <span className="status archived">
+                          Archived
+                        </span>
+                      ) : (
+                        <span className="status active">
+                          Active
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Created */}
+                    <td>
+                      {new Date(
+                        tenant.createdAt,
+                      ).toLocaleDateString(
+                        "en-US",
+                      )}
+                    </td>
+
+                    {/* Action */}
+                    <td className="right">
+                      {tenant.isDeleted ? (
+                        <form
+                          action={`/api/admin/tenants/${tenant.id}/restore`}
+                          method="post"
+                        >
+                          <button
+                            className="smallBtn"
+                            type="submit"
+                          >
+                            Restore
+                          </button>
+                        </form>
+                      ) : (
+                        <form
+                          action={`/api/admin/tenants/${tenant.id}/archive`}
+                          method="post"
+                        >
+                          <button
+                            className="dangerBtn"
+                            type="submit"
+                          >
+                            Archive
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {tenants.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="empty">
+                  <td
+                    colSpan={11}
+                    className="empty"
+                  >
                     No merchants found.
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>

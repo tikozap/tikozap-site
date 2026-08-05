@@ -110,13 +110,14 @@ export async function GET(
     { createdAt: "asc" },
     { id: "asc" },
   ],
-        select: {
-          id: true,
-          role: true,
-          content: true,
-          createdAt: true,
-          productsJson: true,
-        },
+select: {
+  id: true,
+  role: true,
+  content: true,
+  source: true,
+  createdAt: true,
+  productsJson: true,
+},
       },
     },
   });

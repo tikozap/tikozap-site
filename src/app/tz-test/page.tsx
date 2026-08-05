@@ -1,8 +1,9 @@
 // src/app/tz-test/page.tsx
 
 import Script from "next/script";
-
-const WIDGET_KEY = "tz_f5c3d44bc80d37f911873a9fb5b191d9";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getAuthedUserAndTenant } from "@/lib/auth";
 
 const FEATURED = [
   {
@@ -33,7 +34,22 @@ const TRUST_PILLS = ["Fast answers", "Easy support", "Product help"];
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function TzTestPage() {
+export default async function TzTestPage() {
+    const auth = await getAuthedUserAndTenant();
+  if (!auth?.tenant?.id) redirect("/login");
+
+  const widget = await prisma.widget.findUnique({
+    where: { tenantId: auth.tenant.id },
+    select: {
+      publicKey: true,
+    },
+  });
+
+  if (!widget?.publicKey) {
+    redirect("/dashboard/widget");
+  }
+
+  const widgetKey = widget.publicKey;
   const storeName = "Demo Boutique";
   const tagline = "Shop smarter with AI assistance.";
   const subheading = "Website widget test page for the merchant bubble experience.";
@@ -127,7 +143,7 @@ export default function TzTestPage() {
         id="tikozap-widget"
         src="/widget.js"
         strategy="afterInteractive"
-        data-tikozap-key={WIDGET_KEY}
+        data-tikozap-key={widgetKey}
         data-tikozap-channel="web"
         data-tikozap-tags="widget"
         data-tikozap-subject="Website chat"

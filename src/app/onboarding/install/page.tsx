@@ -1,7 +1,8 @@
 // src/app/onboarding/install/page.tsx
 
-import OnboardingNav from '../_components/OnboardingNav';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import Link from 'next/link';
+import CompleteOnboardingButton from '../_components/CompleteOnboardingButton';
 
 export default async function InstallStep() {
   const auth = await getAuthedUserAndTenant();
@@ -54,11 +55,19 @@ const nextLabel = isStarterLinkStore
         </span>
       </label>
 
-      <OnboardingNav
-        backHref="/onboarding/assistant"
-        nextHref={nextHref}
-        nextLabel={nextLabel}
-      />
+<div className="ob-actions">
+  <Link
+    href="/onboarding/assistant"
+    className="ob-btn"
+  >
+    Back
+  </Link>
+
+  <CompleteOnboardingButton
+    href={nextHref}
+    label={nextLabel}
+  />
+</div>
     </div>
   );
 }

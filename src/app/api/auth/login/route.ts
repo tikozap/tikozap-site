@@ -51,6 +51,18 @@ export async function POST(req: Request) {
     );
   }
 
+if (!user.emailVerifiedAt) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        'Please verify your email before logging in.',
+      verificationRequired: true,
+    },
+    { status: 403 }
+  );
+}
+  
   const tenant = user.ownedTenants[0] || user.memberships[0]?.tenant;
 
   if (!tenant) {
@@ -102,8 +114,10 @@ export async function POST(req: Request) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  return NextResponse.json({
-    ok: true,
-    redirectTo: '/dashboard/conversations',
-  });
+return NextResponse.json({
+  ok: true,
+  redirectTo: tenant.onboardingCompletedAt
+    ? '/dashboard/conversations'
+    : '/onboarding/store',
+});
 }

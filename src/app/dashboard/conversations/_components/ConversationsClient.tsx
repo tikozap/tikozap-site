@@ -40,7 +40,14 @@ type ListItem = {
 };
 
 
-type ThreadMessage = { id: string; role: string; content: string; createdAt: string };
+type ThreadMessage = {
+  id: string;
+  role: string;
+  content: string;
+  source?: string | null;
+  createdAt: string;
+};
+
 type Thread = {
   id: string;
   customerName: string;
@@ -1862,9 +1869,51 @@ onClick={() => {
 
   return (
               <div key={m.id} style={{ display: 'grid', gap: 6 }}>
-                <div className="cx-msgMeta">
-                  <strong>{roleLabel(m.role, assistantName)}</strong> · {fmtTime(m.createdAt)}
-                </div>
+<div className="cx-msgMeta">
+  <div className="cx-msgMetaLeft">
+    <strong>{roleLabel(m.role, assistantName)}</strong> · {fmtTime(m.createdAt)}
+  </div>
+
+{m.role === "assistant" &&
+ m.source === "voice" && (
+    <div className="cx-msgVoice">
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M19 11a7 7 0 0 1-14 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 18v3"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8 21h8"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+
+      <span>Voice</span>
+    </div>
+  )}
+</div>
 
                 <div
 className={[

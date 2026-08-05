@@ -3092,3 +3092,32 @@ textarea{
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+.cx-msgMeta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.cx-msgMetaLeft{
+  min-width:0;
+}
+
+.cx-msgVoice{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+
+  color:#2563eb;
+  font-size:12px;
+  font-weight:700;
+
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+.cx-msgVoice svg{
+  width:13px;
+  height:13px;
+}

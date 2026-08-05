@@ -14,8 +14,8 @@ const VOICE_PRICE_MAP: Record<string, string | undefined> = {
 
 const VOICE_LIMIT_MAP: Record<string, number> = {
   starter: 100,
-  pro: 500,
-  business: 2000,
+  pro: 350,
+  business: 1100,
 };
 
 export async function POST(req: Request) {

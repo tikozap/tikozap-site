@@ -60,6 +60,14 @@ export const globalShopifyProductProvider: ProductProvider = {
       query: `${query} status:active`,
     });
 
+    console.log(
+      "SHOPIFY_SEARCH",
+      query,
+      (raw as any)?.products?.edges?.map(
+        (edge: any) => edge.node.title
+      )
+    );
+
     return normalizeShopifyProducts(raw as any);
   },
 };

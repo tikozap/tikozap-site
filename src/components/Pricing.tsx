@@ -10,7 +10,9 @@ type Plan = {
   name: string;
   badge?: string;
   monthly: number;
-  yearly: number;
+  yearly?: number;
+  yearlyEquivalent?: number;
+  yearlySavings?: number;
   highlights?: string;
   features: string[];
   focused?: boolean;
@@ -22,7 +24,8 @@ const PLANS: Plan[] = [
     id: 'starter',
     name: 'Starter',
     monthly: 19,
-    yearly: 16,
+    yearly: 228,
+    yearlyEquivalent: 19,
     highlights: 'For small shops launching their first AI storefront.',
     features: [
       '1 seat',
@@ -39,7 +42,9 @@ const PLANS: Plan[] = [
     name: 'Pro',
     badge: 'Most popular',
     monthly: 29,
-    yearly: 24,
+    yearly: 288,
+    yearlyEquivalent: 24,
+    yearlySavings: 60,
     highlights: 'Best for growing stores that want more products and support.',
     features: [
       '2 seats',
@@ -56,7 +61,9 @@ const PLANS: Plan[] = [
     id: 'business',
     name: 'Business',
     monthly: 59,
-    yearly: 49,
+    yearly: 588,
+    yearlyEquivalent: 49,
+    yearlySavings: 120,
     highlights: 'For busy stores with heavier traffic and support needs.',
     features: [
       '5 seats',
@@ -72,7 +79,6 @@ const PLANS: Plan[] = [
     id: 'agency',
     name: 'Agency / White-label',
     monthly: 179,
-    yearly: 179,
     highlights: 'For agencies & resellers managing multiple clients.',
     features: [
       'Includes 5 client workspaces',
@@ -87,7 +93,7 @@ const PLANS: Plan[] = [
 ];
 
 export default function Pricing() {
-  const [yearly, setYearly] = useState(true);
+  const [yearly, setYearly] = useState(false);
 
   return (
     <section className="pricing-shell">
@@ -146,23 +152,57 @@ export default function Pricing() {
                   ))}
               </div>
 
-              <div className="plan-price-row">
-                <div className="plan-price-main">
-                  <span className="price">
-                    ${yearly ? p.yearly : p.monthly}
-                  </span>
-                  <span className="per">/month</span>
-                </div>
-                {p.id === 'agency' ? (
-                  <p className="plan-note tiny">
-                    Billed yearly. Agency pricing on request.
-                  </p>
-                ) : (
-                  <p className="plan-note small">
-                    Includes 14-day free trial. Change plans anytime.
-                  </p>
-                )}
-              </div>
+<div className="plan-price-row">
+  {p.id === 'agency' ? (
+    <>
+      <div className="plan-price-main">
+        {yearly ? (
+          <span className="price">Custom</span>
+        ) : (
+          <>
+            <span className="price">${p.monthly}</span>
+            <span className="per">/month</span>
+          </>
+        )}
+      </div>
+
+      <p className="plan-note tiny">
+        {yearly
+          ? 'Annual agency pricing on request.'
+          : 'Agency pricing on request.'}
+      </p>
+    </>
+  ) : yearly ? (
+    <>
+      <div className="plan-price-main">
+        <span className="price">${p.yearly}</span>
+        <span className="per">/year</span>
+      </div>
+
+      <p className="plan-note small">
+        Equivalent to ${p.yearlyEquivalent}/month
+        {p.yearlySavings
+          ? ` · Save $${p.yearlySavings}`
+          : ''}
+      </p>
+
+      <p className="plan-note small">
+        Includes 14-day free trial. Change plans anytime.
+      </p>
+    </>
+  ) : (
+    <>
+      <div className="plan-price-main">
+        <span className="price">${p.monthly}</span>
+        <span className="per">/month</span>
+      </div>
+
+      <p className="plan-note small">
+        Includes 14-day free trial. Change plans anytime.
+      </p>
+    </>
+  )}
+</div>
 
               {p.highlights && <p className="kicker">{p.highlights}</p>}
             </header>
@@ -210,21 +250,17 @@ export default function Pricing() {
       </div>
 
       {/* Global notes under the grid */}
-      <div className="pricing-meta small">
-        <p>
-          <strong>Overage:</strong> $5 per extra 1,000 chats on all tiers (soft
-          cap; auto-billed).
-        </p>
-        <p>
-          <strong>Storage (fair use):</strong> Starter 50&nbsp;MB · Pro
-          200&nbsp;MB · Business 1&nbsp;GB · Agency pooled 3&nbsp;GB, then
-          $4/GB.
-        </p>
-        <p>
-          <strong>Trials:</strong> 14-day full Pro trial with no card needed
-          for Starter and Pro. Card required to trial Business or Agency.
-        </p>
-      </div>
+<div className="pricing-meta small">
+  <p>
+    <strong>Free trial:</strong> Start with a 14-day Pro trial. No credit
+    card required.
+  </p>
+
+  <p>
+    Plan limits and included usage are shown in your Billing dashboard.
+    You can change plans anytime.
+  </p>
+</div>
 
       <style jsx>{`
         .pricing-head {

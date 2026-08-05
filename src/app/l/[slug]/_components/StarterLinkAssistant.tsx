@@ -536,6 +536,11 @@ useEffect(() => {
 
 useEffect(() => {
   if (typeof window === "undefined") return;
+
+  // In the embedded widget, widget.js resizes the iframe.
+  // Keep this visual viewport logic only for /l/[slug].
+  if (window.self !== window.top) return;
+
   if (!open || window.innerWidth >= 900) return;
 
   const panel = panelRef.current;
@@ -872,13 +877,36 @@ const res = await fetch("/api/realtime/session", {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok || !data?.ok) {
-      setVoiceState("error");
-      setAssistantVoiceTranscript(
-        data?.error || "Failed to create realtime voice session."
-      );
-      return;
-    }
+if (!res.ok || !data?.ok) {
+  if (
+    res.status === 402 ||
+    data?.reason ===
+      "VOICE_LIMIT_REACHED"
+  ) {
+    stopRealtimeVoiceSession({
+      preserveAssistantText: true,
+    });
+
+    setComposerMode("type");
+    setVoiceState("error");
+
+    setVoiceQuotaNotice(
+      data?.error ||
+        "Today’s free Voice limit has been reached. Please continue by text or try Voice again tomorrow."
+    );
+
+    return;
+  }
+
+  setVoiceState("error");
+
+  setAssistantVoiceTranscript(
+    data?.error ||
+      "Failed to create realtime voice session."
+  );
+
+  return;
+}
 
     if (!data?.client_secret?.value) {
       setVoiceState("error");
@@ -905,15 +933,21 @@ const res = await fetch("/api/realtime/session", {
         return;
       }
 
-      const next = used + 1;
+const next = used + 1;
 
-      if (next === 3) {
-        setVoiceQuotaNotice("Voice session note: 2 free voice questions remaining today.");
-      } else if (next === 4) {
-        setVoiceQuotaNotice("Voice session note: 1 free voice question remaining today.");
-      } else if (next === 5) {
-        setVoiceQuotaNotice("This is today’s final free voice question.");
-      }
+if (next === 3) {
+  setVoiceQuotaNotice(
+    "Voice session note: 2 free voice questions remaining today."
+  );
+} else if (next === 4) {
+  setVoiceQuotaNotice(
+    "Voice session note: 1 free voice question remaining today."
+  );
+} else if (next === 5) {
+  setVoiceQuotaNotice(
+    "This is today’s final free voice question."
+  );
+}
 
       incrementVoiceCount(publicKey);
     }

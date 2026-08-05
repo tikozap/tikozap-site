@@ -213,12 +213,12 @@ let products: any[] = [];
   answer = HUMAN_HANDOFF_REPLY;
   products = [];
 } else {
-const recentMessages = await prisma.message.findMany({
+const recentMessagesDescending = await prisma.message.findMany({
   where: {
     conversationId: conversation.id,
   },
   orderBy: {
-    createdAt: "asc",
+    createdAt: "desc",
   },
   take: 12,
   select: {
@@ -226,6 +226,8 @@ const recentMessages = await prisma.message.findMany({
     content: true,
   },
 });
+
+const recentMessages = recentMessagesDescending.reverse();
 
 const brain = await runTikoBrain({
   message,
@@ -418,12 +420,12 @@ if (shouldAlertHuman) {
     : HUMAN_HANDOFF_REPLY;
   products = [];
 } else {
-const recentMessages = await prisma.message.findMany({
+const recentMessagesDescending = await prisma.message.findMany({
   where: {
     conversationId: conversation.id,
   },
   orderBy: {
-    createdAt: "asc",
+    createdAt: "desc",
   },
   take: 12,
   select: {
@@ -431,6 +433,8 @@ const recentMessages = await prisma.message.findMany({
     content: true,
   },
 });
+
+const recentMessages = recentMessagesDescending.reverse();
 
 const storeKnowledge = await getStoreKnowledge(
   resolvedWidget.tenantId,

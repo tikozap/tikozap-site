@@ -62,23 +62,23 @@ const PLAN_OPTIONS = {
     },
   ],
 
-  yearly: [
-    {
-      plan: 'starter-yearly',
-      label: PRICING_PLANS.starter.name,
-      price: '$16/mo billed yearly',
-    },
-    {
-      plan: 'pro-yearly',
-      label: PRICING_PLANS.pro.name,
-      price: '$24/mo billed yearly',
-    },
-    {
-      plan: 'business-yearly',
-      label: PRICING_PLANS.business.name,
-      price: '$49/mo billed yearly',
-    },
-  ],
+yearly: [
+  {
+    plan: 'starter-yearly',
+    label: PRICING_PLANS.starter.name,
+    price: '$228/year',
+  },
+  {
+    plan: 'pro-yearly',
+    label: PRICING_PLANS.pro.name,
+    price: '$288/year · Save $60',
+  },
+  {
+    plan: 'business-yearly',
+    label: PRICING_PLANS.business.name,
+    price: '$588/year · Save $120',
+  },
+],
 };
 
 function prettyPlan(plan: BillingPlan): string {
@@ -400,7 +400,7 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
         <div className="db-card">
           <div className="db-cardTitle">Change plan</div>
           <p className="db-cardText">
-            Secure checkout powered by Stripe (test mode).
+            Secure checkout powered by Stripe.
           </p>
 
 <div
@@ -471,48 +471,68 @@ lineHeight: 1,
     color: '#6b7280',
   }}
 >
-  Pay annually and save 20%.
+  Choose annual billing and save up to $120 per year.
 </p>
 
-<div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+<div
+  style={{
+    marginTop: 14,
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  }}
+>
   {PLAN_OPTIONS[billingMode].map((option: any) => {
     const normalizedPlan = option.plan.replace('-yearly', '');
-const optionInterval = option.plan.endsWith('-yearly') ? 'yearly' : 'monthly';
+    const optionInterval = option.plan.endsWith('-yearly')
+      ? 'yearly'
+      : 'monthly';
+
+const isTrialing = usage?.billingStatus === 'trialing';
 
 const active =
+  !isTrialing &&
   normalizedPlan === selectedPlan &&
   optionInterval === usage?.billingInterval;
 
     return (
-    <button
-  key={option.plan}
-  type="button"
-  className="db-btn"
-  onClick={() => changePlan(option.plan)}
-  disabled={savingPlan !== null}
-  style={{
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    background: active ? '#e5e7eb' : '#fff',
-    borderColor: active ? '#cbd5e1' : '#d1d5db',
-    fontWeight: active ? 800 : 600,
-  }}
->
-        <span>{active ? `${option.label} (Current)` : option.label}</span>
+      <button
+        key={option.plan}
+        type="button"
+        className="db-btn"
+        onClick={() => changePlan(option.plan)}
+        disabled={savingPlan !== null}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          background: active ? '#e5e7eb' : '#fff',
+          borderColor: active ? '#cbd5e1' : '#d1d5db',
+          fontWeight: active ? 800 : 600,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span>
+          {active ? `${option.label} (Current)` : option.label}
+        </span>
+
         <span style={{ opacity: 0.8, fontSize: 12 }}>
-          {option.price}
+          {savingPlan === option.plan
+            ? 'Opening secure checkout…'
+            : option.price}
         </span>
       </button>
     );
   })}
-</div>
 
-        <div style={{ marginTop: 12 }}>
   <button
     type="button"
     className="db-btn"
     onClick={openCustomerPortal}
+    style={{
+      whiteSpace: 'nowrap',
+    }}
   >
     Manage subscription
   </button>
@@ -549,16 +569,16 @@ const active =
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>
-          Free voice included
+          Free Voice included
         </div>
 
         <div style={{ marginTop: 4, fontSize: 13, color: '#047857' }}>
-          Every store gets 20 free voice questions per day, even without a voice subscription.
+          Every store gets 20 free Voice questions per day, even without a subscription.
         </div>
       </div>
 
       <p className="db-cardText" style={{ fontWeight: 700 }}>
-        Today&apos;s free voice usage
+        Today&apos;s free Voice usage
       </p>
 
       <p className="db-cardText">
@@ -599,16 +619,7 @@ const active =
         />
       </div>
 
-      {usage.voice.freeQuestionsRemainingToday <= 0 ? (
-  <p
-    className="db-cardText"
-    style={{
-      marginTop: 8,
-      color: '#b45309',
-      fontWeight: 700,
-    }}
-  >
-   {usage.voice.freeQuestionsRemainingToday <= 0 ? (
+{usage.voice.freeQuestionsRemainingToday <= 0 ? (
   <p
     className="db-cardText"
     style={{
@@ -618,18 +629,19 @@ const active =
     }}
   >
     {usage.voice.enabled
-      ? 'Daily free voice questions used. Paid voice minutes are now being used.'
-      : 'Daily free voice limit reached. Upgrade to a voice plan or continue tomorrow.'}
+      ? 'Daily free Voice questions used. Paid Voice minutes are now being used.'
+      : 'Daily free Voice limit reached. Upgrade to a Voice plan or continue tomorrow.'}
   </p>
 ) : (
-  <p className="db-cardText" style={{ marginTop: 8, color: '#065f46' }}>
-    Remaining today: {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
-  </p>
-)}
-  </p>
-) : (
-  <p className="db-cardText" style={{ marginTop: 8, color: '#065f46' }}>
-    Remaining today: {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: '#065f46',
+    }}
+  >
+    Remaining today:{' '}
+    {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
   </p>
 )}
 
@@ -681,7 +693,7 @@ const active =
         </>
       ) : (
         <p className="db-cardText" style={{ fontSize: 13, color: '#6b7280' }}>
-          Need more voice? Upgrade anytime for monthly voice minutes.
+          Need more voice? Upgrade anytime for monthly Voice minutes.
         </p>
       )}
 
@@ -720,8 +732,8 @@ const active =
   }}
 >
   {usage.voice.pack === 'pro'
-    ? 'Voice Pro (Current) · 500 min · $29'
-    : 'Voice Pro · 500 min · $29'}
+    ? 'Voice Pro (Current) · 350 min · $29'
+    : 'Voice Pro · 350 min · $29'}
 </button>
 
 <button
@@ -735,8 +747,8 @@ const active =
   }}
 >
   {usage.voice.pack === 'business'
-    ? 'Voice Business (Current) · 2000 min · $99'
-    : 'Voice Business · 2000 min · $99'}
+    ? 'Voice Business (Current) · 1100 min · $99'
+    : 'Voice Business · 1100 min · $99'}
 </button>
 
 <button
@@ -744,7 +756,7 @@ const active =
   className="db-btn"
   onClick={openCustomerPortal}
 >
-  Manage voice subscription
+  Manage Voice subscription
 </button>
       </div>
     </>

@@ -263,120 +263,267 @@ const extraKeywords = raw
   .filter(
     (x) =>
       ![
-        "show",
-        "me",
-        "find",
-        "looking",
-        "for",
-        "some",
-        "any",
-        "please",
-        "how",
-        "about",
-        "do",
-        "you",
-        "have",
-        "i",
-        "need",
-        "want",
-        "am",
-        "im",
-        "i'm",
+"show",
+"me",
+"find",
+"looking",
+"for",
+"some",
+"any",
+"please",
+"how",
+"about",
+"do",
+"you",
+"have",
+"i",
+"need",
+"want",
+"am",
+"im",
+"i'm",
+"one",
+"ones",
+"actually",
+"the",
+"a",
+"an",
       ].includes(x)
   )
   .filter((x) => !/^\d+$/.test(x));
 
   if (category === "jackets") {
     return {
-  query: "jacket",
-  keywords: Array.from(new Set([...extraKeywords, "jacket", "jackets", "coat", "coats", "denim"])),
-};
+      query: "jacket",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "jacket",
+          "jackets",
+          "coat",
+          "coats",
+          "denim",
+        ])
+      ),
+    };
   }
 
   if (category === "dresses") {
     return {
-  query: "dress",
-  keywords: Array.from(new Set([...extraKeywords, "dress", "dresses", "gown", "gowns"])),
-};
+      query: "dress",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "dress",
+          "dresses",
+          "gown",
+          "gowns",
+        ])
+      ),
+    };
   }
 
-if (category === "snowboards") {
-  return {
-    query: "snowboard",
-    keywords: Array.from(
-      new Set([
-        ...extraKeywords,
-        "snowboard",
-        "snowboards",
-      ])
-    ),
-  };
-}
+  if (category === "snowboards") {
+    return {
+      query: "snowboard",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "snowboard",
+          "snowboards",
+        ])
+      ),
+    };
+  }
 
   if (category === "bicycles") {
-  return {
-    query: "bike",
-    keywords: Array.from(new Set([...extraKeywords, "bike", "bikes", "mountain bike", "mountain bikes", "bicycle", "bicycles"])),
-  };
-}
+    return {
+      query: "bike",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "bike",
+          "bikes",
+          "mountain bike",
+          "mountain bikes",
+          "bicycle",
+          "bicycles",
+        ])
+      ),
+    };
+  }
 
   if (category === "books") {
-    return { query: "book", keywords: ["book", "books", "novel", "novels"] };
+    return {
+      query: "book",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "book",
+          "books",
+          "novel",
+          "novels",
+        ])
+      ),
+    };
   }
 
   if (category === "toys") {
-    return { query: "toy", keywords: ["toy", "toys"] };
+    return {
+      query: "toy",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "toy",
+          "toys",
+        ])
+      ),
+    };
   }
 
   if (category === "clothing") {
-    return { query: "clothing", keywords: ["clothes", "clothing", "apparel"] };
+    return {
+      query: "clothing",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "clothes",
+          "clothing",
+          "apparel",
+        ])
+      ),
+    };
   }
 
   if (category === "shirts") {
-    return { query: "shirt", keywords: ["shirt", "shirts", "tee", "t-shirt"] };
+    return {
+      query: "shirt",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "shirt",
+          "shirts",
+          "tee",
+          "t-shirt",
+        ])
+      ),
+    };
   }
 
-if (category === "shoes") {
-  return {
-    query: "shoes",
-    keywords: Array.from(
-      new Set([
-        ...extraKeywords,
-        "shoe",
-        "shoes",
-        "sneaker",
-        "sneakers",
-      ])
-    ),
-  };
-}
+  if (category === "shoes") {
+    return {
+      query: "shoes",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "shoe",
+          "shoes",
+          "sneaker",
+          "sneakers",
+        ])
+      ),
+    };
+  }
 
   if (category === "headphones") {
-    return { query: "headphones", keywords: ["headphone", "headphones", "earbud", "earbuds"] };
+    return {
+      query: "headphones",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "headphone",
+          "headphones",
+          "earbud",
+          "earbuds",
+        ])
+      ),
+    };
   }
 
   if (category === "laptops") {
-    return { query: "laptop", keywords: ["laptop", "laptops", "notebook"] };
+    return {
+      query: "laptop",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "laptop",
+          "laptops",
+          "notebook",
+        ])
+      ),
+    };
   }
 
   if (category === "phones") {
-    return { query: "phone", keywords: ["phone", "phones", "smartphone"] };
+    return {
+      query: "phone",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "phone",
+          "phones",
+          "smartphone",
+        ])
+      ),
+    };
   }
 
   if (category === "watches") {
-    return { query: "watch", keywords: ["watch", "watches"] };
+    return {
+      query: "watch",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "watch",
+          "watches",
+        ])
+      ),
+    };
   }
 
   if (category === "bags") {
-    return { query: "bag", keywords: ["bag", "bags", "backpack", "backpacks"] };
+    return {
+      query: "bag",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "bag",
+          "bags",
+          "backpack",
+          "backpacks",
+        ])
+      ),
+    };
   }
 
   if (category === "furniture") {
-    return { query: "furniture", keywords: ["furniture", "chair", "table", "desk"] };
+    return {
+      query: "furniture",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "furniture",
+          "chair",
+          "table",
+          "desk",
+        ])
+      ),
+    };
   }
 
   if (category === "kitchen") {
-    return { query: "kitchen", keywords: ["kitchen", "cookware", "pan", "pot"] };
+    return {
+      query: "kitchen",
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "kitchen",
+          "cookware",
+          "pan",
+          "pot",
+        ])
+      ),
+    };
   }
 
   if (category === "beauty") {
@@ -396,7 +543,15 @@ if (category === "shoes") {
   if (category === "fitness") {
     return {
       query: "fitness",
-      keywords: ["fitness", "dumbbell", "yoga", "exercise"],
+      keywords: Array.from(
+        new Set([
+          ...extraKeywords,
+          "fitness",
+          "dumbbell",
+          "yoga",
+          "exercise",
+        ])
+      ),
     };
   }
 

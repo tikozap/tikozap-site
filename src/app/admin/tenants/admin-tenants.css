@@ -1,4 +1,4 @@
-// src/app/admin/tenants/admin-tenants.css
+/* src/app/admin/tenants/admin-tenants.css */
 
 .adminPage {
   min-height: 100vh;
@@ -8,7 +8,7 @@
 }
 
 .adminHeader {
-  max-width: 1180px;
+  max-width: 1440px;
   margin: 0 auto 18px;
   display: flex;
   align-items: flex-start;
@@ -35,25 +35,16 @@
   font-size: 15px;
 }
 
-.adminBack {
-  text-decoration: none;
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #e5e7eb;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .adminCard {
-  max-width: 1180px;
+  max-width: 1440px;
   margin: 0 auto;
-  background: #ffffff;
+  overflow: hidden;
   border: 1px solid #e5e7eb;
   border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
-  overflow: hidden;
+  background: #ffffff;
+  box-shadow:
+    0 16px 40px
+    rgba(15, 23, 42, 0.06);
 }
 
 .adminToolbar {
@@ -92,7 +83,7 @@
 .adminSearch button,
 .smallBtn {
   background: #111827;
-  color: white;
+  color: #ffffff;
 }
 
 .dangerBtn {
@@ -122,17 +113,19 @@
 
 .adminTableWrap {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .adminTable {
   width: 100%;
+  min-width: 1560px;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .adminTable th,
 .adminTable td {
-  padding: 14px 16px;
+  padding: 12px;
   border-bottom: 1px solid #eef2f7;
   text-align: left;
   vertical-align: middle;
@@ -140,38 +133,98 @@
 
 .adminTable th {
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .adminTable tr:hover td {
   background: #f8fafc;
 }
 
+.adminTable strong {
+  white-space: nowrap;
+}
+
 .muted {
-  margin-top: 3px;
+  margin-top: 4px;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.adminUrl {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill,
+.builder,
+.featureBadge,
+.status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 5px 9px;
   background: #eef2ff;
   color: #3730a3;
-  font-weight: 800;
-  font-size: 12px;
+  text-transform: capitalize;
 }
 
-.status {
-  display: inline-flex;
-  border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 12px;
-  font-weight: 800;
+.builder {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.builder-shopify {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.builder-website {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.builder-starter-link {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.featureBadge.channelBadge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.featureBadge.voice {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.featureBadge.free {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.featureBadge.phone {
+  background: #cffafe;
+  color: #0e7490;
+}
+
+.featureBadge.off {
+  background: #f1f5f9;
+  color: #94a3b8;
 }
 
 .status.active {
@@ -182,20 +235,6 @@
 .status.archived {
   background: #f1f5f9;
   color: #475569;
-}
-
-.tinyOk {
-  margin-left: 6px;
-  color: #16a34a;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.tinyMuted {
-  margin-left: 6px;
-  color: #94a3b8;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 .right {
@@ -231,33 +270,4 @@
     flex: 1;
     text-align: center;
   }
-}
-
-.channel {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.channel.website {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.channel.starter {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.channel.none {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.channel.both {
-  background: #fef3c7;
-  color: #92400e;
 }

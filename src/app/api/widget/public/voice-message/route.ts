@@ -139,13 +139,14 @@ export async function POST(req: Request) {
   if (finalRole === "assistant" && customerContent && content) {
     const now = Date.now();
 
-    const customerMessage = await prisma.message.create({
-      data: {
-        conversationId: convo.id,
-        role: "customer",
-        content: customerContent,
-        createdAt: new Date(now),
-      },
+const customerMessage = await prisma.message.create({
+  data: {
+    conversationId: convo.id,
+    role: "customer",
+    content: customerContent,
+    source: "voice",
+    createdAt: new Date(now),
+  },
       select: {
         id: true,
         role: true,
@@ -154,13 +155,14 @@ export async function POST(req: Request) {
       },
     });
 
-    const assistantMessage = await prisma.message.create({
-      data: {
-        conversationId: convo.id,
-        role: "assistant",
-        content,
-        createdAt: new Date(now + 10),
-      },
+const assistantMessage = await prisma.message.create({
+  data: {
+    conversationId: convo.id,
+    role: "assistant",
+    content,
+    source: "voice",
+    createdAt: new Date(now + 10),
+  },
       select: {
         id: true,
         role: true,
