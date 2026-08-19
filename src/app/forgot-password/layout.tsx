@@ -1,4 +1,4 @@
-// src/app/widget/embed/layout.tsx
+// src/app/forgot-password/layout.tsx
 
 import type { Metadata } from "next";
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function WidgetEmbedLayout({
+export default function AuthPageLayout({
   children,
 }: {
   children: React.ReactNode;

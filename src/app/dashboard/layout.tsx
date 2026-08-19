@@ -5,6 +5,14 @@ import { redirect } from 'next/navigation';
 import './dashboard.css';
 import DashboardShell from './_components/DashboardShell';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const auth = await getAuthedUserAndTenant();
