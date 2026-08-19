@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             seriously.
           </p>
 
-          <p className="legal-updated">Last updated: July 9, 2026</p>
+          <p className="legal-updated">Last updated: August 19, 2026</p>
         </div>
       </section>
 
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
             </p>
             <ul>
               <li>Chat conversations</li>
-              <li>Voice conversations and related transcripts</li>
+             <li>Voice conversations, audio recordings when enabled, and related transcripts</li>
               <li>Human takeover messages</li>
               <li>Merchant coaching and corrections</li>
               <li>Conversation history</li>
