@@ -140,7 +140,7 @@ export default function StarterLinkAssistant({
   const welcomeText = greeting?.trim() || CHAT_WELCOME;
 
   const [open, setOpen] = useState(false);
-  
+
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "a-welcome",
@@ -161,7 +161,7 @@ const [orbOpen, setOrbOpen] = useState(false);
 const [liveTranscript, setLiveTranscript] = useState("");
 const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
-const [voiceQuotaNotice, setVoiceQuotaNotice] = useState(""); 
+const [voiceQuotaNotice, setVoiceQuotaNotice] = useState("");
 const [widgetVoice, setWidgetVoice] = useState<WidgetVoiceSettings | null>(null);
 const [assistantAvatarUrl, setAssistantAvatarUrl] = useState("");
 const [launcherAppearance, setLauncherAppearance] =
@@ -207,6 +207,9 @@ const realtimeConnRef = useRef<RealtimeConnection | null>(null);
 const assistantTranscriptBufferRef = useRef("");
 const lastSavedUserVoiceRef = useRef("");
 const lastSavedAssistantVoiceRef = useRef("");
+
+const voiceTextHandoffPendingRef = useRef(false);
+const voiceTextHandoffApprovedRef = useRef(false);
 
   function scrollToBottom(behavior: ScrollBehavior = "smooth") {
   requestAnimationFrame(() => {
@@ -806,6 +809,40 @@ async function saveVoiceMessage(
   }
 }
 
+function assistantOfferedTextHandoff(text: string) {
+  const value = text.toLowerCase();
+
+  const mentionsText =
+    value.includes("text chat") ||
+    value.includes("chat");
+
+  const suggestsTransition =
+    value.includes("switch") ||
+    value.includes("jump over") ||
+    value.includes("move over") ||
+    value.includes("continue there") ||
+    value.includes("continue in text") ||
+    value.includes("continue in chat");
+
+  return mentionsText && suggestsTransition;
+}
+
+function userApprovedTextHandoff(text: string) {
+  const value = text.trim().toLowerCase();
+
+  return /^(yes|yes please|yeah|yep|sure|okay|ok|please do|go ahead|sounds good)[.!]?$/i.test(
+    value
+  );
+}
+
+function userDeclinedTextHandoff(text: string) {
+  const value = text.trim().toLowerCase();
+
+  return /^(no|no thanks|no thank you|not now|stay here|keep talking)[.!]?$/i.test(
+    value
+  );
+}
+
 async function startRealtimeVoiceSession() {
   const voiceEnabled = widgetVoice?.enabled === true;
   const remainingPaidMinutes = widgetVoice?.remainingMinutes ?? 0;
@@ -957,6 +994,14 @@ if (next === 3) {
 
   setLiveTranscript(trimmed);
   transcriptRef.current = trimmed;
+  if (voiceTextHandoffPendingRef.current) {
+  if (userApprovedTextHandoff(trimmed)) {
+    voiceTextHandoffApprovedRef.current = true;
+  } else if (userDeclinedTextHandoff(trimmed)) {
+    voiceTextHandoffPendingRef.current = false;
+    voiceTextHandoffApprovedRef.current = false;
+  }
+}
 },
 
 
@@ -980,21 +1025,35 @@ if (next === 3) {
 
         setAssistantVoiceTranscript(assistantTranscriptBufferRef.current);
       },
-      
-      onUserSpeechStart: () => {
+
+onUserSpeechStart: () => {
   voiceCountedThisSessionRef.current = false;
   lastUserVoiceSavePromiseRef.current = null;
   lastUserVoiceMessageIdRef.current = null;
   lastSavedUserVoiceRef.current = "";
+
+  transcriptRef.current = "";
   setLiveTranscript("");
+
   setVoiceState("listening");
 },
 
 onUserSpeechStop: () => {
-  const finalText = transcriptRef.current.trim() || liveTranscript.trim();
+  const finalText =
+    transcriptRef.current.trim() ||
+    liveTranscript.trim();
 
   if (finalText) {
     lastSavedUserVoiceRef.current = finalText;
+
+    if (voiceTextHandoffPendingRef.current) {
+      if (userApprovedTextHandoff(finalText)) {
+        voiceTextHandoffApprovedRef.current = true;
+      } else if (userDeclinedTextHandoff(finalText)) {
+        voiceTextHandoffPendingRef.current = false;
+        voiceTextHandoffApprovedRef.current = false;
+      }
+    }
   }
 
   setVoiceState("thinking");
@@ -1009,15 +1068,21 @@ onAssistantSpeechStart: () => {
 onAssistantSpeechStop: async () => {
   await sleep(500);
 
-  const assistantText = assistantTranscriptBufferRef.current.trim();
-  const userText = transcriptRef.current.trim() || liveTranscript.trim();
+  const assistantText =
+    assistantTranscriptBufferRef.current.trim();
+
+  const userText =
+    transcriptRef.current.trim() ||
+    liveTranscript.trim();
 
   if (
     userText &&
     assistantText &&
-    assistantText !== lastSavedAssistantVoiceRef.current
+    assistantText !==
+      lastSavedAssistantVoiceRef.current
   ) {
-    lastSavedAssistantVoiceRef.current = assistantText;
+    lastSavedAssistantVoiceRef.current =
+      assistantText;
 
     await saveVoiceMessage(
       "assistant",
@@ -1025,6 +1090,31 @@ onAssistantSpeechStop: async () => {
       undefined,
       userText
     );
+  }
+
+  if (
+    assistantText &&
+    assistantOfferedTextHandoff(assistantText)
+  ) {
+    voiceTextHandoffPendingRef.current = true;
+  }
+
+  if (voiceTextHandoffApprovedRef.current) {
+    voiceTextHandoffPendingRef.current = false;
+    voiceTextHandoffApprovedRef.current = false;
+
+    stopRealtimeVoiceSession({
+      preserveAssistantText: true,
+    });
+
+    setComposerMode("type");
+    setOrbOpen(false);
+
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+
+    return;
   }
 
   setVoiceState("listening");
@@ -1113,10 +1203,33 @@ tags: desktopDocked ? ["starter-link", "no-website"] : ["widget"],
         signal: controller.signal,
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || data?.detail || `HTTP ${res.status}`);
-      }
+if (!res.ok) {
+  const data = await res.json().catch(() => ({}));
+
+  if (res.status === 402 && data?.reason === "TRIAL_EXPIRED") {
+    setMessages((prev) => {
+      const copy = [...prev];
+
+      copy[copy.length - 1] = {
+        id: copy[copy.length - 1]?.id ?? `a-expired-${Date.now()}`,
+        role: "assistant",
+        text:
+          data?.error ||
+          "This store’s TikoZap trial has ended.",
+      };
+
+      return copy;
+    });
+
+    return;
+  }
+
+  throw new Error(
+    data?.error ||
+      data?.detail ||
+      `HTTP ${res.status}`
+  );
+}
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No stream");
@@ -1221,30 +1334,33 @@ if (lastInputMethod === "speak") {
       {!open ? (
   <button
     type="button"
-    className={`sl-assistantLauncher ${desktopDocked ? "sl-assistantLauncher--docked" : ""} ${premium ? "sl-assistantLauncher--orb" : ""}`}
+    className={`sl-assistantLauncher ${
+  desktopDocked ? "sl-assistantLauncher--docked" : ""
+} ${
+  premium && resolvedLauncherAppearance === "orb"
+    ? "sl-assistantLauncher--orb"
+    : ""
+}`}
     aria-label="Open assistant"
     aria-expanded={false}
     onClick={() => setOpen(true)}
     style={{ ["--sl-brand" as any]: brandColor }}
   >
 {resolvedLauncherAppearance === "bubble" ? (
-  <span className="sl-assistantBubbleIcon" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.2a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 10h8M8 13.5h5"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-      />
-    </svg>
-  </span>
+<span className="sl-assistantBubbleIcon" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none">
+  <path
+    d="M6 5.5h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-7l-4.5 3v-3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3Z"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+  <circle cx="8.5" cy="11.5" r="0.9" fill="currentColor" />
+  <circle cx="12" cy="11.5" r="0.9" fill="currentColor" />
+  <circle cx="15.5" cy="11.5" r="0.9" fill="currentColor" />
+</svg>
+</span>
 ) : resolvedLauncherAppearance === "avatar" ? (
   <img
     src={assistantAvatarUrl}
@@ -1440,11 +1556,13 @@ onClick={() => {
   {(assistantVoiceTranscript && assistantVoiceTranscript.trim()) ||
   voiceState === "error" ? (
     <div className="sl-orbModeTranscriptBlock">
-      <div className="sl-orbModeTranscriptLabel">Tiko</div>
+      <div className="sl-orbModeTranscriptLabel">
+  {assistantName}
+</div>
       <div className="sl-orbModeTranscript sl-orbModeTranscript--assistant">
         {assistantVoiceTranscript?.trim() ? (
           assistantVoiceTranscript
-        
+
         ) : voiceState === "thinking" ? (
           <span className="sl-orbModePlaceholder">Thinking...</span>
         ) : null}
@@ -1772,60 +1890,85 @@ onKeyDown={(e) => {
 
       <style jsx>{`
 .sl-assistantLauncher{
-  position:fixed;
-  right:16px;
-  bottom:16px;
-  width:64px;
-  height:64px;
-  border-radius:999px;
-  border:none;
-  background:transparent;
-  color:#fff;
+  width:56px;
+  height:56px;
+  min-width:56px;
+  min-height:56px;
+  padding:0;
+  box-sizing:border-box;
+
   display:flex;
   align-items:center;
   justify-content:center;
-  cursor:pointer;
-  z-index:1000;
-  box-shadow:none;
+
+  border-radius:50%;
+  background:#ffffff;
+  border:1px solid #d1d5db;
+
+  color:#6b7280;
+  line-height:0;
+
+  box-shadow:0 8px 24px rgba(15,23,42,.14);
+
+  appearance:none;
+  -webkit-appearance:none;
+
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease;
+}
+
+.sl-assistantLauncher--docked{
+  position:absolute;
+  right:0;
+  bottom:0;
+}
+
+.sl-assistantLauncher:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 30px rgba(15,23,42,.18);
+}
+
+.sl-assistantLauncher:active{
+  transform:scale(.96);
 }
 
 .sl-assistantLauncher--orb{
+  width:56px;
+  height:56px;
+
   background:transparent;
   border:none;
   box-shadow:none;
-  width:64px;
-  height:64px;
 }
 
-        .sl-assistantOrbWrap{
-          width:64px;
-          height:64px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-        }
+.sl-assistantOrbWrap{
+  width:44px;
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 
-        .sl-assistantBubbleIcon{
-          width:56px;
-          height:56px;
-          border-radius:999px;
-          background:var(--sl-brand, #111827);
-          color:var(--sl-brand-text, #ffffff);
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          box-shadow:0 12px 28px rgba(15,23,42,.22);
-        }
+.sl-assistantBubbleIcon{
+  width:22px;
+  height:22px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#6b7280;
+}
 
-        .sl-assistantBubbleIcon svg{
-          width:28px;
-          height:28px;
-          display:block;
-        }
+.sl-assistantBubbleIcon svg{
+  width:22px;
+  height:22px;
+  display:block;
+  transform:translateY(2px);
+}
 
         .sl-assistantLauncherAvatar{
-          width:58px;
-          height:58px;
+          width:44px;
+          height:44px;
           border-radius:999px;
           object-fit:cover;
           display:block;

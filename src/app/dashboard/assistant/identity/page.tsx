@@ -9,7 +9,7 @@ import { Orb } from '@/components/Orb';
 import { OrbLarge } from '@/components/OrbLarge';
 
 const DEFAULTS = {
-  name: 'Tiko',
+  name: 'Assistant',
   role: 'Customer Support',
   iconDataUrl: '',
   launcherAppearance: 'orb',
@@ -317,19 +317,35 @@ export default function IdentityPage() {
 function handleIconUpload(file: File | null) {
   if (!file) return;
 
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    alert('Please choose a JPG, PNG, or WebP image.');
+    return;
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Please choose an image smaller than 2 MB.');
+    return;
+  }
+
   const reader = new FileReader();
 
-reader.onload = () => {
-  const nextIcon = String(reader.result || '');
+  reader.onload = () => {
+    const nextIcon = String(reader.result || '');
 
-  setIconDataUrl(nextIcon);
+    setIconDataUrl(nextIcon);
 
-  if (nextIcon) {
-    setLauncherAppearance('avatar');
-    setChatAppearance('avatar');
-    setVoiceAppearance('avatar');
-  }
-};
+    if (nextIcon) {
+      setLauncherAppearance('avatar');
+      setChatAppearance('avatar');
+      setVoiceAppearance('avatar');
+    }
+  };
 
   reader.readAsDataURL(file);
 }
@@ -466,7 +482,7 @@ alert(`${assistantName}'s identity has been updated.`);
     {iconDataUrl ? 'Change photo' : 'Upload photo'}
     <input
       type="file"
-      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+      accept="image/jpeg,image/png,image/webp"
       onChange={(e) => handleIconUpload(e.target.files?.[0] || null)}
     />
   </label>
@@ -483,7 +499,7 @@ alert(`${assistantName}'s identity has been updated.`);
       setVoiceAppearance('orb');
     }}
   >
-    Use Tiko Orb instead
+    Use default Orb instead
   </button>
 ) : null}
 

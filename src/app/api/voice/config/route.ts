@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantVoiceUsage } from "@/lib/voiceUsage";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,17 @@ const VOICE_PACKS: Record<
 };
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   const auth = await getAuthedUserAndTenant();
 
   if (!auth?.tenant?.id) {
@@ -37,6 +49,18 @@ export async function POST(req: Request) {
       { status: 401 }
     );
   }
+
+  if (auth.tenant.role !== 'owner') {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Owner access required.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
 
   const body = await req.json().catch(() => ({}));
   const action = String(body.action || "").trim();

@@ -29,6 +29,26 @@ const emptyProduct = (): ProductForm => ({
   image: "",
 });
 
+function validateImageFile(file: File) {
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    alert('Please choose a JPG, PNG, or WebP image.');
+    return false;
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Please choose an image smaller than 2 MB.');
+    return false;
+  }
+
+  return true;
+}
+
 function safeJsonParse<T>(value: unknown, fallback: T): T {
   try {
     if (typeof value !== "string" || !value.trim()) return fallback;
@@ -70,6 +90,9 @@ const [contactEmail, setContactEmail] = useState("");
     Array.from({ length: 9 }, () => emptyProduct())
   );
 
+  const [starterLinkEnabled, setStarterLinkEnabled] = useState(false);
+  const [changingEnabled, setChangingEnabled] = useState(false);
+
   const previewHref = `/l/${slug || "my-store"}`;
   const starterLinkUrl =
   typeof window !== "undefined"
@@ -90,6 +113,7 @@ const [contactEmail, setContactEmail] = useState("");
       const data = json.starterLink;
       const page = data.page || {};
 
+      setStarterLinkEnabled(Boolean(data.enabled));
       setSlug(data.slug || "my-store");
       setStoreName(data.storeName || "My Store");
       setAssistantName(data.assistant?.assistantName || "Store Assistant");
@@ -139,6 +163,7 @@ const [contactEmail, setContactEmail] = useState("");
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          enabled: starterLinkEnabled,
           slug,
           storeName,
           assistant: {
@@ -193,6 +218,43 @@ const [contactEmail, setContactEmail] = useState("");
   }
 }
 
+async function toggleStarterLinkEnabled() {
+  if (changingEnabled) return;
+
+  const next = !starterLinkEnabled;
+  setChangingEnabled(true);
+
+  try {
+    const res = await fetch("/api/starter-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "set-enabled",
+        enabled: next,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        data?.error || "Could not update Starter Link."
+      );
+    }
+
+    setStarterLinkEnabled(Boolean(data.enabled));
+  } catch (error: any) {
+    alert(
+      error?.message ||
+        "Could not update Starter Link."
+    );
+  } finally {
+    setChangingEnabled(false);
+  }
+}
+
   return (
     <div className="db-container">
       <MobilePageHeader title="Starter Link" />
@@ -215,75 +277,171 @@ const [contactEmail, setContactEmail] = useState("");
   <div className="db-cardTitle">Starter Link setup</div>
 
   <p className="db-cardText">
-    Share this link anywhere customers can find you.
+    Share a simple storefront anywhere customers can find you.
   </p>
 
-  <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-    <label style={fieldWrap}>
-      <span style={fieldLabel}>Your Starter Link URL</span>
+  <button
+    type="button"
+    className={`sl-enableRow ${starterLinkEnabled ? "is-on" : ""}`}
+    onClick={toggleStarterLinkEnabled}
+    disabled={changingEnabled}
+    aria-pressed={starterLinkEnabled}
+  >
+    <span>
+      <strong>Enable Starter Link</strong>
+      <small>
+        Create a public storefront with your assistant that you can share anywhere.
+      </small>
+    </span>
 
-      <input
-        className="db-btn"
-        value={starterLinkUrl}
-        readOnly
-      />
-    </label>
+    <span className="sl-enableDot" aria-hidden="true" />
+  </button>
 
-    <label style={fieldWrap}>
-      <span style={fieldLabel}>Customize link ending</span>
+  {starterLinkEnabled ? (
+    <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+      <label style={fieldWrap}>
+        <span style={fieldLabel}>Your Starter Link URL</span>
 
-      <input
-        className="db-btn"
-        value={slug}
-        onChange={(e) => setSlug(e.target.value)}
-        placeholder="your-store-name"
-      />
-    </label>
+        <input
+          className="db-btn"
+          value={starterLinkUrl}
+          readOnly
+        />
+      </label>
 
-    <div
-      style={{
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        flexWrap: "wrap",
-      }}
-    >
-<button
-  className="db-btn primary"
-  type="button"
-  onClick={copyStarterLink}
-  style={{
-    minHeight: 34,
-    paddingTop: 0,
-    paddingBottom: 0,
-    display: "inline-flex",
-    alignItems: "center",
-  }}
->
-  Copy link
-</button>
+      <label style={fieldWrap}>
+        <span style={fieldLabel}>Starter Link address</span>
 
-      <Link
-        className="db-btn"
-        href={previewHref}
-        target="_blank"
+        <input
+          className="db-btn"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+          placeholder="your-store-name"
+        />
+      </label>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
       >
-        Preview page
-      </Link>
-
-      {copiedMsg ? (
-        <span
+        <button
+          className="db-btn primary"
+          type="button"
+          onClick={copyStarterLink}
           style={{
-            fontSize: 13,
-            color: copiedMsg === "Copied." ? "#047857" : "#b91c1c",
+            minHeight: 34,
+            paddingTop: 0,
+            paddingBottom: 0,
+            display: "inline-flex",
+            alignItems: "center",
           }}
         >
-          {copiedMsg}
-        </span>
-      ) : null}
+          Copy link
+        </button>
+
+        <Link
+          className="db-btn"
+          href={previewHref}
+          target="_blank"
+        >
+          Preview page
+        </Link>
+
+        {copiedMsg ? (
+          <span
+            style={{
+              fontSize: 13,
+              color:
+                copiedMsg === "Copied."
+                  ? "#047857"
+                  : "#b91c1c",
+            }}
+          >
+            {copiedMsg}
+          </span>
+        ) : null}
+      </div>
     </div>
-  </div>
+  ) : null}
 </div>
+
+        <div className="db-card">
+          <div className="db-cardTitle">Assistant</div>
+          <p className="db-cardText">Name your chat assistant.</p>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Assistant name</span>
+              <input className="db-btn" value={assistantName} onChange={(e) => setAssistantName(e.target.value)} />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Greeting message</span>
+              <textarea className="db-btn" value={greeting} onChange={(e) => setGreeting(e.target.value)} style={{ minHeight: 88, paddingTop: 10, resize: "vertical" }} />
+            </label>
+          </div>
+        </div>
+
+        <div className="db-card">
+          <div className="db-cardTitle">Store information</div>
+          <p className="db-cardText">
+            Add the information customers can open from your storefront footer.
+          </p>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>About us</span>
+              <textarea
+                className="db-btn"
+                value={aboutText}
+                onChange={(e) => setAboutText(e.target.value)}
+                placeholder="Tell customers about your store, products, and what makes your business special."
+                style={{ minHeight: 96, paddingTop: 10, resize: "vertical" }}
+              />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Support email</span>
+              <input
+                type="email"
+                className="db-btn"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="support@yourstore.com"
+              />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Shipping information</span>
+              <textarea
+                className="db-btn"
+                value={shippingNote}
+                onChange={(e) => setShippingNote(e.target.value)}
+                placeholder="Tell customers where you ship and how long delivery usually takes."
+                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
+              />
+            </label>
+
+            <label style={fieldWrap}>
+              <span style={fieldLabel}>Return information</span>
+              <textarea
+                className="db-btn"
+                value={returnNote}
+                onChange={(e) => setReturnNote(e.target.value)}
+                placeholder="Explain your return window and any important conditions."
+                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
+              />
+            </label>
+
+            <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>
+              Footer links appear automatically when information is added. Powered by TikoZap is always included.
+            </p>
+          </div>
+        </div>
 
         <div className="db-card">
           <div className="db-cardTitle">Branding</div>
@@ -322,11 +480,12 @@ const [contactEmail, setContactEmail] = useState("");
   Choose logo image
   <input
     type="file"
-    accept="image/*"
+    accept="image/jpeg,image/png,image/webp"
     style={{ display: "none" }}
     onChange={(e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (!validateImageFile(file)) return;
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -432,11 +591,12 @@ const [contactEmail, setContactEmail] = useState("");
     Choose image
     <input
       type="file"
-      accept="image/*"
+      accept="image/jpeg,image/png,image/webp"
       style={{ display: "none" }}
       onChange={(e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        if (!validateImageFile(file)) return;
 
         const reader = new FileReader();
         reader.onload = () => {
@@ -511,11 +671,12 @@ const [contactEmail, setContactEmail] = useState("");
     Choose image
     <input
       type="file"
-      accept="image/*"
+      accept="image/jpeg,image/png,image/webp"
       style={{ display: "none" }}
       onChange={(e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        if (!validateImageFile(file)) return;
 
         const reader = new FileReader();
         reader.onload = () => {
@@ -540,80 +701,6 @@ const [contactEmail, setContactEmail] = useState("");
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="db-card">
-          <div className="db-cardTitle">Assistant</div>
-          <p className="db-cardText">Name your chat assistant.</p>
-
-          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Assistant name</span>
-              <input className="db-btn" value={assistantName} onChange={(e) => setAssistantName(e.target.value)} />
-            </label>
-
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Greeting message</span>
-              <textarea className="db-btn" value={greeting} onChange={(e) => setGreeting(e.target.value)} style={{ minHeight: 88, paddingTop: 10, resize: "vertical" }} />
-            </label>
-          </div>
-        </div>
-
-        <div className="db-card">
-          <div className="db-cardTitle">Store information</div>
-          <p className="db-cardText">
-            Add the information customers can open from your storefront footer.
-          </p>
-
-          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>About us</span>
-              <textarea
-                className="db-btn"
-                value={aboutText}
-                onChange={(e) => setAboutText(e.target.value)}
-                placeholder="Tell customers about your store, products, and what makes your business special."
-                style={{ minHeight: 96, paddingTop: 10, resize: "vertical" }}
-              />
-            </label>
-
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Contact email</span>
-              <input
-                type="email"
-                className="db-btn"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-                placeholder="support@yourstore.com"
-              />
-            </label>
-
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Shipping information</span>
-              <textarea
-                className="db-btn"
-                value={shippingNote}
-                onChange={(e) => setShippingNote(e.target.value)}
-                placeholder="Tell customers where you ship and how long delivery usually takes."
-                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
-              />
-            </label>
-
-            <label style={fieldWrap}>
-              <span style={fieldLabel}>Return information</span>
-              <textarea
-                className="db-btn"
-                value={returnNote}
-                onChange={(e) => setReturnNote(e.target.value)}
-                placeholder="Explain your return window and any important conditions."
-                style={{ minHeight: 80, paddingTop: 10, resize: "vertical" }}
-              />
-            </label>
-
-            <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>
-              Footer links appear automatically when information is added. Powered by TikoZap is always included.
-            </p>
           </div>
         </div>
 
@@ -662,6 +749,67 @@ const [contactEmail, setContactEmail] = useState("");
           </div>
         </div>
       </div>
+      <style jsx>{`
+  .sl-enableRow {
+    width: 100%;
+    margin-top: 12px;
+    border: none;
+    border-top: 1px solid #eef2f7;
+    background: transparent;
+    padding: 14px 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    gap: 18px;
+    align-items: center;
+    text-align: left;
+    cursor: pointer;
+    color: #111827;
+  }
+
+  .sl-enableRow:hover {
+    background: #f8fafc;
+  }
+
+  .sl-enableRow strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .sl-enableRow small {
+    display: block;
+    margin-top: 4px;
+    max-width: 420px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #64748b;
+  }
+
+  .sl-enableDot {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    justify-self: end;
+  }
+
+  .sl-enableRow.is-on .sl-enableDot {
+    border-color: #6366f1;
+  }
+
+  .sl-enableRow.is-on .sl-enableDot::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #6366f1;
+  }
+`}</style>
     </div>
   );
 }

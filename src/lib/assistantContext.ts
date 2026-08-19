@@ -1,6 +1,7 @@
 // src/lib/assistantContext.ts
 
 import { prisma } from "@/lib/prisma";
+import { buildCurrentUnderstanding } from '@/lib/buildCurrentUnderstanding';
 
 export type AssistantIdentity = {
   name: string;
@@ -8,6 +9,8 @@ export type AssistantIdentity = {
 
 const PRODUCT_KNOWLEDGE_MARKER =
   "TIKOZAP_PRODUCT_KNOWLEDGE_V1";
+
+const MAX_STORE_KNOWLEDGE_CONTEXT = 60_000;
 
 function formatKnowledgeContent(
   title: string,
@@ -110,6 +113,8 @@ export async function getStoreKnowledge(
       },
       select: {
         storeName: true,
+        websiteUrl: true,
+        settingsJson: true,
       },
     }),
 
@@ -128,23 +133,75 @@ export async function getStoreKnowledge(
     }),
   ]);
 
-  const identity = [
-    "## Store Identity",
+  let settings: Record<string, unknown> = {};
+
+  try {
+    settings = tenant?.settingsJson
+      ? JSON.parse(tenant.settingsJson)
+      : {};
+  } catch {
+    settings = {};
+  }
+
+  const category =
+    typeof settings.category === "string"
+      ? settings.category.trim()
+      : "";
+
+  const supportEmail =
+    typeof settings.supportEmail === "string"
+      ? settings.supportEmail.trim()
+      : "";
+
+  const businessHours =
+    typeof settings.businessHours === "string"
+      ? settings.businessHours.trim()
+      : "";
+
+  const websiteUrl = tenant?.websiteUrl?.trim() || "";
+
+  const profileLines = [
+    "## Store Profile",
     `Store name: ${tenant?.storeName || "This store"}`,
     `Assistant name: ${assistantName?.trim() || "Store Assistant"}`,
+    category ? `Primary category: ${category}` : "",
+    websiteUrl ? `Store website: ${websiteUrl}` : "",
+    supportEmail ? `Support email: ${supportEmail}` : "",
+    businessHours ? `Business hours: ${businessHours}` : "",
+    "",
     "You work for this store.",
-    "Treat this store name and assistant identity as authoritative.",
-    "Never say that you do not know the store name when it is provided here.",
-  ].join("\n");
+    "Treat these configured store profile facts as authoritative.",
+    "Use them naturally when customers ask about the store.",
+    "Do not claim that a configured fact is unknown when it is provided here.",
+  ].filter(Boolean);
 
-  const knowledge = docs
-    .map((doc) =>
-      formatKnowledgeContent(doc.title, doc.content)
-    )
-    .filter(Boolean)
-    .join("\n\n");
+const formattedKnowledge = docs
+  .map((doc) =>
+    formatKnowledgeContent(doc.title, doc.content)
+  )
+  .filter(Boolean);
 
-  return [identity, knowledge]
+let knowledge = "";
+
+for (const item of formattedKnowledge) {
+  const separator = knowledge ? "\n\n" : "";
+
+  const remaining =
+    MAX_STORE_KNOWLEDGE_CONTEXT -
+    knowledge.length -
+    separator.length;
+
+  if (remaining <= 0) break;
+
+  knowledge +=
+    separator +
+    item.slice(0, remaining);
+}
+
+  return [
+    profileLines.join("\n"),
+    knowledge,
+  ]
     .filter(Boolean)
     .join("\n\n");
 }
@@ -158,87 +215,28 @@ export async function getAssistantLearning(
       active: true,
     },
     orderBy: {
-      createdAt: "desc",
+      updatedAt: "desc",
     },
-    take: 30,
+    take: 50,
     select: {
       instruction: true,
       createdAt: true,
+      updatedAt: true,
     },
   });
 
   if (!items.length) return "";
 
-  function getCoachingConflictKey(instruction: string): string | null {
-    const text = instruction.toLowerCase();
-
-    if (
-      /\b(return|returns|refund|refunds)\b/.test(text) &&
-      /\b(day|days|week|weeks|month|months|window|policy)\b/.test(text)
-    ) {
-      return "return_policy";
-    }
-
-    if (
-      /\b(free shipping|shipping threshold|minimum order|order minimum)\b/.test(
-        text
-      )
-    ) {
-      return "shipping_threshold";
-    }
-
-    if (
-      /\b(price|pricing|cost)\b/.test(text) &&
-      /\b(mention|discuss|show|tell|ask|asked)\b/.test(text)
-    ) {
-      return "price_discussion_behavior";
-    }
-
-    if (
-      /\b(recommend|recommendation|suggest|suggestion|prioritize|prefer)\b/.test(
-        text
-      )
-    ) {
-      return "recommendation_behavior";
-    }
-
-    if (
-      /\b(escalate|take over|human|manager|support team|ask for help)\b/.test(
-        text
-      )
-    ) {
-      return "escalation_behavior";
-    }
-
-    return null;
-  }
-
-  const seenConflictKeys = new Set<string>();
-
-  const currentItems = items.filter((item) => {
-    const instruction = item.instruction.trim();
-    const key = getCoachingConflictKey(instruction);
-
-    if (!key) {
-      return true;
-    }
-
-    if (seenConflictKeys.has(key)) {
-      return false;
-    }
-
-    seenConflictKeys.add(key);
-    return true;
-  });
+  const currentUnderstanding =
+    await buildCurrentUnderstanding(items);
 
   return [
-    "## Current Merchant Coaching",
+    "## Assistant Current Understanding",
     "",
-    "These are the merchant's current active coaching instructions.",
-    "They have already been ordered and filtered so newer clear conflicts replace older ones.",
+    "This is the assistant's resolved current understanding from the merchant's complete coaching history.",
+    "Conflicting historical coaching has already been resolved using semantic meaning and recency.",
+    "Treat this current understanding as authoritative over older conflicting merchant coaching.",
     "",
-    ...currentItems.map(
-      (item, index) => `${index + 1}. ${item.instruction.trim()}`
-    ),
+    currentUnderstanding,
   ].join("\n");
 }

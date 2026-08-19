@@ -6,6 +6,10 @@ import { NextResponse } from 'next/server';
 import { sendVerificationEmailForUser } from '@/lib/emailVerification';
 import { prisma } from '@/lib/prisma';
 import { newWidgetPublicKey } from '@/lib/widgetKey';
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +38,24 @@ function hashPassword(password: string) {
 }
 
 export async function POST(req: Request) {
+  const rate = checkRateLimit(req, {
+  namespace: 'auth-signup',
+  limit: 5,
+  windowMs: 15 * 60_000,
+});
+
+if (!rate.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Too many signup attempts. Please try again later.',
+    },
+    {
+      status: 429,
+      headers: rateLimitHeaders(rate),
+    }
+  );
+}
   const body = await req.json().catch(() => ({}));
 
   const name = String(body.name || '').trim();
@@ -99,10 +121,15 @@ export async function POST(req: Request) {
 
   let createdUserId: string | null = null;
 
-  try {
-    const passwordHash = hashPassword(password);
+try {
+  const passwordHash = hashPassword(password);
 
-    const user = await prisma.user.create({
+  const trialStartedAt = new Date();
+  const trialEndsAt = new Date(
+    trialStartedAt.getTime() + 14 * 24 * 60 * 60 * 1000
+  );
+
+  const user = await prisma.user.create({
       data: {
         email,
         name,
@@ -113,8 +140,10 @@ export async function POST(req: Request) {
           create: {
             slug,
             storeName,
-            billingPlan: 'pro',
-            billingStatus: 'trialing',
+        billingPlan: 'pro',
+        billingStatus: 'trialing',
+        trialStartedAt,
+        trialEndsAt,
 
             // Website stores use Widget only.
             // No-website stores use Starter Link.

@@ -10,5 +10,9 @@ import MobilePageHeader from '../_components/MobilePageHeader';
 export default async function Page() {
   const auth = await getAuthedUserAndTenant();
   if (!auth) redirect('/login');
-  return <ConversationsClient />;
+  return (
+  <ConversationsClient
+    staffName={auth.user.name || 'Staff'}
+  />
+);
 }

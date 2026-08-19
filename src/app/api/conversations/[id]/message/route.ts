@@ -4,13 +4,62 @@ import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveAssistantCoaching } from "@/lib/assistantCoaching";
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_MERCHANT_MESSAGE,
+} from "@/lib/tenantEntitlement";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
+function validateMessageImage(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return true;
+  }
+
+  const item = value as Record<string, unknown>;
+
+  if (
+    item.type !== "image" &&
+    typeof item.dataUrl !== "string"
+  ) {
+    return true;
+  }
+
+  const dataUrl = String(item.dataUrl || "").trim();
+
+  if (
+    !/^data:image\/(?:jpeg|png|webp);base64,/i.test(
+      dataUrl
+    )
+  ) {
+    return false;
+  }
+
+  if (dataUrl.length > 3_000_000) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const auth = await getAuthedUserAndTenant();
     if (!auth) {
@@ -28,6 +77,27 @@ export async function POST(
       typeof body.content === "string" ? body.content.trim() : "";
 
     const products = Array.isArray(body.products) ? body.products : [];
+
+    if (products.length > 12) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Too many attachments.",
+    },
+    { status: 400 }
+  );
+}
+
+if (!products.every(validateMessageImage)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        "Images must be JPG, PNG, or WebP and smaller than 2 MB.",
+    },
+    { status: 400 }
+  );
+}
 
     const saveAsInternalNote = body.saveAsInternalNote === true;
     const isAssistantCoachingRequest =
@@ -47,7 +117,7 @@ const assistantName =
 
     const convo = await prisma.conversation.findFirst({
       where: {
-        id: params.id,
+        id,
         tenantId: auth.tenant.id,
       },
       select: {
@@ -65,12 +135,29 @@ const assistantName =
     }
 
 const finalRole =
-  role === "assistant" || role === "customer" || role === "note"
-    ? role
+  role === "note"
+    ? "note"
     : "staff";
 
 const isAssistantCoaching =
   finalRole === "note" && isAssistantCoachingRequest;
+
+if (isAssistantCoaching) {
+  const entitlement = await getTenantEntitlement(
+    auth.tenant.id
+  );
+
+  if (!entitlement.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "TRIAL_EXPIRED",
+        error: TRIAL_PAUSED_MERCHANT_MESSAGE,
+      },
+      { status: 402 }
+    );
+  }
+}
 
 let message = null;
 let assistantNotedMessage = null;
@@ -144,7 +231,7 @@ return NextResponse.json({
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 }
     );

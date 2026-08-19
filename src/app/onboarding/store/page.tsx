@@ -7,26 +7,40 @@ import StoreStepClient from './StoreStepClient';
 
 export default async function StoreStep() {
   const auth = await getAuthedUserAndTenant();
+
   if (!auth?.tenant?.id) redirect('/login');
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: auth.tenant.id },
+    where: {
+      id: auth.tenant.id,
+    },
+
     select: {
       storeName: true,
       websiteUrl: true,
       settingsJson: true,
+
+      owner: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
   let settings: any = {};
+
   try {
-    settings = tenant?.settingsJson ? JSON.parse(tenant.settingsJson) : {};
+    settings = tenant?.settingsJson
+      ? JSON.parse(tenant.settingsJson)
+      : {};
   } catch {
     settings = {};
   }
 
   return (
     <StoreStepClient
+      initialOwnerName={tenant?.owner?.name || ''}
       initialStoreName={tenant?.storeName || ''}
       initialWebsiteUrl={tenant?.websiteUrl || ''}
       initialSupportEmail={settings.supportEmail || ''}

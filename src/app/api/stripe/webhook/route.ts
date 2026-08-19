@@ -59,12 +59,20 @@ export async function POST(req: Request) {
 
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: `Webhook signature failed: ${err.message}` },
-      { status: 400 }
-    );
-  }
+} catch (err: any) {
+  console.error(
+    '[stripe-webhook] Signature verification failed:',
+    err?.message || err
+  );
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid webhook signature.',
+    },
+    { status: 400 }
+  );
+}
 
   try {
     if (event.type === 'checkout.session.completed') {
@@ -193,10 +201,18 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message || 'Webhook handler failed.' },
-      { status: 500 }
-    );
-  }
+} catch (err: any) {
+  console.error(
+    '[stripe-webhook] Handler failed:',
+    err?.message || err
+  );
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Webhook handler failed.',
+    },
+    { status: 500 }
+  );
+}
 }

@@ -3,6 +3,13 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from '@/lib/rateLimit';
+
+const SHOPIFY_SEARCH_INTERNAL_SECRET =
+  process.env.SHOPIFY_SEARCH_INTERNAL_SECRET || "";
 
 type SearchBody = {
   text?: string;
@@ -465,7 +472,40 @@ if (input.keywords.length >= 2 && matchedKeywords < 2) {
 }
 
 export async function POST(req: Request) {
+  const internalSecret =
+    req.headers.get("x-tikozap-internal-secret") || "";
+
+  if (
+    !SHOPIFY_SEARCH_INTERNAL_SECRET ||
+    internalSecret !== SHOPIFY_SEARCH_INTERNAL_SECRET
+  ) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+      },
+      { status: 401 }
+    );
+  }
+
   try {
+    const rl = checkRateLimit(req, {
+      namespace: 'shopify-search',
+      limit: 30,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json(
+        {
+          error: 'Too many product searches. Please try again shortly.',
+        },
+        {
+          status: 429,
+          headers: rateLimitHeaders(rl),
+        }
+      );
+    }
+
     const body = (await req.json()) as SearchBody;
     const input = deriveSearchBody(body);
     const query = buildShopifyQuery(input);
@@ -503,11 +543,10 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("SHOPIFY_SEARCH_ERROR", error);
 
-    return NextResponse.json(
-      {
-        error: "Shopify search failed",
-        detail: error?.message ?? "Unknown error",
-      },
+return NextResponse.json(
+  {
+    error: 'Shopify search failed',
+  },
       { status: 500 }
     );
   }

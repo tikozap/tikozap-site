@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { extractSearchIntent, mergeSearchState } from "@/lib/demoBrain";
 import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
+import { getTikoLearning } from '@/lib/tikoLearningContext';
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from "@/lib/rateLimit";
+
 export const runtime = "nodejs";
 
 type DemoProduct = {
@@ -80,14 +86,16 @@ async function callShopifySearch(req: Request, text: string) {
   try {
     const url = new URL("/api/shopify/search", req.url);
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-      cache: "no-store",
-    });
+const res = await fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-tikozap-internal-secret":
+      process.env.SHOPIFY_SEARCH_INTERNAL_SECRET || "",
+  },
+  body: JSON.stringify({ text }),
+  cache: "no-store",
+});
 
     if (!res.ok) return [];
 
@@ -114,15 +122,56 @@ Want me to refine these further — like style, price, or occasion?`;
 
 export async function POST(req: Request) {
   try {
+    const rl = checkRateLimit(req, {
+      namespace: "demo-assistant",
+      limit: 20,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json(
+        {
+          error: "Too many demo requests. Please try again shortly.",
+        },
+        {
+          status: 429,
+          headers: rateLimitHeaders(rl),
+        }
+      );
+    }
+
     const body = await req.json();
 
-    const userText: string = body.userText || "";
-    const historyRaw = body.history || [];
+const userText = String(body.userText || "").trim();
 
-    const history: HistoryMessage[] = historyRaw.map((m: any) => ({
-      role: m.role,
-      content: m.content,
-    }));
+if (!userText) {
+  return NextResponse.json(
+    { error: "Missing message" },
+    { status: 400 }
+  );
+}
+
+if (userText.length > 4000) {
+  return NextResponse.json(
+    { error: "Message is too long." },
+    { status: 400 }
+  );
+}
+
+const historyRaw = Array.isArray(body.history)
+  ? body.history.slice(-12)
+  : [];
+
+const history: HistoryMessage[] = historyRaw
+  .filter(
+    (m: any) =>
+      (m?.role === "user" || m?.role === "assistant") &&
+      typeof m?.content === "string"
+  )
+  .map((m: any) => ({
+    role: m.role,
+    content: m.content.slice(0, 4000),
+  }));
 
     const client = process.env.OPENAI_API_KEY
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -134,12 +183,14 @@ const intent = detectIntent(userText);
 if (intent === "product") {
   const search = extractSearchIntent(userText);
 
-  const products = await fetch(new URL("/api/shopify/search", req.url), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+const products = await fetch(new URL("/api/shopify/search", req.url), {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-tikozap-internal-secret":
+      process.env.SHOPIFY_SEARCH_INTERNAL_SECRET || "",
+  },
+  body: JSON.stringify({
       query: search.query,
       filters: {
         minPrice: search.minPrice,
@@ -221,23 +272,25 @@ Would you like help choosing between the website widget and Starter Link?`,
   });
 }
 
-    // ---------- GENERAL (ChatGPT-like) ----------
-    if (client) {
-      const response = await client.responses.create({
-        model: "gpt-4.1-mini",
-        input: [
-          {
-            role: "system",
-            content: buildTikoMarketingInstructions(),
-          },
-          ...history,
-          {
-            role: "user",
-            content: userText,
-          },
-        ],
-        max_output_tokens: 300,
-      });
+// ---------- GENERAL (ChatGPT-like) ----------
+if (client) {
+  const tikoLearning = await getTikoLearning();
+
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "system",
+        content: buildTikoMarketingInstructions(tikoLearning),
+      },
+      ...history,
+      {
+        role: "user",
+        content: userText,
+      },
+    ],
+    max_output_tokens: 300,
+  });
 
       return NextResponse.json({
         reply: response.output_text || "",
@@ -255,7 +308,10 @@ Would you like help choosing between the website widget and Starter Link?`,
       products: [],
     });
   } catch (err) {
-    console.error(err);
+    console.error(
+  "[demo-assistant] Request failed",
+  err instanceof Error ? err.message : "Unknown error"
+);
 
     return NextResponse.json({
       reply: "Something went wrong. Try again.",

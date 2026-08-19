@@ -10,6 +10,7 @@ import {
 } from 'react';
 import MobilePageHeader from '../../_components/MobilePageHeader';
 import AssistantSectionMenu from '../_components/AssistantSectionMenu';
+import { useAssistantIdentity } from '../_components/useAssistantIdentity';
 
 type PracticeMode = 'ask' | 'coach';
 
@@ -29,13 +30,20 @@ export default function PracticeClient() {
   const [messages, setMessages] = useState<PracticeMessage[]>([]);
   const [text, setText] = useState('');
   const [mode, setMode] = useState<PracticeMode>('ask');
-  const [assistantName, setAssistantName] = useState('Assistant');
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [coachingQuestion, setCoachingQuestion] = useState('');
+  const { assistantName } = useAssistantIdentity();
+
+  const safeAssistantName =
+    String(assistantName || '').trim() || 'Assistant';
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [teachText, setTeachText] = useState('');
+  const [teachReply, setTeachReply] = useState('');
 
   useEffect(() => {
   if (busy) return;
@@ -125,10 +133,6 @@ function beginCoaching(question: string) {
         );
       }
 
-      if (data.assistantName) {
-        setAssistantName(String(data.assistantName));
-      }
-
       const assistantMessage: PracticeMessage = {
         id: createMessageId(),
         role: 'assistant',
@@ -187,10 +191,6 @@ body: JSON.stringify({
         );
       }
 
-      if (data.assistantName) {
-        setAssistantName(String(data.assistantName));
-      }
-
       const acknowledgementMessage: PracticeMessage = {
         id: createMessageId(),
         role: 'assistant',
@@ -214,6 +214,49 @@ body: JSON.stringify({
     }
   }
 
+  async function teachAssistant() {
+  const instruction = teachText.trim();
+
+  if (!instruction || busy) return;
+
+  setBusy(true);
+  setError('');
+  setTeachReply('');
+
+  try {
+    const response = await fetch('/api/assistant/memory', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        instruction,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.ok) {
+      throw new Error(
+        data?.error || 'Could not teach the assistant.'
+      );
+    }
+
+    if (data?.reply) {
+      setTeachReply(String(data.reply));
+    }
+
+    setTeachText('');
+  } catch (caughtError: any) {
+    setError(
+      caughtError?.message ||
+        'Could not teach the assistant.'
+    );
+  } finally {
+    setBusy(false);
+  }
+}
+
   async function sendCurrentMessage() {
     if (mode === 'coach') {
       await sendCoaching();
@@ -234,32 +277,38 @@ body: JSON.stringify({
 
 return (
   <div>
-    <MobilePageHeader title="Practice" />
+    <MobilePageHeader title="Test & Coach" />
 
     <div className="practice-page">
       <div className="practice-top">
         <div>
-          <h1 className="db-title">Practice</h1>
+          <h1 className="db-title">Test &amp; Coach</h1>
 
           <p className="db-sub">
-            Talk with {assistantName} and coach any answer that
-            needs improvement.
+            Test {safeAssistantName}, coach incorrect answers, and teach new knowledge.
           </p>
         </div>
 
         <AssistantSectionMenu />
       </div>
 
-      <section className="practice-card">
+      <section
+  className={[
+    'practice-card',
+    messages.length === 0 ? 'is-empty' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')}
+>
         <div className="practice-header">
           <div>
             <div className="practice-title">
-              Practice with {assistantName}
+              Test {assistantName}
             </div>
 
             <div className="practice-description">
               Ask a question as the merchant. When an answer is
-              incorrect, coach {assistantName} directly.
+              incorrect, coach {safeAssistantName} directly.
             </div>
           </div>
 
@@ -280,91 +329,78 @@ return (
           ) : null}
         </div>
 
-        <div className="practice-conversation">
-          {messages.length === 0 ? (
-            <div className="practice-empty">
-              <div className="practice-emptyIcon" aria-hidden="true">
-                💬
-              </div>
+{messages.length > 0 ? (
+  <div className="practice-conversation">
+    {messages.map((message) => {
+      const isMerchant = message.role === 'merchant';
+      const isCoaching = message.kind === 'coaching';
+      const isAnswer = message.kind === 'answer';
 
-              <div className="practice-emptyTitle">
-                Start a practice conversation
-              </div>
-
-              <div className="practice-emptyText">
-                Ask about products, policies, shipping, returns,
-                or anything customers may ask.
-              </div>
+      return (
+        <div
+          key={message.id}
+          className={[
+            'practice-messageRow',
+            isMerchant ? 'is-merchant' : 'is-assistant',
+          ].join(' ')}
+        >
+          <div className="practice-messageWrap">
+            <div className="practice-messageLabel">
+              {isMerchant
+                ? isCoaching
+                  ? `You coached ${assistantName}`
+                  : 'You'
+                : assistantName}
             </div>
-          ) : (
-            messages.map((message) => {
-              const isMerchant = message.role === 'merchant';
-              const isCoaching = message.kind === 'coaching';
-              const isAnswer = message.kind === 'answer';
 
-              return (
-                <div
-                  key={message.id}
-                  className={[
-                    'practice-messageRow',
-                    isMerchant ? 'is-merchant' : 'is-assistant',
-                  ].join(' ')}
-                >
-                  <div className="practice-messageWrap">
-                    <div className="practice-messageLabel">
-                      {isMerchant
-                        ? isCoaching
-                          ? `You coached ${assistantName}`
-                          : 'You'
-                        : assistantName}
-                    </div>
-
-                    <div
-                      className={[
-                        'practice-messageBubble',
-                        isMerchant ? 'is-merchant' : 'is-assistant',
-                        isCoaching ? 'is-coaching' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {message.content}
-                    </div>
-
-                    {isAnswer ? (
-                      <button
-                        type="button"
-                        className="practice-coachButton"
-                        disabled={busy}
-                        onClick={() => beginCoaching(message.question || '')}
-                      >
-                        Coach {assistantName}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          {busy ? (
-            <div className="practice-messageRow is-assistant">
-              <div className="practice-messageWrap">
-                <div className="practice-messageLabel">
-                  {assistantName}
-                </div>
-
-                <div className="practice-messageBubble is-assistant is-thinking">
-                  {mode === 'coach'
-                    ? 'Learning…'
-                    : 'Thinking…'}
-                </div>
-              </div>
+            <div
+              className={[
+                'practice-messageBubble',
+                isMerchant ? 'is-merchant' : 'is-assistant',
+                isCoaching ? 'is-coaching' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {message.content}
             </div>
-          ) : null}
 
-          <div ref={messagesEndRef} />
+            {isAnswer ? (
+              <button
+                type="button"
+                className="practice-coachButton"
+                disabled={busy}
+                onClick={() =>
+                  beginCoaching(message.question || '')
+                }
+              >
+                Coach {safeAssistantName}
+              </button>
+            ) : null}
+          </div>
         </div>
+      );
+    })}
+
+    {busy ? (
+      <div className="practice-messageRow is-assistant">
+        <div className="practice-messageWrap">
+          <div className="practice-messageLabel">
+            {assistantName}
+          </div>
+
+          <div className="practice-messageBubble is-assistant is-thinking">
+            {mode === 'coach'
+              ? 'Learning…'
+              : 'Thinking…'}
+          </div>
+        </div>
+      </div>
+    ) : null}
+
+    <div ref={messagesEndRef} />
+  </div>
+) : null}
 
         <div
           className={[
@@ -377,9 +413,9 @@ return (
           {mode === 'coach' ? (
             <div className="practice-coachingBanner">
               <div>
-                <strong>Coach {assistantName}</strong>
+                <strong>Coach {safeAssistantName}</strong>
                 <span>
-                  Tell {assistantName} what to remember for future
+                  Tell {safeAssistantName} what to remember for future
                   conversations.
                 </span>
               </div>
@@ -399,12 +435,14 @@ return (
             ref={composerRef}
             value={text}
             disabled={busy}
-            rows={3}
-            placeholder={
-              mode === 'coach'
-                ? `Coach ${assistantName}...`
-                : `Ask ${assistantName}...`
-            }
+            rows={2}
+placeholder={
+  mode === 'coach'
+    ? `Coach ${assistantName}...`
+    : messages.length === 0
+      ? `Start a test conversation by asking ${assistantName}...`
+      : `Ask ${assistantName}...`
+}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={handleComposerKeyDown}
           />
@@ -418,17 +456,19 @@ return (
               Press Enter to send · Shift + Enter for a new line
             </span>
 
-            <button
-              type="button"
-              className={[
-                'db-btn',
-                mode === 'coach' ? '' : 'primary',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              disabled={busy || !text.trim()}
-              onClick={cancelCoaching}
-            >
+<button
+  type="button"
+  className={[
+    'db-btn',
+    mode === 'coach' ? '' : 'primary',
+  ]
+    .filter(Boolean)
+    .join(' ')}
+  disabled={busy || !text.trim()}
+  onClick={() => {
+    void sendCurrentMessage();
+  }}
+>
               {busy
                 ? mode === 'coach'
                   ? 'Saving…'
@@ -440,7 +480,62 @@ return (
           </div>
         </div>
       </section>
-      </div> 
+
+      <section className="practice-teachCard">
+  <div>
+    <h2>Teach {safeAssistantName}</h2>
+
+    <p>
+      Add something {safeAssistantName} should remember for future
+      customer conversations.
+    </p>
+  </div>
+
+  <textarea
+    value={teachText}
+    rows={4}
+    disabled={busy}
+    placeholder={`What should ${safeAssistantName} remember?`}
+    onChange={(event) => {
+      setTeachText(event.target.value);
+      setTeachReply('');
+    }}
+  />
+
+  {teachReply ? (
+    <div className="practice-teachReply">
+      {teachReply}
+    </div>
+  ) : null}
+
+<div className="practice-teachActions">
+  {teachText ? (
+    <button
+      type="button"
+      className="db-btn"
+      disabled={busy}
+      onClick={() => {
+        setTeachText('');
+        setTeachReply('');
+      }}
+    >
+      Clear
+    </button>
+  ) : null}
+
+  <button
+    type="button"
+    className="db-btn primary"
+    disabled={busy || !teachText.trim()}
+    onClick={() => {
+      void teachAssistant();
+    }}
+  >
+    {busy ? 'Teaching…' : 'Teach'}
+  </button>
+</div>
+</section>
+      </div>
 
       <style jsx>{`
         .practice-page {
@@ -466,6 +561,10 @@ return (
           border-radius: 18px;
           background: #ffffff;
           box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+        }
+
+        .practice-card.is-empty {
+          min-height: 0;
         }
 
         .practice-header {
@@ -709,6 +808,67 @@ return (
           font-size: 11px;
         }
 
+        .practice-teachCard {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+}
+
+.practice-teachCard h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+}
+
+.practice-teachCard p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.practice-teachCard textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px 14px;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+
+.practice-teachCard textarea:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+}
+
+.practice-teachReply {
+  white-space: pre-wrap;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fbff;
+  padding: 12px 14px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.practice-teachActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
         @media (max-width: 900px) {
           .practice-page {
             max-width: none;
@@ -724,6 +884,10 @@ return (
             border-radius: 0;
             border-left: none;
             border-right: none;
+          }
+
+          .practice-card.is-empty {
+            min-height: 0;
           }
 
           .practice-header {
@@ -754,6 +918,11 @@ return (
 
           .practice-composerActions {
             justify-content: flex-end;
+          }
+
+          .practice-teachCard {
+            margin: 12px;
+            padding: 16px;
           }
         }
       `}</style>

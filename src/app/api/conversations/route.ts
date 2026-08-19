@@ -3,11 +3,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  appendDemoInboxMessage,
-  findOrCreateDemoInboxConversation,
-  listDemoInboxConversations,
-} from "@/lib/demoInboxStore";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 import { buildSupportReply } from "@/lib/supportAssistant";
 
 export const runtime = "nodejs";
@@ -29,14 +25,6 @@ export async function GET(req: Request) {
   const includeArchived = url.searchParams.get("includeArchived") === "1";
 
   const realTenantId = auth.tenant.id;
-
-  if (!realTenantId) {
-    const conversations = listDemoInboxConversations(includeArchived);
-    return NextResponse.json({
-      ok: true,
-      conversations,
-    });
-  }
 
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -98,6 +86,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   const auth = await getAuthedUserAndTenant();
   if (!auth) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -107,37 +106,6 @@ export async function POST(req: Request) {
   const aiEnabled = body?.aiEnabled === false ? false : true;
 
   const realTenantId = auth.tenant.id;
-
-  if (!realTenantId) {
-    const convo = findOrCreateDemoInboxConversation({
-      tenantId: "demo-tenant",
-      customerName: "Website shopper",
-      subject: "New test chat",
-      channel: "web",
-      tags: [],
-    });
-
-    convo.aiEnabled = aiEnabled;
-    convo.status = aiEnabled ? "open" : "waiting";
-    convo.needsHuman = !aiEnabled;
-    convo.unread = true;
-
-    appendDemoInboxMessage(convo.id, "customer", "Hello, I need help with my order.");
-
-    if (aiEnabled) {
-      appendDemoInboxMessage(
-        convo.id,
-        "assistant",
-        buildSupportReply("Hello, I need help with my order.").reply
-      );
-      convo.unread = false;
-    }
-
-    return NextResponse.json({
-      ok: true,
-      id: convo.id,
-    });
-  }
 
   const convo = await prisma.conversation.create({
     data: {

@@ -28,11 +28,13 @@ type Props = {
   onRemoveRow: (id: string) => void;
   onUploadFile: (file: File) => void;
   onSave: (doc: KnowledgeDoc) => void;
+  extractingFile: boolean;
 };
 
 export default function ProductKnowledgeCard({
   doc,
   saving,
+  extractingFile,
   productRows,
   onAddRow,
   onUpdateRow,
@@ -65,26 +67,28 @@ export default function ProductKnowledgeCard({
         <div className="pk-upload">
           <div>
             <strong>Upload product references</strong>
-            <p>
-              Add size charts, care instructions, materials, warranties, manuals, or other documents.
-            </p>
+<p>
+  Add PDF, JPG, PNG, WebP, text, CSV, or Markdown references such as size charts,
+  care instructions, materials, warranties, or manuals.
+</p>
           </div>
 
           <label className="db-btn pk-uploadButton">
-            Choose file
-            <input
-              type="file"
-              accept=".txt,.csv,.md,text/plain,text/csv,text/markdown"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
+            {extractingFile ? "Reading file..." : "Choose file"}
+<input
+  type="file"
+  disabled={extractingFile}
+  accept=".txt,.csv,.md,.pdf,.jpg,.jpeg,.png,.webp,text/plain,text/csv,text/markdown,application/pdf,image/jpeg,image/png,image/webp"
+  style={{ display: "none" }}
+  onChange={(e) => {
+    const file = e.target.files?.[0];
 
-                if (!file) return;
+    if (!file) return;
 
-                onUploadFile(file);
-                e.currentTarget.value = "";
-              }}
-            />
+    onUploadFile(file);
+    e.currentTarget.value = "";
+  }}
+/>
           </label>
         </div>
 

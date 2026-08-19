@@ -78,21 +78,29 @@ export default function Footer() {
             <h3>Use cases</h3>
 
             <ul className="footer__list">
-              <li>
-                <Link href="/features">E-commerce stores</Link>
-              </li>
+<li>
+  <Link href="/use-cases#ecommerce">
+    E-commerce stores
+  </Link>
+</li>
 
-              <li>
-                <Link href="/features">Shopify widgets</Link>
-              </li>
+<li>
+  <Link href="/use-cases#shopify">
+    Shopify widgets
+  </Link>
+</li>
 
-              <li>
-                <Link href="/features">Starter Link</Link>
-              </li>
+<li>
+  <Link href="/use-cases#starter-link">
+    Starter Link
+  </Link>
+</li>
 
-              <li>
-                <Link href="/features">AI customer support</Link>
-              </li>
+<li>
+  <Link href="/use-cases#customer-support">
+    AI customer support
+  </Link>
+</li>
             </ul>
           </div>
 

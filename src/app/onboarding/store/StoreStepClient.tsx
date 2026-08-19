@@ -4,9 +4,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 type Props = {
+  initialOwnerName: string;
   initialStoreName: string;
   initialWebsiteUrl: string;
   initialSupportEmail: string;
@@ -14,12 +14,15 @@ type Props = {
 };
 
 export default function StoreStepClient({
+  initialOwnerName,
   initialStoreName,
   initialWebsiteUrl,
   initialSupportEmail,
   initialCategory,
 }: Props) {
   const router = useRouter();
+
+  const [ownerName, setOwnerName] = useState(initialOwnerName);
   const [storeName, setStoreName] = useState(initialStoreName);
   const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl);
   const [supportEmail, setSupportEmail] = useState(initialSupportEmail);
@@ -33,6 +36,7 @@ export default function StoreStepClient({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        ownerName,
         storeName,
         websiteUrl,
         supportEmail,
@@ -56,11 +60,22 @@ export default function StoreStepClient({
   return (
     <div>
       <h2 className="text-lg font-semibold">Store basics</h2>
+
       <p className="mt-1 text-sm opacity-80">
         Tell us a little about your store so we can set up your workspace.
       </p>
 
       <div className="mt-6 grid gap-4">
+        <label className="grid gap-1">
+          <span className="text-sm font-medium">Owner name</span>
+          <input
+            className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+            placeholder="Your name"
+            value={ownerName}
+            onChange={(e) => setOwnerName(e.target.value)}
+          />
+        </label>
+
         <label className="grid gap-1">
           <span className="text-sm font-medium">Store name</span>
           <input
@@ -72,7 +87,10 @@ export default function StoreStepClient({
         </label>
 
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Store website (optional)</span>
+          <span className="text-sm font-medium">
+            Store website (optional)
+          </span>
+
           <input
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
             placeholder="https://yourstore.com"
@@ -84,6 +102,7 @@ export default function StoreStepClient({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1">
             <span className="text-sm font-medium">Support email</span>
+
             <input
               className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
               placeholder="support@yourstore.com"
@@ -94,6 +113,7 @@ export default function StoreStepClient({
 
           <label className="grid gap-1">
             <span className="text-sm font-medium">Primary category</span>
+
             <select
               className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
               value={category}
@@ -118,6 +138,7 @@ export default function StoreStepClient({
 
       <div className="ob-actions">
         <span />
+
         <button
           type="button"
           className="ob-btn primary"

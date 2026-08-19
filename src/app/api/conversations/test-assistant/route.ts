@@ -6,14 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
 import { resolveProductProvider } from "@/lib/resolveProductProvider";
 import {
-  appendDemoInboxMessage,
-  findOrCreateDemoInboxConversation,
-} from "@/lib/demoInboxStore";
-import {
   getAssistantIdentity,
   getAssistantLearning,
   getStoreKnowledge,
 } from "@/lib/assistantContext";
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_MERCHANT_MESSAGE,
+} from "@/lib/tenantEntitlement";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,17 @@ async function findRealTenantId(auth: any) {
 }
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const auth = await getAuthedUserAndTenant();
 
@@ -59,7 +71,28 @@ export async function POST(req: Request) {
       );
     }
 
+    if (text.length > 12000) {
+  return NextResponse.json(
+    { ok: false, error: "Message is too long." },
+    { status: 400 }
+  );
+}
+
     const realTenantId = auth.tenant.id;
+
+const entitlement = await getTenantEntitlement(realTenantId);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: "TRIAL_EXPIRED",
+      error: TRIAL_PAUSED_MERCHANT_MESSAGE,
+    },
+    { status: 402 }
+  );
+}
+
     const conversationId = normalize(body?.conversationId);
 
 let convoId = conversationId;
@@ -118,30 +151,6 @@ const result = await runTikoBrain({
   productProvider,
 });
 
-    // DEMO FALLBACK
-    if (!realTenantId) {
-      const convo = findOrCreateDemoInboxConversation({
-        tenantId: "demo-tenant",
-        customerName: "Onboarding Test Shopper",
-        subject: "Assistant test",
-        channel: "dashboard",
-        tags: ["test"],
-      });
-
-      appendDemoInboxMessage(convo.id, "customer", text);
-      appendDemoInboxMessage(
-        convo.id,
-        "assistant",
-        result.reply,
-        result.products
-      );
-
-      return NextResponse.json({
-        ok: true,
-        id: convo.id,
-      });
-    }
-
     // REAL PRISMA
 
 if (!convoId) {
@@ -189,10 +198,12 @@ return NextResponse.json({
   id: convoId,
 });
   } catch (error: any) {
+    console.error('[test-assistant]', error);
+
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Server error",
+        error: "Server error",
       },
       { status: 500 }
     );

@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 import StarterLinkAssistant from "./_components/StarterLinkAssistant";
-import { Orb } from "@/components/Orb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,67 +25,36 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
-const DEMO_BEST_SELLER = {
-  id: "best-1",
-  title: "Lush Active Skincare Set",
-  price: "$58",
-  image:
-    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80",
+type StarterLinkProduct = {
+  id: string;
+  title: string;
+  price: string;
+  image: string;
 };
-const EMPTY_BEST_SELLER = {
+
+const EMPTY_BEST_SELLER: StarterLinkProduct = {
   id: "",
   title: "",
   price: "",
   image: "",
 };
 
-const DEMO_FEATURED = [
-  {
-    id: "feat-1",
-    title: "Classic Midi Dress",
-    price: "$89",
-    image:
-      "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "feat-2",
-    title: "Summer Floral Dress",
-    price: "$79",
-    image:
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "feat-3",
-    title: "City Rain Jacket",
-    price: "$89",
-    image:
-      "https://images.unsplash.com/photo-1551232864-3f0890e580d9?auto=format&fit=crop&w=900&q=80",
-  },
-];
-
-
 export default async function StarterLinkPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-      const slug = safeSlug(params.slug);
-  const isDemoSlug = slug === "demo" || slug === "demo-boutique";
+  const { slug: rawSlug } = await params;
+  const slug = safeSlug(rawSlug);
 
-  const tenant = await prisma.tenant.findFirst({
-    where: isDemoSlug
-      ? {
-          OR: [
-            { slug: "demo-boutique" },
-            { starterLinkSlug: "demo" },
-            { starterLinkSlug: "demo-boutique" },
-            { storeName: "Demo Boutique" },
-          ],
-        }
-      : {
-          starterLinkEnabled: true,
-          OR: [{ starterLinkSlug: slug }, { slug }],
-        },
+const tenant = await prisma.tenant.findFirst({
+  where: {
+    starterLinkEnabled: true,
+    OR: [
+      { starterLinkSlug: slug },
+      { slug },
+    ],
+  },
 select: {
   id: true,
   slug: true,
@@ -106,7 +74,7 @@ select: {
 },
   });
 
-if (!tenant && !isDemoSlug) {
+if (!tenant) {
   return (
     <div style={{ maxWidth: 760, margin: "48px auto", padding: 16 }}>
       <h1>Link not found</h1>
@@ -118,13 +86,13 @@ if (!tenant && !isDemoSlug) {
 let storeName = "My Store";
 let tagline = "or store";
 let subheading = "Store’s subheading";
-let assistantName = "Demo Boutique Assistant";
+let assistantName = "Store Assistant";
+let widgetPublicKey = "";
 let assistantIdentity = "Female";
 let greeting =
   "Hi! I can help with products, order tracking, shipping, and returns.";
 let aboutText = "";
 
-let widgetPublicKey = "tz_demo_demo";
 let brandColor = "#111827";
 
 let storeLogoUrl = "";
@@ -134,8 +102,8 @@ let returnNote = "";
 
 let showProductsNav = true;
 let showContactNav = true;
-let bestSeller = isDemoSlug ? DEMO_BEST_SELLER : EMPTY_BEST_SELLER;
-let featuredProducts = isDemoSlug ? DEMO_FEATURED : [];
+let bestSeller: StarterLinkProduct = EMPTY_BEST_SELLER;
+let featuredProducts: StarterLinkProduct[] = [];
 
 const showMerchantLogin = false;
 
@@ -184,6 +152,16 @@ if (page) {
   storeLogoUrl = page.logoUrl || "";
   tagline = page.tagline || tagline;
   subheading = page.subheading || subheading;
+
+  bestSeller = parseJson<StarterLinkProduct>(
+  page.bestSellerJson,
+  EMPTY_BEST_SELLER
+);
+
+  featuredProducts = parseJson<StarterLinkProduct[]>(
+  page.productsJson,
+  []
+);
   // Reuse the existing footerLine database field as the merchant's About us text.
   const savedAboutText = page.footerLine?.trim() || "";
 
@@ -191,21 +169,17 @@ aboutText = /powered by tikozap/i.test(savedAboutText)
   ? ""
   : savedAboutText;
 
-  contactEmail = page.contactEmail || "";
   shippingNote = page.shippingNote || "";
   returnNote = page.returnNote || "";
 
   showProductsNav = page.showProductsNav;
   showContactNav = page.showContactNav;
-  bestSeller = parseJson(
-    page.bestSellerJson,
-    isDemoSlug ? DEMO_BEST_SELLER : EMPTY_BEST_SELLER
-  );
-  featuredProducts = parseJson(
-    page.productsJson,
-    isDemoSlug ? DEMO_FEATURED : []
-  );
 }
+
+contactEmail =
+  settings.supportEmail?.trim() ||
+  page?.contactEmail ||
+  "";
 
 assistantName =
   settings.tz_assistant_name?.trim() ||
@@ -378,11 +352,14 @@ brandColor =
             rel="noreferrer"
             aria-label="Powered by TikoZap"
           >
-            <span>Powered by</span>
-            <span className="sl-poweredOrb" aria-hidden="true">
-              <Orb state="idle" tiltX={0} tiltY={0} />
-            </span>
-            <strong>TikoZap</strong>
+<span>Powered by</span>
+<img
+  src="/tikozaplogo.svg"
+  alt=""
+  className="sl-poweredLogo"
+  aria-hidden="true"
+/>
+<strong>TikoZap</strong>
           </a>
         </footer>
 
@@ -403,11 +380,11 @@ brandColor =
 </div>
 
       <style>{`
-        .sl-page{
-          min-height:100vh;
-          background:#f8fafc;
-          color:#111827;
-        }
+.sl-page{
+  min-height:100vh;
+  background:#f8fafc;
+  color:#111827;
+}
 
         .sl-shell{
           max-width:1120px;
@@ -547,7 +524,7 @@ brandColor =
           background:#fff;
           color:#111827;
         }
-        
+
         .sl-assistantCard{
           margin-top:18px;
           border:1px solid #e5e7eb;
@@ -745,11 +722,13 @@ brandColor =
           color:#6b7280;
         }
 
-        .sl-footer{
-          margin-top:36px;
-          padding:24px 0 28px;
-          border-top:1px solid #e5e7eb;
-        }
+.sl-footer{
+  margin-top:36px;
+  padding:24px 18px 28px;
+  border-top:1px solid #d6dde6;
+  border-radius:14px;
+  background:#e2e8f0;
+}
 
         .sl-footerNav{
           display:flex;
@@ -819,14 +798,13 @@ brandColor =
           font-weight:800;
         }
 
-        .sl-poweredOrb{
-          width:20px;
-          height:20px;
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          flex:0 0 20px;
-        }
+.sl-poweredLogo{
+  width:20px;
+  height:20px;
+  display:block;
+  object-fit:contain;
+  flex:0 0 20px;
+}
 
 .sl-desktopLayout{
   display:block;

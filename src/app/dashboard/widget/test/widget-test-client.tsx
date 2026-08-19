@@ -185,20 +185,10 @@ After publishing, please confirm the TikoZap chat bubble appears in the bottom-r
     }
   }
 
-  function openWidgetTest() {
-    const panelWidth = 380;
-    const availableWidth =
-      typeof window === 'undefined' ? 1200 : window.innerWidth;
-
-    setTestPanelPos({
-      x: Math.max(16, availableWidth - panelWidth - 24),
-      y: 110,
-    });
-
-    setTestOpen(true);
-    setTestMinimized(false);
-    setTestError('');
-  }
+function openWidgetTest() {
+  window.location.href =
+    '/dashboard/conversations?widgetTest=1';
+}
 
   function closeWidgetTest() {
     setTestOpen(false);

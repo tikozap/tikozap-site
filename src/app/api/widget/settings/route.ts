@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -127,12 +128,39 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authed = await getAuthedUserAndTenant();
-  if (!authed?.tenant?.id) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
+const authed = await getAuthedUserAndTenant();
 
-  const tenantId = authed.tenant.id;
+if (!authed?.tenant?.id) {
+  return NextResponse.json(
+    { ok: false, error: 'Unauthorized' },
+    { status: 401 }
+  );
+}
+
+if (authed.tenant.role !== 'owner') {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Owner access required.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
+
+const tenantId = authed.tenant.id;
 
   const raw = await req.json().catch(() => ({}));
   const body = Body.parse(raw);

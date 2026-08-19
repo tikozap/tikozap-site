@@ -262,9 +262,9 @@ export default function DemoChat() {
             const summary = data.summary;
 
             const revenueText =
-              `I reviewed your recent store context.\n\n` +
+              `Here’s an example ROI scenario.\n\n` +
               `• Store: ${summary?.storeName || "Shopify Store"}\n` +
-              `• Current monthly revenue: ~$${Math.round(est.baselineRevenue)}\n` +
+              `• Example monthly revenue: ~$${Math.round(est.baselineRevenue)}\n` +
               `• Estimated lift with Tiko: +$${Math.round(est.conservativeGain)} to +$${Math.round(est.strongGain)}\n` +
               `• Expected midpoint: ~$${Math.round(est.expectedGain)}\n\n` +
               `That’s the upside when shoppers get answers instantly instead of leaving.\n\n` +

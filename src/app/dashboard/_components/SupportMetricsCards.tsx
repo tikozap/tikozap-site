@@ -23,54 +23,6 @@ counters: {
   };
 };
 
-type TwilioSummaryPayload = {
-  ok: true;
-  window: '24h' | '7d' | '30d';
-  summary: {
-    startedAt: string;
-    totalEvents: number;
-    withQualityMetrics: number;
-    latest: {
-      createdAt: string;
-      eventType: string;
-      callSid: string | null;
-      verification: string;
-    } | null;
-    averages: {
-      mos: number | null;
-      jitterMs: number | null;
-      packetLossPct: number | null;
-      roundTripMs: number | null;
-    };
-    degraded: {
-      lowMos: number;
-      highJitter: number;
-      highPacketLoss: number;
-      highRoundTrip: number;
-    };
-    health: {
-      score: number | null;
-      grade: 'A' | 'B' | 'C' | 'D' | null;
-      reasons: string[];
-    };
-    thresholds: {
-      mosWarning: number;
-      mosCritical: number;
-      jitterMsMax: number;
-      packetLossPctMax: number;
-      roundTripMsMax: number;
-    };
-    alerts: Array<{
-      id: string;
-      severity: 'info' | 'warning' | 'critical';
-      message: string;
-      metric?: string;
-      value?: number;
-      threshold?: number;
-    }>;
-  };
-};
-
 type ActivationStatusPayload = {
   ok: true;
   window: '24h' | '7d' | '30d';
@@ -93,26 +45,6 @@ type ActivationStatusPayload = {
   };
 };
 
-type TwilioAlertsPayload = {
-  ok: true;
-  window: '24h' | '7d' | '30d';
-  thresholds: {
-    mosWarning: number;
-    mosCritical: number;
-    jitterMsMax: number;
-    packetLossPctMax: number;
-    roundTripMsMax: number;
-  };
-  alerts: Array<{
-    id: string;
-    severity: 'info' | 'warning' | 'critical';
-    message: string;
-    metric?: string;
-    value?: number;
-    threshold?: number;
-  }>;
-};
-
 const WINDOW_OPTIONS = [
   { value: '24h', label: 'Last 24h' },
   { value: '7d', label: 'Last 7 days' },
@@ -130,41 +62,26 @@ export default function SupportMetricsCards() {
   const [windowKey, setWindowKey] = useState<SupportMetricsPayload['window']>('24h');
   const [metrics, setMetrics] = useState<SupportMetricsPayload['metrics'] | null>(null);
   const [error, setError] = useState('');
-  const [voiceSummary, setVoiceSummary] = useState<TwilioSummaryPayload['summary'] | null>(null);
-  const [voiceError, setVoiceError] = useState('');
   const [activationData, setActivationData] = useState<ActivationStatusPayload | null>(null);
-  const [voiceAlerts, setVoiceAlerts] = useState<TwilioAlertsPayload['alerts']>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setError('');
-        setVoiceError('');
         setMetrics(null);
-        setVoiceSummary(null);
         setActivationData(null);
-        setVoiceAlerts([]);
 
-        const [supportRes, voiceRes, activationRes, alertsRes] = await Promise.all([
-          fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
-          fetch(`/api/quality/twilio/summary?window=${windowKey}`, { cache: 'no-store' }),
-          fetch(`/api/onboarding/activation?window=${windowKey}`, { cache: 'no-store' }),
-          fetch(`/api/quality/twilio/alerts?window=${windowKey}`, { cache: 'no-store' }),
-        ]);
+const [supportRes, activationRes] = await Promise.all([
+  fetch(`/api/metrics/support?window=${windowKey}`, { cache: 'no-store' }),
+  fetch(`/api/onboarding/activation?window=${windowKey}`, { cache: 'no-store' }),
+]);
 
         const supportData = await supportRes.json().catch(() => null);
         if (!supportRes.ok || !supportData?.ok) {
           throw new Error(supportData?.error || `Request failed (${supportRes.status})`);
         }
         if (!cancelled) setMetrics(supportData.metrics);
-
-        const voiceData = await voiceRes.json().catch(() => null);
-        if (!voiceRes.ok || !voiceData?.ok) {
-          if (!cancelled) setVoiceError('Twilio voice quality unavailable.');
-        } else if (!cancelled) {
-          setVoiceSummary(voiceData.summary);
-        }
 
         const activationData = await activationRes.json().catch(() => null);
         if (
@@ -177,10 +94,6 @@ export default function SupportMetricsCards() {
           setActivationData(activationData as ActivationStatusPayload);
         }
 
-        const alertsData = await alertsRes.json().catch(() => null);
-        if (alertsRes.ok && alertsData?.ok && Array.isArray(alertsData?.alerts) && !cancelled) {
-          setVoiceAlerts((alertsData as TwilioAlertsPayload).alerts);
-        }
       } catch {
         if (!cancelled) setError('Metrics unavailable right now.');
       }
@@ -197,23 +110,10 @@ export default function SupportMetricsCards() {
     return rows.slice(0, 5);
   }, [metrics]);
 
-  const voiceHealth = useMemo(() => {
-    if (!voiceSummary) return 'Loading…';
-    if (!voiceSummary.withQualityMetrics) return 'No voice telemetry yet';
-    const grade = voiceSummary.health.grade || 'N/A';
-    const score = voiceSummary.health.score != null ? `${voiceSummary.health.score}/100` : 'n/a';
-    return `${grade} (${score})`;
-  }, [voiceSummary]);
-
   const activationFunnelSteps = useMemo(() => {
     if (!activationData?.funnel?.steps) return [];
     return activationData.funnel.steps;
   }, [activationData]);
-
-  const activeVoiceAlerts = useMemo(
-    () => voiceAlerts.filter((alert: any) => alert.severity !== 'info'),
-    [voiceAlerts],
-  );
 
   return (
     <>
@@ -287,17 +187,6 @@ export default function SupportMetricsCards() {
     </div>
   </div>
 
-  <div className="db-metricCard">
-    <div className="db-metricLabel">Call quality</div>
-
-    <div className="db-metricValue">
-      {voiceError ? '—' : voiceHealth}
-    </div>
-
-    <div className="db-metricSub">
-      Twilio health
-    </div>
-  </div>
 </div>
 
   <div className="db-funnelCard">

@@ -3,8 +3,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthedUserAndTenant } from "@/lib/auth";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
+
+const MAX_TITLE_LENGTH = 120;
+const MAX_CONTENT_LENGTH = 100_000;
 
 const DEFAULT_SECTIONS = [
   "Store info",
@@ -60,6 +64,17 @@ return NextResponse.json({
 }
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   const auth = await getAuthedUserAndTenant();
 
   if (!auth?.tenant?.id) {
@@ -86,6 +101,23 @@ const content =
 if (!title) {
   return NextResponse.json(
     { ok: false, error: "Title is required" },
+    { status: 400 }
+  );
+}
+
+if (title.length > MAX_TITLE_LENGTH) {
+  return NextResponse.json(
+    { ok: false, error: "Knowledge title is too long." },
+    { status: 400 }
+  );
+}
+
+if (content.length > MAX_CONTENT_LENGTH) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Knowledge content is too large.",
+    },
     { status: 400 }
   );
 }

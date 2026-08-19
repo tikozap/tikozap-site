@@ -104,19 +104,10 @@ function AssistantNav() {
           />
 <NavItem
   href="/dashboard/assistant/practice"
-  label="Practice"
+  label="Test & Coach"
   nested
 />
-          <NavItem
-            href="/dashboard/assistant/learning"
-            label="Learning"
-            nested
-          />
-          <NavItem
-            href="/dashboard/assistant/experience"
-            label="Experience"
-            nested
-          />
+
           <NavItem
             href="/dashboard/assistant/memory"
             label="Memory"
@@ -132,13 +123,17 @@ export default function DashboardShell({
   children,
   tenantName,
   planName,
+  role,
 }: {
   children: ReactNode;
   tenantName: string;
   planName: string;
+  role: 'owner' | 'staff';
 }) {
   const router = useRouter();
   const pathname = usePathname() || '';
+
+  const isOwner = role === 'owner';
 
   const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -253,10 +248,12 @@ export default function DashboardShell({
               label="Widget"
             />
 
-            <NavItem
-              href="/dashboard/billing"
-              label="Billing"
-            />
+{isOwner ? (
+  <NavItem
+    href="/dashboard/billing"
+    label="Billing"
+  />
+) : null}
 
             <NavItem
               href="/dashboard/settings"

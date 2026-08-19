@@ -1,7 +1,8 @@
 // src/app/dashboard/widget/test/page.tsx
 
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getAuthedUserAndTenant } from "@/lib/auth";
 import { newWidgetPublicKey, isTzWidgetKey } from "@/lib/widgetKey";
 import WidgetTestClient from "./widget-test-client";
 
@@ -9,33 +10,32 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function WidgetTestPage() {
-  const cookieStore = await cookies();
-  const tenantId = cookieStore.get("tz_tenant")?.value;
+  const auth = await getAuthedUserAndTenant();
 
-  const tenant = tenantId
-    ? await prisma.tenant.findUnique({
-        where: { id: tenantId },
+  if (!auth) {
+    redirect("/login");
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: {
+      id: auth.tenant.id,
+    },
+    select: {
+      id: true,
+      storeName: true,
+      slug: true,
+      widget: {
         select: {
-          id: true,
-          storeName: true,
-          slug: true,
-          widget: {
-  select: {
-    publicKey: true,
-    installedAt: true,
-    allowedDomains: true,
-  },
-},
+          publicKey: true,
+          installedAt: true,
+          allowedDomains: true,
         },
-      })
-    : null;
+      },
+    },
+  });
 
   if (!tenant) {
-    return (
-      <div className="db-container">
-        <WidgetTestClient widgetPublicKey="tz_demo_demo" allowedDomains={[]} />
-      </div>
-    );
+    redirect("/dashboard");
   }
 
   const widgetRow = tenant.widget
@@ -46,22 +46,30 @@ export default async function WidgetTestPage() {
           publicKey: newWidgetPublicKey(),
           enabled: true,
         },
- select: {
-  publicKey: true,
-  installedAt: true,
-  allowedDomains: true,
-},
+        select: {
+          publicKey: true,
+          installedAt: true,
+          allowedDomains: true,
+        },
       });
 
   let widgetPublicKey = widgetRow.publicKey;
 
-  const canRotate = process.env.NODE_ENV !== "production" || !widgetRow.installedAt;
+  const canRotate =
+    process.env.NODE_ENV !== "production" ||
+    !widgetRow.installedAt;
 
   if (!isTzWidgetKey(widgetPublicKey) && canRotate) {
     const rotated = await prisma.widget.update({
-      where: { tenantId: tenant.id },
-      data: { publicKey: newWidgetPublicKey() },
-      select: { publicKey: true },
+      where: {
+        tenantId: tenant.id,
+      },
+      data: {
+        publicKey: newWidgetPublicKey(),
+      },
+      select: {
+        publicKey: true,
+      },
     });
 
     widgetPublicKey = rotated.publicKey;
@@ -70,9 +78,9 @@ export default async function WidgetTestPage() {
   return (
     <div className="db-container">
       <WidgetTestClient
-  widgetPublicKey={widgetPublicKey}
-  allowedDomains={widgetRow.allowedDomains || []}
-/>
+        widgetPublicKey={widgetPublicKey}
+        allowedDomains={widgetRow.allowedDomains || []}
+      />
     </div>
   );
 }

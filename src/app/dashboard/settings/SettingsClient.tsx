@@ -137,7 +137,7 @@ useEffect(() => {
   saveSavedSettings(nextSettings);
 
   window.dispatchEvent(new Event("tz-settings-change"));
-  
+
 }
 
 onAfterToggle?.(next);
@@ -222,7 +222,12 @@ function ChoiceGroup({
   );
 }
 
-export default function SettingsClient() {
+export default function SettingsClient({
+  role,
+}: {
+  role: "owner" | "staff";
+}) {
+  const isOwner = role === "owner";
   const [active, setActive] = useState<SectionKey>("general");
   const [notificationStatus, setNotificationStatus] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -232,6 +237,7 @@ export default function SettingsClient() {
   const [currentUserId, setCurrentUserId] = useState("");
 
   const [assistantName, setAssistantName] = useState("Store Assistant");
+  const [ownerName, setOwnerName] = useState("");
   const [storeName, setStoreName] = useState("");
   const [storeWebsite, setStoreWebsite] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
@@ -256,6 +262,7 @@ export default function SettingsClient() {
     body: JSON.stringify({
       settings: cached,
       profile: {
+        ownerName,
         storeName,
         websiteUrl: storeWebsite,
         supportEmail,
@@ -301,10 +308,26 @@ const nextSettings = {
 
   const hasVoiceSubscription = false;
 
-  const activeSection = useMemo(
-    () => sections.find((s) => s.key === active) || sections[0],
-    [active]
-  );
+const visibleSections = useMemo(
+  () =>
+    isOwner
+      ? sections
+      : sections.filter((s) => s.key === "notifications"),
+  [isOwner]
+);
+
+const activeSection = useMemo(
+  () =>
+    visibleSections.find((s) => s.key === active) ||
+    visibleSections[0],
+  [active, visibleSections]
+);
+
+useEffect(() => {
+  if (!isOwner && active !== "notifications") {
+    setActive("notifications");
+  }
+}, [isOwner, active]);
 
 useEffect(() => {
   fetch("/api/settings", { cache: "no-store" })
@@ -314,6 +337,7 @@ useEffect(() => {
 
       const settings = data.settings || {};
       const profile = data.profile || {};
+
 setAssistantName(
   settings.tz_assistant_name?.trim() || "Store Assistant"
 );
@@ -322,6 +346,11 @@ setAssistantGreeting(
   settings.tz_assistant_greeting?.trim() ||
     "Hi! I'm here if you need help with products, orders, shipping, or returns."
 );
+
+setBrandColor(
+  settings.tz_brand_color?.trim() || "#111111"
+);
+
       localStorage.setItem(
         "tz_settings_cache",
         JSON.stringify(settings)
@@ -331,6 +360,7 @@ setAssistantGreeting(
         localStorage.setItem(key, String(value));
       });
 
+      setOwnerName(profile.ownerName || "");
       setStoreName(profile.storeName || "");
       setStoreWebsite(profile.websiteUrl || "");
       setSupportEmail(profile.supportEmail || "");
@@ -491,7 +521,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 
       <div className="st-layout">
         <aside className="st-side">
-          {sections.map((s) => (
+          {visibleSections.map((s) => (
             <button
               key={s.key}
               type="button"
@@ -512,18 +542,28 @@ const toggleMemberNotifications = async (member: TeamMember) => {
 
           {active === "general" ? (
             <div className="st-cardGrid">
-              <section className="st-card">
-                <h3>Store profile</h3>
-                <div className="st-grid2">
+<section className="st-card">
+  <h3>Store profile</h3>
+
+  <div className="st-grid2">
+    <label className="st-field">
+      <span className="st-label">Owner name</span>
+      <input
+        placeholder="Your name"
+        value={ownerName}
+        onChange={(e) => setOwnerName(e.target.value)}
+      />
+    </label>
+
+    <label className="st-field">
+      <span className="st-label">Store name</span>
+      <input
+        value={storeName}
+        onChange={(e) => setStoreName(e.target.value)}
+      />
+    </label>
                   <label className="st-field">
-                    <span className="st-label">Store name</span>
-                    <input
-  value={storeName}
-  onChange={(e) => setStoreName(e.target.value)}
-/>
-                  </label>
-                  <label className="st-field">
-                    <span className="st-label">Support email</span>
+                    <span className="st-label">Contact email</span>
                     <input
   value={supportEmail}
   onChange={(e) => setSupportEmail(e.target.value)}
@@ -1304,7 +1344,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
           }
 
           .st-navItem{
-            min-width:190px;  
+            min-width:190px;
           }
 
             .st-brandingGrid{

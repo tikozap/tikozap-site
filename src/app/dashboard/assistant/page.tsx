@@ -14,33 +14,17 @@ const modules = [
   },
   {
     icon: '🧪',
-    title: 'Practice',
+    title: 'Test & Coach',
     description:
       'Ask shopper-style questions, review responses, and coach your assistant.',
     href: '/dashboard/assistant/practice',
-    action: 'Practice with your assistant',
-  },
-  {
-    icon: '📚',
-    title: 'Learning',
-    description:
-      'Review what your assistant has learned from your coaching sessions.',
-    href: '/dashboard/assistant/learning',
-    action: 'Review learnings',
-  },
-  {
-    icon: '🧭',
-    title: 'Experience',
-    description:
-      'See how your assistant improves its service judgment through real customer conversations.',
-    href: '/dashboard/assistant/experience',
-    action: 'View experience',
+    action: 'Test & coach your assistant',
   },
   {
     icon: '📓',
     title: 'Memory',
     description:
-      "Your assistant's notebook helps it remember customer behavior, preferences, and what matters before the next conversation.",
+      "Your assistant's notebook shows what it has learned and remembers about your business.",
     href: '/dashboard/assistant/memory',
     action: 'Open notebook',
   },
@@ -71,9 +55,9 @@ export default function AssistantPage() {
           <div>
             <h2>Build a growing store employee, not a chatbot.</h2>
             <p>
-              Your assistant has an identity, learns through coaching, improves
-              through experience, and remembers what matters.
-            </p>
+  Your assistant has an identity, learns through coaching, and remembers
+  what matters.
+</p>
           </div>
         </section>
 

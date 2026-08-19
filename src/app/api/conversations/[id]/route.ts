@@ -3,7 +3,6 @@
 import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDemoInboxConversation } from "@/lib/demoInboxStore";
 
 export const runtime = "nodejs";
 
@@ -56,39 +55,21 @@ function splitTags(tags: string | null | undefined) {
     .filter(Boolean);
 }
 
-async function findRealTenantIdFromDemoSession(auth: any) {
-  if (!auth) return null;
-
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      OR: [
-        { id: auth.tenant.id },
-        { slug: auth.tenant.slug },
-        { storeName: auth.tenant.storeName },
-      ],
-    },
-    select: { id: true },
-  });
-
-  return tenant?.id || null;
-}
-
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const auth = await getAuthedUserAndTenant();
   if (!auth) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const realTenantId =
-    (await findRealTenantIdFromDemoSession(auth)) || auth.tenant.id;
-
   const conversation = await prisma.conversation.findFirst({
     where: {
-      id: params.id,
-      tenantId: realTenantId,
+      id,
+      tenantId: auth.tenant.id,
     },
     select: {
       id: true,

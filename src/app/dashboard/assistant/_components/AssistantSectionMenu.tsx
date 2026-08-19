@@ -14,18 +14,8 @@ const sections = [
   },
   {
     icon: '💬',
-    label: 'Practice',
+    label: 'Test & Coach',
     href: '/dashboard/assistant/practice',
-  },
-  {
-    icon: '📚',
-    label: 'Learning',
-    href: '/dashboard/assistant/learning',
-  },
-  {
-    icon: '🧭',
-    label: 'Experience',
-    href: '/dashboard/assistant/experience',
   },
   {
     icon: '📓',

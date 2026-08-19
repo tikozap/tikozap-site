@@ -174,7 +174,10 @@ If nothing meaningful was learned, say so.
   });
 
   if (!response.ok) {
-    console.error('[Emma Understanding] OpenAI error', await response.text());
+    console.error(
+  '[Emma Understanding] OpenAI request failed',
+  response.status
+);
     return EMPTY_UNDERSTANDING;
   }
 

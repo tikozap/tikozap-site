@@ -47,39 +47,38 @@ function normE164(v: string | null | undefined) {
   return s.startsWith('+') ? s : `+${s.replace(/[^\d]/g, '')}`;
 }
 
-async function resolveTenantId(params: Record<string, string>, url: URL) {
-  console.log('[resolveTenantId] Twilio params received:', params);
-
+async function resolveTenantId(
+  params: Record<string, string>,
+  _url: URL
+) {
   const toRaw = params.To || params.Called || '';
-  console.log('[resolveTenantId] Raw To/Called value from Twilio:', toRaw);
-
   const to = normE164(toRaw);
-  console.log('[resolveTenantId] Normalized E164 number:', to);
 
   if (!to) {
-    console.log('[resolveTenantId] No valid phone number found in To/Called');
+    console.warn(
+      '[resolveTenantId] Missing or invalid destination number'
+    );
     return null;
   }
 
-  console.log('[resolveTenantId] Looking up PhoneAgentSettings for inboundNumberE164 =', to);
+  const settings =
+    await prisma.phoneAgentSettings.findUnique({
+      where: {
+        inboundNumberE164: to,
+      },
+      select: {
+        tenantId: true,
+      },
+    });
 
-  console.log('[resolveTenantId] All inbound numbers in DB:', 
-  (await prisma.phoneAgentSettings.findMany({ select: { inboundNumberE164: true } }))
-    .map((r: { inboundNumberE164: string | null }) => r.inboundNumberE164)
-);
-
-  const settings = await prisma.phoneAgentSettings.findUnique({
-    where: { inboundNumberE164: to },
-    select: { tenantId: true },
-  });
-
-  if (settings?.tenantId) {
-    console.log('[resolveTenantId] Found tenantId:', settings.tenantId);
-    return settings.tenantId;
+  if (!settings?.tenantId) {
+    console.warn(
+      '[resolveTenantId] No Phone Agent tenant matched inbound number'
+    );
+    return null;
   }
 
-  console.log('[resolveTenantId] No matching PhoneAgentSettings found for number', to);
-  return null;
+  return settings.tenantId;
 }
 
 /* ───────── webhook verification helpers ───────── */
@@ -134,48 +133,81 @@ function verifyTwilioSignature(opts: { req: Request; rawBody: string; form: URLS
   return false;
 }
 
-function verifyWebhook(opts: { req: Request; rawBody: string; form: URLSearchParams | null }) {
+function verifyWebhook(opts: {
+  req: Request;
+  rawBody: string;
+  form: URLSearchParams | null;
+}) {
   const url = new URL(opts.req.url);
 
-  // Bypass all verification in local development (critical for testing)
+  // Local development only.
   if (process.env.NODE_ENV === 'development') {
-    console.log('[DEV MODE] Bypassing webhook verification - URL:', url.toString());
-    return { ok: true as const, mode: 'dev-bypass' as const };
+    return {
+      ok: true as const,
+      mode: 'dev-bypass' as const,
+    };
   }
 
-  // Production verification
-  const secretConfigured = process.env.TWILIO_WEBHOOK_SECRET?.trim() || '';
-  const tokenConfigured = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
+  const secretConfigured =
+    process.env.TWILIO_WEBHOOK_SECRET?.trim() || '';
+
+  const tokenConfigured =
+    process.env.TWILIO_AUTH_TOKEN?.trim() || '';
+
   const secretCandidate =
     opts.req.headers.get('x-tikozap-webhook-secret') ||
     opts.req.headers.get('x-webhook-secret') ||
     url.searchParams.get('secret') ||
     '';
 
-  console.log('[PROD Verify] Secret configured:', !!secretConfigured);
-  console.log('[PROD Verify] Token configured:', !!tokenConfigured);
-  console.log('[PROD Verify] Secret candidate:', secretCandidate);
+  const secretOk =
+    !!secretConfigured &&
+    !!secretCandidate &&
+    safeEquals(
+      secretCandidate,
+      secretConfigured
+    );
 
-  const secretOk = !!secretConfigured && !!secretCandidate && safeEquals(secretCandidate, secretConfigured);
   if (secretOk) {
-    console.log('[PROD] Verified via custom secret');
-    return { ok: true as const, mode: 'secret' as const };
+    return {
+      ok: true as const,
+      mode: 'secret' as const,
+    };
   }
 
-  const twilioSigOk = verifyTwilioSignature(opts);
+  const twilioSigOk =
+    verifyTwilioSignature(opts);
+
   if (twilioSigOk) {
-    console.log('[PROD] Verified via Twilio signature');
-    return { ok: true as const, mode: 'twilio_signature' as const };
+    return {
+      ok: true as const,
+      mode: 'twilio_signature' as const,
+    };
   }
 
-  // Fallback: if no secrets are configured, allow (safety for now)
+  // Production must never accept an unverified webhook.
   if (!secretConfigured && !tokenConfigured) {
-    console.log('[PROD] No secrets configured - allowing unverified (fallback)');
-    return { ok: true as const, mode: 'unverified-fallback' as const };
+    console.error(
+      '[twilio/voice] Webhook verification is not configured'
+    );
+
+    return {
+      ok: false as const,
+      mode: 'unverified' as const,
+      error:
+        'Webhook verification is not configured.',
+    };
   }
 
-  console.log('[PROD] Verification failed - no match');
-  return { ok: false as const, mode: 'unverified' as const, error: 'Webhook verification failed.' };
+  console.warn(
+    '[twilio/voice] Webhook verification failed'
+  );
+
+  return {
+    ok: false as const,
+    mode: 'unverified' as const,
+    error: 'Webhook verification failed.',
+  };
 }
 
 /* ───────── main webhook handler ───────── */
@@ -283,7 +315,6 @@ export async function POST(req: Request) {
   vr.say(greeting);
 
   const turnUrl = `${requireAppBaseUrl()}/api/voice/turn?tenantId=${tenantId}&callSessionId=${session!.id}&turn=0`;
-  console.log('[Voice] Generated <Gather> action URL:', turnUrl);
 
   try {
     vr.gather({
@@ -302,6 +333,5 @@ export async function POST(req: Request) {
 
   await trackMetric({ source: 'twilio-webhook', event: 'call_handled' });
   const finalXml = vr.toString();
-  console.log('[Voice] Final TwiML returned:', finalXml);
   return xml(finalXml);
 }

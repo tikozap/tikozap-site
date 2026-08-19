@@ -2,16 +2,28 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getDemoSession } from "@/lib/demoAuth";
-import { getDemoInboxConversation } from "@/lib/demoInboxStore";
 import { getAuthedUserAndTenant } from "@/lib/auth";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const body = await req.json().catch(() => ({}));
     const tags = Array.isArray(body.tags) ? body.tags : [];
@@ -19,18 +31,6 @@ export async function POST(
     const clean = tags
       .map((t: any) => (typeof t === "string" ? t.trim() : ""))
       .filter(Boolean);
-
-    const demoAuth = await getDemoSession();
-    const demoConvo = getDemoInboxConversation(params.id);
-
-    if (demoAuth && demoConvo) {
-      demoConvo.tags = clean;
-
-      return NextResponse.json({
-        ok: true,
-        conversation: demoConvo,
-      });
-    }
 
     const auth = await getAuthedUserAndTenant();
 
@@ -43,7 +43,7 @@ export async function POST(
 
     const conversation = await prisma.conversation.findFirst({
       where: {
-        id: params.id,
+        id,
         tenantId: auth.tenant.id,
       },
       select: {
@@ -77,7 +77,7 @@ data: {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 }
     );

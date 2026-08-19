@@ -109,7 +109,9 @@ try {
           widget.greeting ||
           "Hi! I can help you find products, orders, and more.",
 
-        voice,
+voice: {
+  enabled: voice.enabled,
+},
       },
     },
     {

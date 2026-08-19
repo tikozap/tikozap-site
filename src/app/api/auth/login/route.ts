@@ -1,9 +1,14 @@
 // src/app/api/auth/login/route.ts
 
 import { NextResponse } from 'next/server';
+
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +27,26 @@ function verifyPassword(password: string, stored: string | null | undefined) {
 }
 
 export async function POST(req: Request) {
+    const rate = checkRateLimit(req, {
+    namespace: 'auth-login',
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rate.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Too many login attempts. Please wait a few minutes and try again.',
+      },
+      {
+        status: 429,
+        headers: rateLimitHeaders(rate),
+      }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
 
   const email = String(body.email || '').trim().toLowerCase();
@@ -62,15 +87,18 @@ if (!user.emailVerifiedAt) {
     { status: 403 }
   );
 }
-  
-  const tenant = user.ownedTenants[0] || user.memberships[0]?.tenant;
 
-  if (!tenant) {
-    return NextResponse.json(
-      { ok: false, error: 'No store found for this account.' },
-      { status: 404 }
-    );
-  }
+const tenant = user.ownedTenants[0] || user.memberships[0]?.tenant;
+
+const isAdmin =
+  user.email.trim().toLowerCase() === 'admin@tikozap.com';
+
+if (!tenant && !isAdmin) {
+  return NextResponse.json(
+    { ok: false, error: 'No store found for this account.' },
+    { status: 404 }
+  );
+}
 
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -94,30 +122,18 @@ if (!user.emailVerifiedAt) {
   };
 
   cookieStore.set('tz_session', sessionToken, commonCookie);
+  if (tenant) {
   cookieStore.set('tz_tenant', tenant.id, commonCookie);
-  cookieStore.set('tz_user_email', user.email, {
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
-  });
-  cookieStore.set('tz_user_name', user.name || '', {
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
-  });
-  cookieStore.set('tz_store_name', tenant.storeName, {
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
-  });
+} else {
+  cookieStore.delete('tz_tenant');
+}
 
 return NextResponse.json({
   ok: true,
-  redirectTo: tenant.onboardingCompletedAt
-    ? '/dashboard/conversations'
-    : '/onboarding/store',
+  redirectTo: isAdmin
+    ? '/admin'
+    : tenant?.onboardingCompletedAt
+      ? '/dashboard/conversations'
+      : '/onboarding/store',
 });
 }

@@ -38,7 +38,7 @@ const steps = [
     body: "Set up your company information and add your products, policies, and business knowledge.",
   },
   {
-    title: "Wort with your AI employee",
+    title: "Work with your AI employee",
     body: "Introduce your business so your AI employee is ready to help customers.",
   },
   {

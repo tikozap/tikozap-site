@@ -1,14 +1,43 @@
 // src/lib/admin.ts
 
-import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth";
+
+const ADMIN_EMAILS = new Set([
+  "admin@tikozap.com",
+]);
 
 export async function requireAdmin() {
-  const cookieStore = await cookies();
+  const userId = await getUserId();
 
-  const email =
-    cookieStore.get("tz_user_email")?.value ||
-    cookieStore.get("tz_email")?.value ||
-    "local-admin@tikozap.test";
+  if (!userId) {
+    return null;
+  }
 
-  return { email };
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
+  });
+
+  if (!user?.email) {
+    return null;
+  }
+
+  const email = user.email.trim().toLowerCase();
+
+  if (!ADMIN_EMAILS.has(email)) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email,
+    name: user.name,
+  };
 }

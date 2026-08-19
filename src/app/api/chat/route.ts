@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { runTikoBrain } from "@/lib/brain";
+import { getTikoLearning } from '@/lib/tikoLearningContext';
 import { resolveProductProvider } from "@/lib/resolveProductProvider";
 import {
   getAssistantIdentity,
@@ -15,9 +16,13 @@ import {
 } from "@/lib/assistantContext";
 import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 import {
-  appendDemoInboxMessage,
-  findOrCreateDemoInboxConversation,
-} from "@/lib/demoInboxStore";
+  getTenantEntitlement,
+  TRIAL_PAUSED_VISITOR_MESSAGE,
+} from "@/lib/tenantEntitlement";
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from "@/lib/rateLimit";
 
 type ChatBody = {
   message?: string;
@@ -75,6 +80,28 @@ function pickHumanFollowupReply() {
 
 export async function POST(req: Request) {
   try {
+    const rl = checkRateLimit(req, {
+      namespace: "public-chat",
+      limit: 20,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json(
+        {
+          error:
+            "Too many messages. Please wait a moment and try again.",
+        },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(rl),
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
     const body = (await req.json()) as ChatBody;
     const mode =
   body.mode === "marketing"
@@ -101,6 +128,19 @@ const clientConversationId = rawConversationId.startsWith("conv_")
       );
     }
 
+    if (!message) {
+  return NextResponse.json(
+    { error: "Missing message" },
+    { status: 400 }
+  );
+}
+    if (message.length > 4000) {
+  return NextResponse.json(
+    { error: "Message is too long." },
+    { status: 400 }
+  );
+}
+
 if (mode === "marketing") {
   const client = process.env.OPENAI_API_KEY
     ? new OpenAI({
@@ -117,12 +157,14 @@ if (mode === "marketing") {
     );
   }
 
+  const tikoLearning = await getTikoLearning();
+
   const response = await client.responses.create({
     model: "gpt-4.1-mini",
     input: [
       {
         role: "system",
-        content: buildTikoMarketingInstructions(),
+        content: buildTikoMarketingInstructions(tikoLearning),
       },
       {
         role: "user",
@@ -196,106 +238,6 @@ const shouldAlertHuman = wantsHuman(message);
 let answer = "";
 let products: any[] = [];
 
-    // DEMO FALLBACK PATH
-    if (!publicKey || publicKey === "tz_demo_demo") {
-      const conversation = findOrCreateDemoInboxConversation({
-        tenantId: "demo-tenant",
-        conversationId: clientConversationId || undefined,
-        customerName,
-        subject: channel === "starter-link" ? "Starter Link" : "Demo chat",
-        channel,
-        tags: tags
-          ? tags.split(",").filter(Boolean)
-          : ["demo", "orb"],
-      });
-
-      if (shouldAlertHuman) {
-  answer = HUMAN_HANDOFF_REPLY;
-  products = [];
-} else {
-const recentMessagesDescending = await prisma.message.findMany({
-  where: {
-    conversationId: conversation.id,
-  },
-  orderBy: {
-    createdAt: "desc",
-  },
-  take: 12,
-  select: {
-    role: true,
-    content: true,
-  },
-});
-
-const recentMessages = recentMessagesDescending.reverse();
-
-const brain = await runTikoBrain({
-  message,
-  history: recentMessages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  })),
-});
-
-  answer = brain.reply;
-  products = brain.products;
-}
-
-appendDemoInboxMessage(conversation.id, "customer", message);
-appendDemoInboxMessage(conversation.id, "assistant", answer, products);
-
-      const stream = new ReadableStream({
-        async start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode(
-              streamSSE({
-                type: "meta",
-                conversationId: conversation.id,
-                remaining: 999,
-                dailyLimit: 999,
-                userType: "anonymous",
-              })
-            )
-          );
-
-          for (const chunk of splitIntoChunks(answer, 18)) {
-            controller.enqueue(
-              new TextEncoder().encode(
-                streamSSE({
-                  type: "delta",
-                  delta: chunk,
-                })
-              )
-            );
-            await new Promise((r) => setTimeout(r, 35));
-          }
-
-          controller.enqueue(
-            new TextEncoder().encode(
-              streamSSE({
-                type: "final",
-                conversationId: conversation.id,
-                remaining: 999,
-                dailyLimit: 999,
-                userType: "anonymous",
-                products,
-              })
-            )
-          );
-
-          controller.close();
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream; charset=utf-8",
-          "Cache-Control": "no-cache, no-transform",
-          Connection: "keep-alive",
-        },
-      });
-    }
-
     // REAL PRISMA PATH
 const widget = await prisma.widget.findFirst({
   where: {
@@ -312,11 +254,25 @@ if (!resolvedWidget) {
   return NextResponse.json(
     {
       error: "Invalid widget key",
-      publicKey,
     },
     { status: 404 }
   );
 }
+
+const entitlement = await getTenantEntitlement(
+  resolvedWidget.tenantId
+);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      error: TRIAL_PAUSED_VISITOR_MESSAGE,
+      reason: "TRIAL_EXPIRED",
+    },
+    { status: 402 }
+  );
+}
+
 const assistantIdentity = await getAssistantIdentity(
   resolvedWidget.tenantId
 );
@@ -538,12 +494,11 @@ await prisma.conversation.update({
   } catch (error: any) {
     console.error("CHAT_ROUTE_FATAL", error);
 
-    return NextResponse.json(
-      {
-        error: "Chat route failed",
-        detail: error?.message ?? "Unknown server error",
-      },
-      { status: 500 }
-    );
+return NextResponse.json(
+  {
+    error: "Chat service is temporarily unavailable.",
+  },
+  { status: 500 }
+);
   }
 }

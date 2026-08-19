@@ -165,13 +165,6 @@ export async function GET(req: Request) {
     maxAge: SESSION_LIFETIME_SECONDS,
   };
 
-  const displayCookie = {
-    path: '/',
-    sameSite: 'lax' as const,
-    secure,
-    maxAge: SESSION_LIFETIME_SECONDS,
-  };
-
   response.cookies.set(
     'tz_session',
     sessionToken,
@@ -182,24 +175,6 @@ export async function GET(req: Request) {
     'tz_tenant',
     tenant.id,
     privateCookie,
-  );
-
-  response.cookies.set(
-    'tz_user_email',
-    user.email,
-    displayCookie,
-  );
-
-  response.cookies.set(
-    'tz_user_name',
-    user.name || '',
-    displayCookie,
-  );
-
-  response.cookies.set(
-    'tz_store_name',
-    tenant.storeName,
-    displayCookie,
   );
 
   return response;

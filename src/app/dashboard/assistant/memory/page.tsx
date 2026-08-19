@@ -2,394 +2,700 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
 import AssistantSectionMenu from '../_components/AssistantSectionMenu';
 import MobilePageHeader from '../../_components/MobilePageHeader';
 import { useAssistantIdentity } from '../_components/useAssistantIdentity';
 
-
-type MemoryEntry = {
+type MemoryItem = {
   id: string;
-  title: string;
-  type: 'customer' | 'product' | 'business' | 'experience';
-  notes: string[];
+  instruction: string;
+  summary?: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  conversationId?: string | null;
 };
 
-const MEMORY: MemoryEntry[] = [
-  {
-    id: 'michael',
-    type: 'customer',
-    title: 'Michael',
-    notes: [
-      'Michael usually shops about once a month.',
-      'He compares products carefully before buying and appreciates detailed answers.',
-      'I recommend two or three carefully selected products instead of a long product list.',
-      'Because sizing has been a concern before, I suggest the size guide before recommending jackets.',
-    ],
-  },
-  {
-    id: 'waterproof',
-    type: 'product',
-    title: 'Water-resistant vs Waterproof',
-    notes: [
-      'When customers ask whether a jacket is waterproof, explain the difference early.',
-      'Water-resistant means suitable for light rain.',
-      'Waterproof means designed for prolonged exposure to water.',
-      'This helps customers choose the right product without expecting more protection than the jacket provides.',
-    ],
-  },
-  {
-    id: 'returns',
-    type: 'business',
-    title: 'Returns',
-    notes: [
-      'Customers need clear, calm explanations about whether an item can be returned or exchanged.',
-      'When the customer ordered the wrong item, first check whether an exchange would solve the problem.',
-      'If the item arrived damaged or defective, treat it as a service problem, not a customer mistake.',
-    ],
-  },
-  {
-    id: 'gift-shoppers',
-    type: 'experience',
-    title: 'Gift shoppers',
-    notes: [
-      'Gift shoppers care most about delivery timing and whether the item feels appropriate for the recipient.',
-      'Complete outfit or matching-product ideas help gift shoppers decide faster.',
-      'Ask about occasion, recipient style, and deadline before recommending products.',
-    ],
-  },
-];
+function formatDateTime(value: string) {
+  const date = new Date(value);
 
-function searchEmmaMemory(question: string): MemoryEntry {
-  const normalized = question.toLowerCase();
-
-  if (normalized.includes('waterproof') || normalized.includes('water-resistant')) {
-    return MEMORY.find((entry) => entry.id === 'waterproof')!;
+  if (Number.isNaN(date.getTime())) {
+    return '';
   }
 
-  if (normalized.includes('return') || normalized.includes('exchange')) {
-    return MEMORY.find((entry) => entry.id === 'returns')!;
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function sourceLabel(source: string) {
+  if (source === 'manual_memory') {
+    return 'Added manually';
   }
 
-  if (normalized.includes('gift')) {
-    return MEMORY.find((entry) => entry.id === 'gift-shoppers')!;
+  if (source === 'merchant_coaching') {
+    return 'Coaching';
   }
 
-  return MEMORY.find((entry) => entry.id === 'michael')!;
+  return 'Memory';
 }
 
 export default function MemoryPage() {
   const { assistantName } = useAssistantIdentity();
-  const [question, setQuestion] = useState('');
-  const [entry, setEntry] = useState<MemoryEntry | null>(null);
-  const [lastQuestion, setLastQuestion] = useState('');
 
-  function askEmma() {
-    const text = question.trim();
-    if (!text) return;
+  const safeAssistantName =
+    String(assistantName || '').trim() || 'Your assistant';
 
-    setLastQuestion(text);
-    setEntry(searchEmmaMemory(text));
+  const [items, setItems] = useState<MemoryItem[]>([]);
+  const [search, setSearch] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+
+  const [saving, setSaving] = useState(false);
+  const NOTES_STEP = 5;
+
+  const [visibleNoteCount, setVisibleNoteCount] =
+  useState(NOTES_STEP);
+
+  async function loadMemory() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/assistant/memory', {
+        cache: 'no-store',
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not load notebook.',
+        );
+      }
+
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (err: any) {
+      setError(
+        err?.message || 'Could not load notebook.',
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function useSuggestion(text: string) {
-    setQuestion(text);
-    setLastQuestion(text);
-    setEntry(searchEmmaMemory(text));
+  useEffect(() => {
+    loadMemory();
+  }, []);
+
+  useEffect(() => {
+  setVisibleNoteCount(NOTES_STEP);
+  }, [search]);
+
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return items;
+    }
+
+    return items.filter((item) => {
+      const text = [
+        item.instruction,
+        item.summary || '',
+        sourceLabel(item.source),
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return text.includes(query);
+    });
+  }, [items, search]);
+
+  const visibleItems = filteredItems.slice(
+  0,
+  visibleNoteCount
+);
+
+const hasMoreNotes =
+  visibleNoteCount < filteredItems.length;
+
+const showingMoreThanDefault =
+  visibleNoteCount > NOTES_STEP;
+
+
+
+  function startEditing(item: MemoryItem) {
+    setEditingId(item.id);
+    setEditingText(item.instruction);
+    setError('');
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditingText('');
+  }
+
+  async function saveEdit(id: string) {
+    const instruction = editingText.trim();
+
+    if (!instruction || saving) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/assistant/memory', {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          instruction,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok || !data?.item) {
+        throw new Error(
+          data?.error || 'Could not update note.',
+        );
+      }
+
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id ? data.item : item,
+        ),
+      );
+
+      cancelEditing();
+    } catch (err: any) {
+      setError(
+        err?.message || 'Could not update note.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteNote(id: string) {
+    const confirmed = window.confirm(
+      'Remove this note from your assistant’s memory?',
+    );
+
+    if (!confirmed || saving) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/assistant/memory', {
+        method: 'DELETE',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not remove note.',
+        );
+      }
+
+      setItems((current) =>
+        current.filter((item) => item.id !== id),
+      );
+    } catch (err: any) {
+      setError(
+        err?.message || 'Could not remove note.',
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="db-container">
       <MobilePageHeader
-  title="Memory"
-  rightAction={<AssistantSectionMenu />}
-/>
+        title="Memory"
+        rightAction={<AssistantSectionMenu />}
+      />
 
       <div className="db-pageStack mem-page">
 <div className="assistant-sectionPageHeader">
   <div>
-    <h1 className="db-title">Memory</h1>
-    <p className="db-sub">{assistantName}&apos;s Notebook</p>
+    <h1 className="db-title">
+      {safeAssistantName}&apos;s Notebook
+    </h1>
+
+    <p className="db-sub">
+      Everything {safeAssistantName} has permanently learned
+      from your coaching.
+    </p>
   </div>
 
-  <div className="assistant-sectionDesktopSwitcher">
-    <AssistantSectionMenu />
+  <div className="mem-headerRight">
+    <span className="mem-count">
+      {items.length} {items.length === 1 ? 'note' : 'notes'}
+    </span>
+
+    <div className="assistant-sectionDesktopSwitcher">
+      <AssistantSectionMenu />
+    </div>
   </div>
 </div>
 
-        <section className="mem-searchHero">
-          <h2>Ask me anything I&apos;ve learned.</h2>
+<section className="mem-toolbar">
+  <div className="mem-searchWrap">
+    <span
+      className="mem-searchIcon"
+      aria-hidden="true"
+    >
+      ⌕
+    </span>
 
-          <div className="mem-searchRow">
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') askEmma();
-              }}
-              placeholder="What have you learned about..."
-            />
+    <input
+      type="search"
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder={`Search ${safeAssistantName}'s notebook...`}
+      aria-label="Search notebook"
+    />
+  </div>
+</section>
 
-            <button type="button" onClick={askEmma}>
-              Ask {assistantName}
-            </button>
-          </div>
 
-          <div className="mem-suggestions">
-            <button
-              type="button"
-              onClick={() => useSuggestion('What do you remember about Michael?')}
-            >
-              Michael
-            </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                useSuggestion('What have you learned about waterproof jackets?')
-              }
-            >
-              Waterproof jackets
-            </button>
+{!loading && filteredItems.length > 0 ? (
+  <div className="mem-learningHeading">
+    {search.trim() ? 'Search results' : 'Latest learning'}
+  </div>
+) : null}
 
-            <button
-              type="button"
-              onClick={() => useSuggestion('How do we usually explain returns?')}
-            >
-              Returns
-            </button>
+        {error ? (
+          <div className="mem-error">{error}</div>
+        ) : null}
 
-            <button
-              type="button"
-              onClick={() => useSuggestion('What have you learned about gift shoppers?')}
-            >
-              Gift shoppers
-            </button>
-          </div>
-        </section>
-
-        {entry ? (
-          <section className="mem-answer">
-            <div className="mem-answerCard">
-              <div className="mem-answerTop">
-                <div className="mem-answerIcon">📖</div>
-                <div>
-                  <span>{entry.type}</span>
-                  <h2>{entry.title}</h2>
-                </div>
-              </div>
-
-              <h3>Here&apos;s what I remember.</h3>
-
-              <div className="mem-answerList">
-                {entry.notes.map((note) => (
-                  <p key={note}>{note}</p>
-                ))}
-              </div>
-              <p className="mem-footer">
-  Built from customer conversations, mentoring, and experience.
-</p>
-            </div>
+        {loading ? (
+          <section className="mem-empty">
+            <div className="mem-emptyIcon">📓</div>
+            <h2>Opening notebook…</h2>
           </section>
         ) : null}
+
+        {!loading && items.length === 0 ? (
+          <section className="mem-empty">
+            <div className="mem-emptyIcon">📓</div>
+
+<h2>
+  {safeAssistantName}&apos;s notebook is empty.
+</h2>
+
+<p>
+  Coach {safeAssistantName} in Test &amp; Coach or while
+  reviewing customer conversations. Learned notes will
+  appear here automatically.
+</p>
+          </section>
+        ) : null}
+
+        {!loading &&
+        items.length > 0 &&
+        filteredItems.length === 0 ? (
+          <section className="mem-empty">
+            <h2>No matching notes</h2>
+            <p>
+              Try a different keyword.
+            </p>
+          </section>
+        ) : null}
+
+        {!loading && filteredItems.length > 0 ? (
+          <div className="mem-list">
+            {visibleItems.map((item) => {
+              const editing = editingId === item.id;
+
+              return (
+                <section
+                  key={item.id}
+                  className="mem-note"
+                >
+                  <div className="mem-noteMeta">
+                    {formatDateTime(item.createdAt)}
+                    {' · '}
+                    {sourceLabel(item.source)}
+                  </div>
+
+                  {editing ? (
+                    <>
+                      <textarea
+                        value={editingText}
+                        onChange={(e) =>
+                          setEditingText(e.target.value)
+                        }
+                        rows={4}
+                        autoFocus
+                      />
+
+                      <div className="mem-noteActions">
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          disabled={saving}
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          type="button"
+                          className="is-primary"
+                          onClick={() => saveEdit(item.id)}
+                          disabled={
+                            !editingText.trim() || saving
+                          }
+                        >
+                          {saving ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mem-noteText">
+                        {item.instruction}
+                      </p>
+
+                      <div className="mem-noteActions">
+                        <button
+                          type="button"
+                          onClick={() => startEditing(item)}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          className="is-delete"
+                          onClick={() => deleteNote(item.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
+
+       {!loading &&
+filteredItems.length > NOTES_STEP ? (
+  <div className="mem-revealActions">
+    {hasMoreNotes ? (
+      <button
+        type="button"
+        onClick={() =>
+          setVisibleNoteCount((current) =>
+            Math.min(
+              current + NOTES_STEP,
+              filteredItems.length
+            )
+          )
+        }
+      >
+        {`Show ${Math.min(
+  NOTES_STEP,
+  filteredItems.length - visibleNoteCount
+)} more`}
+      </button>
+    ) : null}
+
+    {showingMoreThanDefault ? (
+      <button
+        type="button"
+        onClick={() =>
+          setVisibleNoteCount(NOTES_STEP)
+        }
+      >
+        Show fewer
+      </button>
+    ) : null}
+  </div>
+) : null}
       </div>
 
-      <style jsx>{`
-        .mem-page {
-          max-width: 760px;
-          margin: 0 auto;
-        }
-
-        .mem-searchHero,
-        .mem-answerCard {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
-          border-radius: 20px;
-          padding: 18px;
-          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
-        }
-
-        .mem-searchHero {
-          display: grid;
-          gap: 14px;
-        }
-
-        .mem-searchHero h2 {
-          margin: 0;
-          color: #111827;
-          font-size: 22px;
-          letter-spacing: -0.03em;
-        }
-
-        .mem-searchRow {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 10px;
-          align-items: center;
-        }
-
-        .mem-searchRow input {
-          width: 100%;
-          box-sizing: border-box;
-          border: 1px solid #d1d5db;
-          background: #ffffff;
-          border-radius: 999px;
-          padding: 13px 16px;
-          font-size: 14px;
-          color: #111827;
-          outline: none;
-        }
-
-        .mem-searchRow input:focus {
-          border-color: #111827;
-        }
-
-        .mem-searchRow button {
-          border: none;
-          background: #111827;
-          color: #ffffff;
-          border-radius: 999px;
-          padding: 13px 16px;
-          font-size: 14px;
-          font-weight: 900;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        .mem-suggestions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .mem-suggestions button {
-          border: 1px solid #e5e7eb;
-          background: #f8fafc;
-          color: #475569;
-          border-radius: 999px;
-          padding: 8px 10px;
-          font-size: 12px;
-          font-weight: 850;
-          cursor: pointer;
-        }
-
-        .mem-suggestions button:hover {
-          background: #ffffff;
-          color: #111827;
-          border-color: #cbd5e1;
-        }
-
-        .mem-answer {
-          display: grid;
-          gap: 8px;
-        }
-
-        .mem-query {
-          margin: 0 0 0 4px;
-          color: #64748b;
-          font-size: 13px;
-        }
-
-        .mem-answerCard {
-          display: grid;
-          gap: 14px;
-        }
-
-        .mem-answerTop {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .mem-answerIcon {
-          width: 42px;
-          height: 42px;
-          border-radius: 16px;
-          background: #f8fafc;
-          border: 1px solid #e5e7eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-        }
-
-        .mem-answerTop span {
-          display: block;
-          color: #94a3b8;
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: capitalize;
-        }
-
-        .mem-answerTop h2 {
-          margin: 2px 0 0;
-          color: #111827;
-          font-size: 22px;
-          letter-spacing: -0.03em;
-        }
-
-        .mem-answerCard h3 {
-          margin: 0;
-          color: #111827;
-          font-size: 17px;
-        }
-
-        .mem-answerList {
-          background: #f8fafc;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          padding: 14px;
-        }
-
-        .mem-answerList p {
-          margin: 0;
-          color: #111827;
-          font-size: 15px;
-          line-height: 1.65;
-        }
-
-        .mem-answerList p + p {
-          margin-top: 12px;
-        }
-
-.mem-footer {
-  margin: 0;
-  color: #9ca3af;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.assistant-sectionPageHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.assistant-sectionDesktopSwitcher {
-  flex: 0 0 auto;
-}
-
-@media (max-width: 900px) {
-  .assistant-sectionDesktopSwitcher {
-    display: none;
+<style jsx>{`
+  .mem-page {
+    max-width: 780px;
+    margin: 0 auto;
   }
+
+  .assistant-sectionPageHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .assistant-sectionDesktopSwitcher {
+    flex: 0 0 auto;
+  }
+
+  .mem-toolbar {
+    display: block;
+  }
+
+  .mem-searchWrap {
+    position: relative;
+  }
+
+  .mem-searchIcon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 18px;
+    pointer-events: none;
+  }
+
+  .mem-searchWrap input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 12px 14px 12px 40px;
+    color: #111827;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .mem-searchWrap input:focus {
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+  }
+
+  .mem-note,
+  .mem-empty {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+  }
+
+  .mem-empty h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 17px;
+  }
+
+  .mem-empty p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .mem-note textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    border: 1px solid #d1d5db;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 12px 14px;
+    color: #111827;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    outline: none;
+  }
+
+  .mem-note textarea:focus {
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+  }
+
+.mem-list {
+  display: grid;
+  gap: 6px;
 }
 
-        @media (max-width: 900px) {
-          .db-pageStack.mem-page {
-            padding: 0 12px 24px;
-          }
+.mem-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: none;
+}
 
-          .mem-searchRow {
-            grid-template-columns: 1fr;
-          }
+.mem-noteMeta {
+  margin-bottom: 4px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
+}
 
-          .mem-searchRow button {
-            width: 100%;
-          }
-        }
-      `}</style>
+.mem-noteText {
+  margin: 0;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.mem-noteActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.mem-noteActions button {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+  .mem-noteActions button:hover {
+    background: #f8fafc;
+    color: #111827;
+  }
+
+  .mem-noteActions button.is-primary {
+    background: #111827;
+    color: #ffffff;
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .mem-noteActions button.is-delete:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .mem-empty {
+    padding: 30px 20px;
+    text-align: center;
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+  }
+
+  .mem-emptyIcon {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 15px;
+    background: #f8fafc;
+    font-size: 22px;
+  }
+
+  .mem-error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .mem-headerRight {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+
+  .mem-count {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .mem-learningHeading {
+    margin-top: 18px;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .mem-revealActions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding-top: 2px;
+  }
+
+  .mem-revealActions button {
+    border: none;
+    background: transparent;
+    color: #475569;
+    padding: 7px 9px;
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .mem-revealActions button:hover {
+    color: #111827;
+    text-decoration: underline;
+  }
+
+  @media (max-width: 900px) {
+    .assistant-sectionDesktopSwitcher {
+      display: none;
+    }
+
+    .db-pageStack.mem-page {
+      padding: 0 12px 24px;
+    }
+
+    .mem-note {
+      padding: 14px;
+    }
+
+    .mem-headerRight {
+      align-items: flex-start;
+    }
+
+    .mem-count {
+      margin-top: 1px;
+    }
+  }
+`}</style>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 //. src/app/demo-product/[id]/page.tsx
 
 type DemoProductPageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 type DemoProduct = {
@@ -231,8 +231,11 @@ const DEMO_PRODUCTS: Record<string, DemoProduct> = {
   },
 };
 
-export default function DemoProductPage({ params }: DemoProductPageProps) {
-  const product = DEMO_PRODUCTS[params.id];
+export default async function DemoProductPage({
+  params,
+}: DemoProductPageProps) {
+  const { id } = await params;
+  const product = DEMO_PRODUCTS[id];
 
   if (!product) {
     return (

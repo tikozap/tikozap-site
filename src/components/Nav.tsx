@@ -26,6 +26,7 @@ const isStarterLinkHost =
 
 const hideGlobalNav =
   pathname?.startsWith('/dashboard') ||
+  pathname?.startsWith('/admin') ||
   pathname?.startsWith('/l/') ||
   isStarterLinkHost;
 
@@ -242,7 +243,7 @@ const hideGlobalNav =
           top: 4.5rem;
           right: 0;
           left: 2;
-          z-index: 35;
+          z-index: 60;
           display: flex;
           justify-content: flex-end;
           padding-right: 0rem;

@@ -175,13 +175,24 @@ return NextResponse.json(
         headers: { ...corsHeaders, "cache-control": "no-store" },
       }
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Server error" },
-      {
-        status: 500,
-        headers: { ...corsHeaders, "cache-control": "no-store" },
-      }
-    );
-  }
+} catch (e: any) {
+  console.error(
+    "[widget-public-thread] Failed to load conversation",
+    e
+  );
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Server error",
+    },
+    {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
 }

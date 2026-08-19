@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getAuthedUserAndTenant } from "@/lib/auth";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,17 @@ const VOICE_LIMIT_MAP: Record<string, number> = {
 };
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const auth = await getAuthedUserAndTenant();
 
@@ -28,6 +40,18 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+
+    if (auth.tenant.role !== 'owner') {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Owner access required.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
 
     const body = await req.json().catch(() => ({}));
     const pack = String(body.pack || "").toLowerCase();
@@ -71,9 +95,17 @@ export async function POST(req: Request) {
       url: session.url,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { ok: false, error: error?.message || "Voice checkout failed." },
-      { status: 500 }
-    );
+console.error(
+  '[stripe-voice-checkout] Failed:',
+  error?.message || error
+);
+
+return NextResponse.json(
+  {
+    ok: false,
+    error: "Voice checkout failed.",
+  },
+  { status: 500 }
+);
   }
 }

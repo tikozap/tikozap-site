@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { runTikoBrain } from "@/lib/brain";
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_MERCHANT_MESSAGE,
+} from "@/lib/tenantEntitlement";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -13,7 +18,18 @@ type Params = {
   }>;
 };
 
-export async function POST(_req: Request, { params }: Params) {
+export async function POST(req: Request, { params }: Params) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const authed = await getAuthedUserAndTenant();
 
@@ -23,6 +39,21 @@ export async function POST(_req: Request, { params }: Params) {
         { status: 401 }
       );
     }
+
+const entitlement = await getTenantEntitlement(
+  authed.tenant.id
+);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: "TRIAL_EXPIRED",
+      error: TRIAL_PAUSED_MERCHANT_MESSAGE,
+    },
+    { status: 402 }
+  );
+}
 
     const { id } = await params;
 
@@ -92,7 +123,7 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Could not generate draft",
+        error: "Could not generate draft",
       },
       { status: 500 }
     );

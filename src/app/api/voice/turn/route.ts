@@ -85,10 +85,16 @@ function verifyTwilioSignature(opts: { req: Request; rawBody: string; form: URLS
   return false;
 }
 
-function verifyWebhook(opts: { req: Request; rawBody: string; form: URLSearchParams | null }) {
+function verifyWebhook(opts: {
+  req: Request;
+  rawBody: string;
+  form: URLSearchParams | null;
+}) {
   const url = new URL(opts.req.url);
-  const secretConfigured = process.env.TWILIO_WEBHOOK_SECRET?.trim() || '';
-  const tokenConfigured = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
+  const secretConfigured =
+    process.env.TWILIO_WEBHOOK_SECRET?.trim() || '';
+  const tokenConfigured =
+    process.env.TWILIO_AUTH_TOKEN?.trim() || '';
 
   const secretCandidate =
     opts.req.headers.get('x-tikozap-webhook-secret') ||
@@ -96,20 +102,50 @@ function verifyWebhook(opts: { req: Request; rawBody: string; form: URLSearchPar
     url.searchParams.get('secret') ||
     '';
 
-  const secretOk = !!secretConfigured && !!secretCandidate && safeEquals(secretCandidate, secretConfigured);
-  if (secretOk) return { ok: true as const, mode: 'secret' as const };
+  const secretOk =
+    !!secretConfigured &&
+    !!secretCandidate &&
+    safeEquals(secretCandidate, secretConfigured);
 
-  const twilioSigOk = verifyTwilioSignature(opts);
-  if (twilioSigOk) return { ok: true as const, mode: 'twilio_signature' as const };
-
-  if (secretConfigured || tokenConfigured) {
-    return { ok: false as const, mode: 'unverified' as const, error: 'Webhook verification failed.' };
+  if (secretOk) {
+    return {
+      ok: true as const,
+      mode: 'secret' as const,
+    };
   }
 
-  // dev-only allow if nothing configured
-  return { ok: true as const, mode: 'unverified' as const };
-}
+  const twilioSigOk = verifyTwilioSignature(opts);
 
+  if (twilioSigOk) {
+    return {
+      ok: true as const,
+      mode: 'twilio_signature' as const,
+    };
+  }
+
+  if (secretConfigured || tokenConfigured) {
+    return {
+      ok: false as const,
+      mode: 'unverified' as const,
+      error: 'Webhook verification failed.',
+    };
+  }
+
+  // Never allow an unverified webhook in production.
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      ok: false as const,
+      mode: 'unverified' as const,
+      error: 'Webhook verification is not configured.',
+    };
+  }
+
+  // Local development only.
+  return {
+    ok: true as const,
+    mode: 'unverified' as const,
+  };
+}
 /* ───────── tiny helpers ───────── */
 
 async function addMsg(conversationId: string, role: string, content: string) {

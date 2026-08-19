@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 import "./admin-tenants.css";
+import { getUserId } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,98 @@ type PageProps = {
     showArchived?: string;
   }>;
 };
+
+function formatDate(value: Date | null | undefined) {
+  if (!value) return "—";
+
+  return new Date(value).toLocaleDateString("en-US");
+}
+
+function getTenantLifecycle(tenant: {
+  isDeleted: boolean;
+  trialEndsAt: Date | null;
+  stripeSubscriptionId: string | null;
+  stripeCancelAtPeriodEnd: boolean;
+  stripeCurrentPeriodEnd: Date | null;
+  billingStatus: string | null;
+  billingInterval: string;
+}) {
+  if (tenant.isDeleted) {
+    return {
+      planLabel: null,
+      billing: "None",
+      renews: tenant.stripeCurrentPeriodEnd,
+      status: "Archived",
+      statusClass: "archived",
+    };
+  }
+
+  const now = new Date();
+
+  const hasSubscription =
+    Boolean(tenant.stripeSubscriptionId);
+
+  const trialExpired =
+    Boolean(tenant.trialEndsAt) &&
+    tenant.trialEndsAt!.getTime() <= now.getTime();
+
+  if (!hasSubscription && tenant.trialEndsAt) {
+    return {
+      planLabel: "14-day Trial",
+      billing: "Trial",
+      renews: tenant.trialEndsAt,
+      status: trialExpired ? "Expired" : "Trialing",
+      statusClass: trialExpired ? "expired" : "trialing",
+    };
+  }
+
+  if (tenant.stripeCancelAtPeriodEnd) {
+    return {
+      planLabel: null,
+      billing: tenant.billingInterval === "annual"
+        ? "Annual"
+        : "Monthly",
+      renews: tenant.stripeCurrentPeriodEnd,
+      status: "Cancelled",
+      statusClass: "cancelled",
+    };
+  }
+
+  if (
+    tenant.billingStatus === "past_due" ||
+    tenant.billingStatus === "unpaid"
+  ) {
+    return {
+      planLabel: null,
+      billing: tenant.billingInterval === "annual"
+        ? "Annual"
+        : "Monthly",
+      renews: tenant.stripeCurrentPeriodEnd,
+      status: "Past due",
+      statusClass: "past-due",
+    };
+  }
+
+  return {
+    planLabel: null,
+    billing: hasSubscription
+      ? tenant.billingInterval === "annual"
+        ? "Annual"
+        : "Monthly"
+      : "None",
+    renews: tenant.stripeCurrentPeriodEnd,
+    status:
+      tenant.billingStatus === "active" ||
+      tenant.billingStatus === "trialing"
+        ? "Active"
+        : "Paused",
+    statusClass:
+      tenant.billingStatus === "active" ||
+      tenant.billingStatus === "trialing"
+        ? "active"
+        : "paused",
+  };
+}
 
 function formatVoicePack(value: string | null) {
   if (!value) return null;
@@ -31,11 +124,17 @@ function formatVoicePack(value: string | null) {
 export default async function AdminTenantsPage({
   searchParams,
 }: PageProps) {
-  const admin = await requireAdmin();
+const userId = await getUserId();
 
-  if (!admin) {
-    redirect("/dashboard");
-  }
+if (!userId) {
+  redirect('/login');
+}
+
+const admin = await requireAdmin();
+
+if (!admin) {
+  redirect('/dashboard');
+}
 
   const params = await searchParams;
   const q = (params?.q || "").trim();
@@ -114,21 +213,28 @@ export default async function AdminTenantsPage({
 
   return (
     <main className="adminPage">
-      <div className="adminHeader">
-        <div>
-          <p className="adminEyebrow">
-            TikoZap Internal
-          </p>
+<div className="adminHeader">
+  <div>
+    <p className="adminEyebrow">
+      TikoZap Internal
+    </p>
 
-          <h1>Admin Console</h1>
+    <h1>Tenants</h1>
 
-          <p className="adminSub">
-            Manage merchant accounts, builders,
-            channels, Voice, Phone Agent, plans, and
-            account status.
-          </p>
-        </div>
-      </div>
+    <p className="adminSub">
+      Manage merchant accounts, builders,
+      channels, Voice, Phone Agent, plans, and
+      account status.
+    </p>
+  </div>
+
+  <Link
+    href="/admin"
+    className="adminBack"
+  >
+    ← Admin Console
+  </Link>
+</div>
 
       <section className="adminCard">
         <div className="adminToolbar">
@@ -176,21 +282,23 @@ export default async function AdminTenantsPage({
         <div className="adminTableWrap">
           <table className="adminTable">
             <thead>
-              <tr>
-                <th>Account</th>
-                <th>Owner</th>
-                <th>Builder</th>
-                <th>Slug</th>
-                <th>Plan</th>
-                <th>Channels</th>
-                <th>Voice</th>
-                <th>Phone Agent</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th className="right">
-                  Action
-                </th>
-              </tr>
+<tr>
+  <th>Business</th>
+  <th>Email</th>
+  <th>Owner</th>
+  <th>Website</th>
+  <th>Plan</th>
+  <th>Billing</th>
+  <th>Renews</th>
+  <th>Status</th>
+  <th>Widget</th>
+  <th>Voice</th>
+  <th>Phone</th>
+  <th>Created</th>
+  <th className="right">
+    Archive
+  </th>
+</tr>
             </thead>
 
             <tbody>
@@ -205,9 +313,9 @@ export default async function AdminTenantsPage({
                     tenant.starterLinkSlug,
                   );
 
-                const channels =
-                  hasWidget && hasStarterLink
-                    ? "Widget / Link"
+const channels =
+  hasWidget && hasStarterLink
+    ? "Widget + Link"
                     : hasWidget
                       ? "Widget"
                       : hasStarterLink
@@ -238,101 +346,98 @@ const voice =
     ? "Enabled"
     : "20/day");
 
-                const phoneAgent =
-                  tenant.phoneAgentSettings
-                    ? "Setup"
-                    : "Off";
+const phoneAgent =
+  tenant.phoneAgentSettings
+    ? "On"
+    : "Off";
+
+const lifecycle = getTenantLifecycle(tenant);
 
                 return (
                   <tr key={tenant.id}>
-                    {/* Account */}
-                    <td>
-                      <strong>
-                        {tenant.storeName ||
-                          "Unnamed Store"}
-                      </strong>
+{/* Business */}
+<td>
+  <strong>
+    {tenant.storeName || "Unnamed Store"}
+  </strong>
+</td>
 
-                      <div className="muted">
-                        {tenant.id}
-                      </div>
-                    </td>
+{/* Email */}
+<td>
+  {tenant.owner?.email || "—"}
+</td>
 
-                    {/* Owner */}
-                    <td>
-                      {tenant.owner?.email ||
-                        "—"}
-                    </td>
+{/* Owner */}
+<td>
+  {tenant.owner?.name || "—"}
+</td>
 
-                    {/* Builder */}
-                    <td>
-                      <span
-                        className={`builder builder-${builder
-                          .toLowerCase()
-                          .replace(/\s+/g, "-")}`}
-                      >
-                        {builder}
-                      </span>
+{/* Website */}
+<td>
+  {tenant.websiteUrl ? (
+    <>
+      <div className="adminUrl">
+        {tenant.websiteUrl}
+      </div>
 
-                      {shopifyConnected ? (
-                        <div className="muted">
-                          {
-                            tenant
-                              .shopifyConnection
-                              ?.shopDomain
-                          }
-                        </div>
-                      ) : tenant.websiteUrl ? (
-                        <div className="muted adminUrl">
-                          {tenant.websiteUrl}
-                        </div>
-                      ) : null}
-                    </td>
+      <div className="muted">
+        {shopifyConnected
+          ? "Shopify"
+          : "Website"}
+      </div>
+    </>
+  ) : (
+    <span className="muted">—</span>
+  )}
+</td>
 
-                    {/* Slug */}
-                    <td>
-                      <div>
-                        {tenant.slug || "—"}
-                      </div>
+{/* Plan */}
+<td>
+  <span className="pill">
+    {lifecycle.planLabel ||
+      tenant.billingPlan ||
+      "No plan"}
+  </span>
+</td>
 
-                      {hasStarterLink &&
-                      tenant.starterLinkSlug ? (
-                        <div className="muted">
-                          /l/
-                          {
-                            tenant.starterLinkSlug
-                          }
-                        </div>
-                      ) : null}
-                    </td>
+{/* Billing */}
+<td>
+  {lifecycle.billing}
+</td>
 
-                    {/* Plan */}
-                    <td>
-                      <span className="pill">
-                        {tenant.billingPlan ||
-                          "No plan"}
-                      </span>
+{/* Renews */}
+<td>
+  {formatDate(lifecycle.renews)}
+</td>
 
-                      {tenant.billingStatus ? (
-                        <div className="muted">
-                          {
-                            tenant.billingStatus
-                          }
-                        </div>
-                      ) : null}
-                    </td>
+{/* Status */}
+<td>
+  <span
+    className={`status ${lifecycle.statusClass}`}
+  >
+    {lifecycle.status}
+  </span>
+</td>
 
-                    {/* Channels */}
-                    <td>
-                      <span
-                        className={
-                          channels === "—"
-                            ? "featureBadge off"
-                            : "featureBadge channelBadge"
-                        }
-                      >
-                        {channels}
-                      </span>
-                    </td>
+{/* Widget */}
+<td>
+  <span
+    className={
+      channels === "—"
+        ? "featureBadge off"
+        : "featureBadge channelBadge"
+    }
+  >
+    {channels}
+  </span>
+
+  {hasStarterLink &&
+  tenant.starterLinkSlug ? (
+    <div className="muted">
+      /l/{tenant.starterLinkSlug}
+    </div>
+  ) : null}
+</td>
 
                     {/* Voice */}
                     <td>
@@ -365,26 +470,13 @@ className={
                     <td>
                       <span
                         className={
-                          phoneAgent === "Setup"
+                          phoneAgent === "On"
                             ? "featureBadge phone"
                             : "featureBadge off"
                         }
                       >
                         {phoneAgent}
                       </span>
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      {tenant.isDeleted ? (
-                        <span className="status archived">
-                          Archived
-                        </span>
-                      ) : (
-                        <span className="status active">
-                          Active
-                        </span>
-                      )}
                     </td>
 
                     {/* Created */}
@@ -431,7 +523,7 @@ className={
               {tenants.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={13}
                     className="empty"
                   >
                     No merchants found.

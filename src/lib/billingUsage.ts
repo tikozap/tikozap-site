@@ -1,8 +1,11 @@
 // src/lib/billingUsage.ts
 
 import 'server-only';
-
 import { prisma } from '@/lib/prisma';
+import {
+  getTenantEntitlement,
+  type TenantEntitlement,
+} from '@/lib/tenantEntitlement';
 
 export const PLAN_LIMITS = {
   starter: 1000,
@@ -152,12 +155,37 @@ export async function canCreateConversationForTenant(
   tenantId: string
 ): Promise<{
   ok: boolean;
+  reason: 'ALLOWED' | 'TRIAL_EXPIRED' | 'CONVERSATION_LIMIT_REACHED';
   usage: BillingUsageSummary;
+  entitlement: TenantEntitlement;
 }> {
-  const usage = await getTenantBillingUsage(tenantId);
+  const [usage, entitlement] = await Promise.all([
+    getTenantBillingUsage(tenantId),
+    getTenantEntitlement(tenantId),
+  ]);
+
+  if (!entitlement.ok) {
+    return {
+      ok: false,
+      reason: 'TRIAL_EXPIRED',
+      usage,
+      entitlement,
+    };
+  }
+
+  if (usage.isOverLimit) {
+    return {
+      ok: false,
+      reason: 'CONVERSATION_LIMIT_REACHED',
+      usage,
+      entitlement,
+    };
+  }
 
   return {
-    ok: !usage.isOverLimit,
+    ok: true,
+    reason: 'ALLOWED',
     usage,
+    entitlement,
   };
 }

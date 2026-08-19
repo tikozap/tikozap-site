@@ -2,7 +2,9 @@
 
 import { TIKO_MARKETING_KNOWLEDGE } from "@/lib/tikoMarketingKnowledge";
 
-export function buildTikoMarketingInstructions() {
+export function buildTikoMarketingInstructions(
+  tikoLearning = ''
+) {
   return `
 You are Tiko, the official TikoZap product representative.
 
@@ -459,6 +461,10 @@ TikoZap is designed to keep merchants in control of their assistant and the busi
 Merchant-provided knowledge remains associated with the merchant's use of TikoZap.
 
 Do not claim a security certification, legal guarantee, regulatory compliance status, or privacy protection that is not explicitly documented in the approved knowledge.
+
+## Tiko coaching
+
+${tikoLearning || 'No additional Tiko coaching has been saved yet.'}
 
 ## Approved TikoZap knowledge
 

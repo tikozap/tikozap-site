@@ -3121,3 +3121,27 @@ textarea{
   width:13px;
   height:13px;
 }
+
+/* Final Inbox action alignment after removing Close */
+@media (min-width: 901px) {
+  .cx-threadActionsGrid,
+  .cx-topThreadActions {
+    grid-template-columns: max-content max-content !important;
+    justify-content: end !important;
+    justify-self: end !important;
+    gap: 6px !important;
+  }
+
+  .cx-threadActionsGrid > .db-btn,
+  .cx-topThreadActions > .db-btn {
+    width: auto !important;
+    min-width: 86px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo {
+    grid-column: 1 / -1 !important;
+    justify-self: end !important;
+  }
+}

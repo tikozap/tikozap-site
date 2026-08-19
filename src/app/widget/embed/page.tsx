@@ -2,28 +2,30 @@
 
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import StarterLinkAssistant from "@/app/l/[slug]/_components/StarterLinkAssistant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function WidgetEmbedPage({
-  searchParams,
-}: {
-  searchParams: {
-    key?: string;
-    name?: string;
-    assistantIdentity?: string;
-    brandColor?: string;
-    greeting?: string;
-  };
-}) {
-  const publicKey = searchParams.key || "";
-  const assistantName = searchParams.name || "Store Assistant";
-  const assistantIdentity = searchParams.assistantIdentity || "Female";
-  const brandColor = searchParams.brandColor || "#111827";
+function WidgetEmbedContent() {
+  const searchParams = useSearchParams();
+
+  const publicKey =
+    searchParams.get("key") || "";
+
+  const assistantName =
+    searchParams.get("name") || "Store Assistant";
+
+  const assistantIdentity =
+    searchParams.get("assistantIdentity") || "Female";
+
+  const brandColor =
+    searchParams.get("brandColor") || "#111827";
+
   const greeting =
-    searchParams.greeting ||
+    searchParams.get("greeting") ||
     "Hi! I can help with products, order tracking, shipping, and returns.";
 
   return (
@@ -59,19 +61,23 @@ export default function WidgetEmbedPage({
     overflow: hidden !important;
   }
 
-  .tz-widget-embed {
-    position: fixed;
-    inset: 0;
+.tz-widget-embed {
+  position: fixed;
+  inset: 0;
 
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 
-    background: transparent;
-    overflow: hidden;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: transparent;
+  overflow: hidden;
+}
 
   .tz-widget-embed .sl-assistantPanel {
     display: flex !important;
@@ -157,5 +163,13 @@ export default function WidgetEmbedPage({
   }
 `}</style>
     </div>
+  );
+}
+
+export default function WidgetEmbedPage() {
+  return (
+    <Suspense fallback={null}>
+      <WidgetEmbedContent />
+    </Suspense>
   );
 }

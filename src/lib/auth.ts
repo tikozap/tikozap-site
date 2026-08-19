@@ -9,16 +9,17 @@ type AuthedUserAndTenant = {
     email: string | null;
     name: string | null;
   };
-  tenant: {
-    id: string;
-    slug: string | null;
-    storeName: string | null;
-    billingPlan: string | null;
-    billingStatus: string | null;
-    billingInterval: string | null;
-    starterLinkSlug: string | null;
-    starterLinkEnabled: boolean | null;
-  };
+tenant: {
+  id: string;
+  slug: string | null;
+  storeName: string | null;
+  billingPlan: string | null;
+  billingStatus: string | null;
+  billingInterval: string | null;
+  starterLinkSlug: string | null;
+  starterLinkEnabled: boolean | null;
+  role: 'owner' | 'staff';
+};
 };
 
 export async function getUserId(): Promise<string | null> {
@@ -81,21 +82,35 @@ export async function getAuthedUserAndTenant(): Promise<AuthedUserAndTenant | nu
 
   if (!tenant) return null;
 
+  const isOwner = ownedTenants.some(
+  (ownedTenant) => ownedTenant.id === tenant.id
+);
+
+const membership = session.user.memberships.find(
+  (m) => m.tenantId === tenant.id
+);
+
+const role: 'owner' | 'staff' =
+  isOwner || membership?.role === 'owner'
+    ? 'owner'
+    : 'staff';
+
   return {
     user: {
       id: session.user.id,
       email: session.user.email,
       name: session.user.name,
     },
-    tenant: {
-      id: tenant.id,
-      slug: tenant.slug,
-      storeName: tenant.storeName,
-      billingPlan: tenant.billingPlan,
-      billingStatus: tenant.billingStatus,
-      billingInterval: tenant.billingInterval,
-      starterLinkSlug: tenant.starterLinkSlug,
-      starterLinkEnabled: tenant.starterLinkEnabled,
-    },
+tenant: {
+  id: tenant.id,
+  slug: tenant.slug,
+  storeName: tenant.storeName,
+  billingPlan: tenant.billingPlan,
+  billingStatus: tenant.billingStatus,
+  billingInterval: tenant.billingInterval,
+  starterLinkSlug: tenant.starterLinkSlug,
+  starterLinkEnabled: tenant.starterLinkEnabled,
+  role,
+},
   };
 }

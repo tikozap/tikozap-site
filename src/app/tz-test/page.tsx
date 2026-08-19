@@ -35,8 +35,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function TzTestPage() {
-    const auth = await getAuthedUserAndTenant();
-  if (!auth?.tenant?.id) redirect("/login");
+  const auth = await getAuthedUserAndTenant();
+
+  if (!auth?.tenant?.id) {
+    redirect("/login");
+  }
+
+  const isInternalTestAccount =
+    auth.user.email?.trim().toLowerCase() === "founder@tikozap.com";
+
+  if (!isInternalTestAccount) {
+    redirect("/dashboard/widget");
+  }
 
   const widget = await prisma.widget.findUnique({
     where: { tenantId: auth.tenant.id },

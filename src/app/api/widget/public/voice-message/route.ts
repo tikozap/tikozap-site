@@ -6,6 +6,10 @@ import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rateLimit";
 import { canCreateConversationForTenant } from "@/lib/billingUsage";
 import { incrementVoiceUsage } from "@/lib/voiceUsage";
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_VISITOR_MESSAGE,
+} from "@/lib/tenantEntitlement";
 
 export const runtime = "nodejs";
 
@@ -91,6 +95,21 @@ export async function POST(req: Request) {
     );
   }
 
+const entitlement = await getTenantEntitlement(widget.tenantId);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: "TRIAL_EXPIRED",
+      error: TRIAL_PAUSED_VISITOR_MESSAGE,
+    },
+    {
+      status: 402,
+    }
+  );
+}
+
   let convo =
     conversationId
       ? await prisma.conversation.findFirst({
@@ -105,16 +124,21 @@ export async function POST(req: Request) {
     if (!convo) {
     const billing = await canCreateConversationForTenant(widget.tenantId);
 
-    if (!billing.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "This store has reached its monthly conversation limit.",
-          usage: billing.usage,
-        },
-        { status: 402 }
-      );
+if (!billing.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: billing.reason,
+      error:
+        billing.reason === "TRIAL_EXPIRED"
+          ? TRIAL_PAUSED_VISITOR_MESSAGE
+          : "This store has reached its monthly conversation limit.",
+    },
+    {
+      status: 402,
     }
+  );
+}
 
     convo = await prisma.conversation.create({
       data: {

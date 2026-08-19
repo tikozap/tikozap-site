@@ -7,6 +7,10 @@ import { runTikoBrain } from "@/lib/brain";
 import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rateLimit";
 import { canCreateConversationForTenant } from "@/lib/billingUsage";
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_VISITOR_MESSAGE,
+} from "@/lib/tenantEntitlement";
 
 export const runtime = "nodejs";
 
@@ -168,6 +172,19 @@ export async function POST(req: Request) {
       );
     }
 
+    if (text.length > 4000) {
+  return NextResponse.json(
+    { ok: false, error: "Message is too long." },
+    {
+      status: 400,
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
     const widget = await prisma.widget.findFirst({
       where: {
         publicKey: key,
@@ -201,6 +218,25 @@ select: {
       );
     }
 
+const entitlement = await getTenantEntitlement(widget.tenantId);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: "TRIAL_EXPIRED",
+      error: TRIAL_PAUSED_VISITOR_MESSAGE,
+    },
+    {
+      status: 402,
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
     let conversation =
       clientConversationId
         ? await prisma.conversation.findFirst({
@@ -221,19 +257,25 @@ select: {
         if (!conversation) {
       const billing = await canCreateConversationForTenant(widget.tenantId);
 
-      if (!billing.ok) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "This store has reached its monthly conversation limit.",
-            usage: billing.usage,
-          },
-          {
-            status: 402,
-            headers: { ...corsHeaders, "cache-control": "no-store" },
-          }
-        );
-      }
+if (!billing.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: billing.reason,
+      error:
+        billing.reason === "TRIAL_EXPIRED"
+          ? TRIAL_PAUSED_VISITOR_MESSAGE
+          : "This store has reached its monthly conversation limit.",
+    },
+    {
+      status: 402,
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
 
       conversation = await prisma.conversation.create({
         data: {
@@ -290,7 +332,7 @@ const serverHistory: ChatMessage[] = previousMessages
       },
     });
 
-console.log("[TikoZap wantsHuman]", text, wantsHuman(text));
+
 if (wantsHuman(text)) {
 
   // Customer already waiting for human earlier.
@@ -419,15 +461,21 @@ await prisma.message.create({
         headers: { ...corsHeaders, "cache-control": "no-store" },
       }
     );
-  } catch (error: any) {
-    console.error("PUBLIC_WIDGET_MESSAGE_FATAL", error);
+} catch (error: any) {
+  console.error("PUBLIC_WIDGET_MESSAGE_FATAL", error);
 
-    return NextResponse.json(
-      { ok: false, error: error?.message || "Server error" },
-      {
-        status: 500,
-        headers: { ...corsHeaders, "cache-control": "no-store" },
-      }
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Server error",
+    },
+    {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
 }

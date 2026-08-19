@@ -71,6 +71,14 @@ model Tenant {
   settingsJson          String?
   onboardingCompletedAt DateTime?
 
+  trialStartedAt DateTime?
+  trialEndsAt    DateTime?
+
+  trialReminder7SentAt     DateTime?
+  trialReminder5SentAt     DateTime?
+  trialReminder1SentAt     DateTime?
+  trialExpiredEmailSentAt  DateTime?
+
   ownerId String
   owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
@@ -216,6 +224,22 @@ model AssistantLearning {
 
   @@index([tenantId, active])
   @@index([tenantId, createdAt])
+}
+
+model TikoLearning {
+  id String @id @default(cuid())
+
+  instruction String  @db.Text
+  summary     String? @db.Text
+
+  source String  @default("admin_coaching")
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@index([createdAt])
 }
 
 model EmmaObservation {

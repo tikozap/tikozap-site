@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +18,17 @@ const PRICE_MAP: Record<string, string | undefined> = {
 };
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const auth = await getAuthedUserAndTenant();
 
@@ -26,6 +38,18 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+
+    if (auth.tenant.role !== 'owner') {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Owner access required.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
 
     const body = await req.json().catch(() => ({}));
     const plan = String(body.plan || '').toLowerCase();
@@ -71,10 +95,15 @@ metadata: {
       url: session.url,
     });
   } catch (error: any) {
+    console.error(
+  '[stripe-checkout] Failed:',
+  error?.message || error
+);
+
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || 'Checkout failed.',
+        error: 'Checkout failed.',
       },
       { status: 500 }
     );

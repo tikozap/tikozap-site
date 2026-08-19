@@ -28,13 +28,23 @@ const nextLabel = isStarterLinkStore
       </div>
 
       <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <ul className="mt-3 grid gap-2 text-sm leading-6 text-zinc-700">
-          <li>Install your website chat widget</li>
-          <li>Test your AI assistant in Inbox</li>
-          <li>Use Starter Link if you don&apos;t have a website</li>
-          <li>Teach your AI assistant how to help customers</li>
-          <li>Update settings anytime</li>
-        </ul>
+<ul className="mt-3 grid gap-2 text-sm leading-6 text-zinc-700">
+  {isStarterLinkStore ? (
+    <>
+      <li>Set up your Starter Link</li>
+      <li>Preview your public storefront</li>
+      <li>Start helping your customers</li>
+      <li>Update your settings anytime</li>
+    </>
+  ) : (
+    <>
+      <li>Install your website chat widget</li>
+      <li>Test your website widget</li>
+      <li>Start helping your customers</li>
+      <li>Update your settings anytime</li>
+    </>
+  )}
+</ul>
       </div>
 
       <label className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm">

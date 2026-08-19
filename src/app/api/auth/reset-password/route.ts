@@ -3,6 +3,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +17,24 @@ function hashPassword(password: string) {
 }
 
 export async function POST(req: Request) {
+  const rate = checkRateLimit(req, {
+  namespace: 'auth-reset-password',
+  limit: 10,
+  windowMs: 15 * 60_000,
+});
+
+if (!rate.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Too many reset attempts. Please try again later.',
+    },
+    {
+      status: 429,
+      headers: rateLimitHeaders(rate),
+    }
+  );
+}
   const body = await req.json().catch(() => ({}));
 
   const token = String(body.token || '').trim();

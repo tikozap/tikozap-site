@@ -108,9 +108,9 @@ export default function Page() {
       </section>
 
 <script
-  src="http://192.168.1.160:3000/widget.js"
+  src="https://app.tikozap.com/widget.js"
   data-tikozap-key="tz_1bf3625186119c6aabaa6df7621ea383"
-/>
+></script>
 
       <style jsx>{`
         .hero-paths {

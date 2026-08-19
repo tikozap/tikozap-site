@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const callSid = params.CallSid as string | undefined;
 
   if (!recordingUrl || !callSid) {
-    console.log("[recording-status] Missing required params:", { recordingUrl, callSid });
+    console.log("[recording-status] Missing required recording parameters");
     return NextResponse.json({ ok: true });
   }
 
@@ -58,8 +58,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const audioFetchUrl = `${recordingUrl}.mp3`;
-    console.log("[recording-status] Fetching audio from:", audioFetchUrl);
+const accountSid =
+  process.env.TWILIO_ACCOUNT_SID?.trim();
+
+if (!accountSid || !recordingSid) {
+  throw new Error(
+    "Twilio recording credentials are incomplete"
+  );
+}
+
+const audioFetchUrl =
+  `https://api.twilio.com/2010-04-01/Accounts/` +
+  `${encodeURIComponent(accountSid)}/Recordings/` +
+  `${encodeURIComponent(recordingSid)}.mp3`;
 
     const audioResponse = await fetch(audioFetchUrl, {
       headers: {
@@ -74,7 +85,26 @@ export async function POST(req: Request) {
       throw new Error(`Audio fetch failed: ${audioResponse.status} - ${errorText}`);
     }
 
-    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+    const MAX_AUDIO_BYTES = 24 * 1024 * 1024;
+
+const contentLength = Number(
+  audioResponse.headers.get("content-length") || "0"
+);
+
+if (
+  Number.isFinite(contentLength) &&
+  contentLength > MAX_AUDIO_BYTES
+) {
+  throw new Error("Voicemail recording is too large to transcribe");
+}
+
+    const audioBuffer = Buffer.from(
+  await audioResponse.arrayBuffer()
+);
+
+if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
+  throw new Error("Voicemail recording is too large to transcribe");
+}
     const file = await toFile(audioBuffer, `voicemail-${recordingSid || Date.now()}.mp3`, {
       type: "audio/mpeg",
     });
@@ -88,7 +118,7 @@ export async function POST(req: Request) {
     });
 
     const transcript = (transcription || "").trim();
-    console.log("[recording-status] Whisper transcription result:", transcript);
+    console.log("[recording-status] Transcription completed");
 
     if (!transcript) {
       throw new Error("Empty transcription result from Whisper");

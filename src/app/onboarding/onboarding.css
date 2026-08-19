@@ -348,7 +348,7 @@
 
 @media (max-height: 800px) {
   .ob-shell {
-    padding-top: calc(1.15rem + 72px);
+    padding-top: calc(1.15rem + 84px);
     padding-bottom: 1.5rem;
   }
 }

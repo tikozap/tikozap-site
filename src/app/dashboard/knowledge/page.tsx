@@ -97,10 +97,12 @@ export default function KnowledgePage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [extractingFile, setExtractingFile] = useState(false);
 
   const [productRows, setProductRows] = useState<ProductKnowledgeRow[]>(
     () => [createProductKnowledgeRow()]
   );
+
 
   async function loadKnowledge() {
     try {
@@ -260,62 +262,134 @@ export default function KnowledgePage() {
     });
   }
 
-  async function uploadProductKnowledgeFile(file: File) {
-    try {
-      const text = await file.text();
-      const trimmed = text.trim();
+  async function extractKnowledgeFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
 
-      if (!trimmed) {
-        alert("This file does not contain readable text.");
+  const res = await fetch("/api/knowledge/extract", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.ok || !data?.text) {
+    throw new Error(
+      data?.error || "This file could not be processed."
+    );
+  }
+
+  return String(data.text).trim();
+}
+
+async function uploadProductKnowledgeFile(file: File) {
+  setExtractingFile(true);
+
+  try {
+    const isTextFile =
+      file.type === "text/plain" ||
+      file.type === "text/csv" ||
+      file.type === "text/markdown" ||
+      /\.(txt|csv|md)$/i.test(file.name);
+
+    let trimmed = "";
+
+    if (isTextFile) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Text files must be smaller than 2 MB.");
         return;
       }
 
-      setProductRows((rows) => [
-        ...rows,
-        {
-          ...createProductKnowledgeRow(),
-          product: file.name.replace(/\.[^.]+$/, ""),
-          notes: trimmed,
-        },
-      ]);
-    } catch (error) {
-      console.error(
-        "[Knowledge] Failed to read product knowledge file",
-        error
-      );
-      alert("This file could not be read.");
+      trimmed = (await file.text()).trim();
+    } else {
+      trimmed = await extractKnowledgeFile(file);
     }
-  }
 
-  async function uploadKnowledgeFile(
-    file: File,
-    index: number
-  ) {
-    try {
-      const text = await file.text();
-
-      setDocs((previousDocs) =>
-        previousDocs.map((doc, docIndex) =>
-          docIndex === index
-            ? {
-                ...doc,
-                content: `${
-                  doc.content
-                    ? `${doc.content}\n\n`
-                    : ""
-                }Uploaded file: ${file.name}\n\n${text}`,
-              }
-            : doc
-        )
-      );
-    } catch (error) {
-      console.error(
-        "[Knowledge] Failed to read knowledge file",
-        error
-      );
-      alert("This file could not be read.");
+    if (!trimmed) {
+      alert("This file does not contain readable product information.");
+      return;
     }
+
+    setProductRows((rows) => [
+      ...rows,
+      {
+        ...createProductKnowledgeRow(),
+        product: file.name.replace(/\.[^.]+$/, ""),
+        notes: trimmed,
+      },
+    ]);
+  } catch (error) {
+    console.error(
+      "[Knowledge] Failed to read product knowledge file",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "This file could not be read."
+    );
+  } finally {
+    setExtractingFile(false);
   }
+}
+
+async function uploadKnowledgeFile(
+  file: File,
+  index: number
+) {
+  try {
+    const isTextFile =
+      file.type === "text/plain" ||
+      file.type === "text/csv" ||
+      file.type === "text/markdown" ||
+      /\.(txt|csv|md)$/i.test(file.name);
+
+    let text = "";
+
+    if (isTextFile) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Text files must be smaller than 2 MB.");
+        return;
+      }
+
+      text = (await file.text()).trim();
+    } else {
+      text = await extractKnowledgeFile(file);
+    }
+
+    if (!text) {
+      alert("This file does not contain readable information.");
+      return;
+    }
+
+    setDocs((previousDocs) =>
+      previousDocs.map((doc, docIndex) =>
+        docIndex === index
+          ? {
+              ...doc,
+              content: `${
+                doc.content
+                  ? `${doc.content}\n\n`
+                  : ""
+              }Uploaded file: ${file.name}\n\n${text}`,
+            }
+          : doc
+      )
+    );
+  } catch (error) {
+    console.error(
+      "[Knowledge] Failed to read knowledge file",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "This file could not be read."
+    );
+  }
+}
 
   if (loading) {
     return (
@@ -336,7 +410,7 @@ export default function KnowledgePage() {
         <div>
           <h1 className="db-title">Knowledge</h1>
           <p className="db-sub">
-            Teach your assistant how your store works.
+            Information your assistant needs to know about your business.
           </p>
         </div>
 
@@ -344,17 +418,18 @@ export default function KnowledgePage() {
           {docs.map((doc, index) => {
             if (doc.title === "Product Knowledge") {
               return (
-                <ProductKnowledgeCard
-                  key={`${doc.title}-${index}`}
-                  doc={doc}
-                  saving={saving}
-                  productRows={productRows}
-                  onAddRow={addProductRow}
-                  onUpdateRow={updateProductRow}
-                  onRemoveRow={removeProductRow}
-                  onUploadFile={uploadProductKnowledgeFile}
-                  onSave={saveProductKnowledge}
-                />
+<ProductKnowledgeCard
+  key={`${doc.title}-${index}`}
+  doc={doc}
+  saving={saving}
+  extractingFile={extractingFile}
+  productRows={productRows}
+  onAddRow={addProductRow}
+  onUpdateRow={updateProductRow}
+  onRemoveRow={removeProductRow}
+  onUploadFile={uploadProductKnowledgeFile}
+  onSave={saveProductKnowledge}
+/>
               );
             }
 
@@ -403,10 +478,10 @@ export default function KnowledgePage() {
                           Upload size chart or measurement guide
                         </strong>
 
-                        <p>
-                          Upload a text, CSV, or Markdown file,
-                          or paste your chart below.
-                        </p>
+<p>
+  Upload PDF, JPG, PNG, WebP, text, CSV, or Markdown,
+  or paste your chart below.
+</p>
                       </div>
 
                       <label
@@ -417,7 +492,7 @@ export default function KnowledgePage() {
 
                         <input
                           type="file"
-                          accept=".txt,.csv,.md,text/plain,text/csv,text/markdown"
+                          accept=".txt,.csv,.md,.pdf,.jpg,.jpeg,.png,.webp,text/plain,text/csv,text/markdown,application/pdf,image/jpeg,image/png,image/webp"
                           style={{ display: "none" }}
                           onChange={(event) => {
                             const file =
@@ -492,19 +567,26 @@ export default function KnowledgePage() {
           margin-bottom: 14px;
         }
 
-        .db-knowledgeTextarea {
-          width: 100%;
-          min-height: 180px;
-          box-sizing: border-box;
-          resize: vertical;
-          border: 1px solid #dbe3ea;
-          border-radius: 14px;
-          padding: 14px;
-          background: #ffffff;
-          color: #111827;
-          font-size: 14px;
-          line-height: 1.5;
-        }
+.db-knowledgeTextarea {
+  width: 100%;
+  min-height: 180px;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #dbe3ea;
+  border-radius: 14px;
+  padding: 14px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      #ffffff 0,
+      #ffffff 28px,
+      #f8fafc 28px,
+      #f8fafc 56px
+    );
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.5;
+}
 
         .db-knowledgeTextarea:focus {
           outline: none;
@@ -536,17 +618,29 @@ export default function KnowledgePage() {
           padding: 20px;
         }
 
-        @media (max-width: 760px) {
-          .db-uploadBox {
-            align-items: stretch;
-            flex-direction: column;
-          }
+@media (max-width: 760px) {
+  .db-knowledgeGrid > .db-card {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
 
-          .db-uploadBox .db-btn {
-            width: 100% !important;
-            justify-content: center;
-          }
-        }
+  .knowledge-rowInner {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .db-uploadBox {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .db-uploadBox .db-btn {
+    width: 100% !important;
+    justify-content: center;
+  }
+}
       `}</style>
     </div>
   );

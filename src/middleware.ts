@@ -17,7 +17,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // demo-boutique.link.tikozap.com -> /l/demo-boutique
+  // Merchant Starter Link subdomain -> /l/[slug]
   const cleanHost = host.split(":")[0];
 
 let subdomain = "";
@@ -35,12 +35,6 @@ if (subdomain && subdomain !== "link") {
   url.pathname = `/l/${subdomain}`;
   return NextResponse.rewrite(url);
 }
-
-    if (subdomain && subdomain !== "link") {
-      const url = req.nextUrl.clone();
-      url.pathname = `/l/${subdomain}`;
-      return NextResponse.rewrite(url);
-    }
 
   return NextResponse.next();
 }

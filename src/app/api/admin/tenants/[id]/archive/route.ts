@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,18 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(_req: Request, context: RouteContext) {
+export async function POST(req: Request, context: RouteContext) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   const admin = await requireAdmin();
 
   if (!admin) {
@@ -33,5 +45,5 @@ export async function POST(_req: Request, context: RouteContext) {
     },
   });
 
-  return NextResponse.redirect(new URL("/admin/tenants", _req.url));
+  return NextResponse.redirect(new URL("/admin/tenants", req.url));
 }

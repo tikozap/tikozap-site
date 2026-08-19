@@ -9,6 +9,11 @@ import {
   getAssistantLearning,
   getStoreKnowledge,
 } from '@/lib/assistantContext';
+import {
+  getTenantEntitlement,
+  TRIAL_PAUSED_MERCHANT_MESSAGE,
+} from '@/lib/tenantEntitlement';
+import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +52,17 @@ function normalizeHistory(value: unknown): TestHistoryMessage[] {
 }
 
 export async function POST(req: Request) {
+  if (!requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Invalid request origin.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
   try {
     const auth = await getAuthedUserAndTenant();
 
@@ -81,6 +97,19 @@ export async function POST(req: Request) {
 
     const tenantId = auth.tenant.id;
 
+    const entitlement = await getTenantEntitlement(tenantId);
+
+if (!entitlement.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      reason: 'TRIAL_EXPIRED',
+      error: TRIAL_PAUSED_MERCHANT_MESSAGE,
+    },
+    { status: 402 }
+  );
+}
+
     const [assistantIdentity, assistantLearning, productProvider] =
       await Promise.all([
         getAssistantIdentity(tenantId),
@@ -113,7 +142,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || 'Could not test widget.',
+        error: 'Could not test widget.',
       },
       {
         status: 500,
