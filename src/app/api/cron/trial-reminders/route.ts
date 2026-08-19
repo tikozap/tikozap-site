@@ -281,7 +281,8 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({
+return NextResponse.json(
+  {
     ok: failed === 0,
     checked: tenants.length,
     sent,
@@ -289,5 +290,9 @@ export async function GET(req: Request) {
     failed,
     ranAt: now.toISOString(),
     results,
-  });
+  },
+  {
+    status: failed === 0 ? 200 : 500,
+  },
+);
 }
