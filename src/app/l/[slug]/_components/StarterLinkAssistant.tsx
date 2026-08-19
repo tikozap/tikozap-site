@@ -1533,7 +1533,10 @@ onClick={() => {
             className="sl-orbModeAvatar"
           />
         ) : (
-          <OrbLarge state={orbState as any} />
+          <OrbLarge
+  state={orbState as any}
+  size="chat"
+/>
         )}
       </div>
     </button>
@@ -2006,11 +2009,12 @@ onKeyDown={(e) => {
 }
 
 .sl-orbModeOrb {
-  width: 92px;
-  height: 92px;
+  width: 150px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
 }
 
 .sl-orbModeOrb--avatar {
@@ -2768,10 +2772,10 @@ color:var(--sl-brand-text, #fff);
     padding:24px 24px 18px;
   }
 
-  .sl-orbModeOrb{
-    width:112px;
-    height:112px;
-  }
+.sl-orbModeOrb{
+  width:150px;
+  height:150px;
+}
 
   .sl-orbModeOrb--avatar {
   width: 190px;

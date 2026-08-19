@@ -118,7 +118,11 @@ if (!entitlement.ok) {
       products: brain.products || [],
     });
   } catch (error: any) {
-    console.error("CONVERSATION_DRAFT_FATAL", error);
+    if (process.env.NODE_ENV === "production") {
+  console.error("CONVERSATION_DRAFT_FATAL");
+} else {
+  console.error("CONVERSATION_DRAFT_FATAL", error);
+}
 
     return NextResponse.json(
       {

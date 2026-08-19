@@ -22,6 +22,11 @@ import {
   rateLimitHeaders,
 } from "@/lib/rateLimit";
 
+import {
+  extractRequestHost,
+  isAllowedDomain,
+} from "@/lib/widgetDomain";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -91,15 +96,16 @@ export async function POST(req: Request) {
         );
       }
 
-      const widget =
-        await prisma.widget.findUnique({
-          where: {
-            publicKey,
-          },
-          select: {
-            tenantId: true,
-          },
-        });
+const widget =
+  await prisma.widget.findUnique({
+    where: {
+      publicKey,
+    },
+    select: {
+      tenantId: true,
+      allowedDomains: true,
+    },
+  });
 
       if (!widget) {
         return NextResponse.json(
@@ -110,6 +116,23 @@ export async function POST(req: Request) {
           { status: 404 }
         );
       }
+
+      const requestHost = extractRequestHost(req);
+
+if (
+  !isAllowedDomain(
+    requestHost,
+    widget.allowedDomains || []
+  )
+) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Widget is not allowed on this domain",
+    },
+    { status: 403 }
+  );
+}
 
       merchantTenantId = widget.tenantId;
 
@@ -247,13 +270,6 @@ const instructions = [
   voiceLanguageInstructions,
 ].join(" ");
 
-    console.log("[realtime/session mode]", {
-      requestedMode: body?.mode,
-      resolvedMode: mode,
-      instructionsStart:
-        instructions.slice(0, 180),
-    });
-
     const response = await fetch(
       "https://api.openai.com/v1/realtime/client_secrets",
       {
@@ -332,10 +348,13 @@ transcription: {
     }
 
 if (!response.ok) {
-  console.error(
-    "[realtime/session] OpenAI session creation failed",
-    data
-  );
+console.error(
+  "[realtime/session] OpenAI session creation failed",
+  {
+    status: response.status,
+    statusText: response.statusText,
+  }
+);
 
   return NextResponse.json(
     {
@@ -349,11 +368,9 @@ if (!response.ok) {
 }
 
 if (!data?.value) {
-  console.error(
-    "[realtime/session] Invalid realtime service response",
-    data
-  );
-
+console.error(
+  "[realtime/session] Invalid realtime service response"
+);
   return NextResponse.json(
     {
       ok: false,

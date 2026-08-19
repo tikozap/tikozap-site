@@ -462,7 +462,11 @@ await prisma.message.create({
       }
     );
 } catch (error: any) {
+  if (process.env.NODE_ENV === "production") {
+  console.error("PUBLIC_WIDGET_MESSAGE_FATAL");
+} else {
   console.error("PUBLIC_WIDGET_MESSAGE_FATAL", error);
+}
 
   return NextResponse.json(
     {

@@ -541,7 +541,11 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error("SHOPIFY_SEARCH_ERROR", error);
+    if (process.env.NODE_ENV === "production") {
+  console.error("SHOPIFY_SEARCH_ERROR");
+} else {
+  console.error("SHOPIFY_SEARCH_ERROR", error);
+}
 
 return NextResponse.json(
   {

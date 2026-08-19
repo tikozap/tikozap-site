@@ -492,7 +492,11 @@ await prisma.conversation.update({
       },
     });
   } catch (error: any) {
-    console.error("CHAT_ROUTE_FATAL", error);
+    if (process.env.NODE_ENV === "production") {
+  console.error("CHAT_ROUTE_FATAL");
+} else {
+  console.error("CHAT_ROUTE_FATAL", error);
+}
 
 return NextResponse.json(
   {

@@ -1157,17 +1157,19 @@ function toggleTextSpeechCapture() {
   padding-top: 10px;
 }
 
-        .hero-voiceOrb {
-          transform: scale(0.42);
-          margin-bottom: 1rem;
-        }
+.hero-voiceOrb {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
         .hero-voiceControls {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 1.5rem;
-          margin-top: -1.5rem;
+          margin-top: 2rem;
         }
 
         .hero-voiceMiniBtn {
@@ -1411,13 +1413,12 @@ function toggleTextSpeechCapture() {
     padding: 18px 0 22px;
   }
 
-  .hero-voiceOrb {
-    transform: scale(0.38);
-    margin-bottom: 0;
-  }
+.hero-voiceOrb {
+  margin-bottom: 0;
+}
 
   .hero-voiceControls {
-    margin-top: -1.4rem;
+    margin-top: 4rem;
     gap: 1.8rem;
   }
 
