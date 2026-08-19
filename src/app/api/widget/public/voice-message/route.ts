@@ -126,14 +126,13 @@ if (!entitlement.ok) {
 
 if (!billing.ok) {
   return NextResponse.json(
-    {
-      ok: false,
-      reason: billing.reason,
-      error:
-        billing.reason === "TRIAL_EXPIRED"
-          ? TRIAL_PAUSED_VISITOR_MESSAGE
-          : "This store has reached its monthly conversation limit.",
-    },
+{
+  ok: false,
+  error:
+    billing.reason === "TRIAL_EXPIRED"
+      ? TRIAL_PAUSED_VISITOR_MESSAGE
+      : "This store has reached its monthly conversation limit.",
+},
     {
       status: 402,
     }
