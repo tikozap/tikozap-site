@@ -1,8 +1,16 @@
 // src/app/onboarding/layout.tsx
 
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import './onboarding.css';
 import OnboardingStepper from './_components/OnboardingStepper';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function OnboardingLayout({ children }: { children: ReactNode }) {
   return (
