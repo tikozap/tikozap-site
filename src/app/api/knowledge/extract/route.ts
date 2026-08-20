@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthedUserAndTenant } from "@/lib/auth";
-import { openai } from "@/lib/openai";
+import { getOpenAI } from "@/lib/openai";
 import { requireSameOrigin } from "@/lib/security/requireSameOrigin";
 import {
   checkRateLimit,
@@ -140,6 +140,8 @@ export async function POST(req: Request) {
       "Do not invent missing information.",
       "Return concise plain text only.",
     ].join("\n");
+
+    const openai = getOpenAI();
 
     const response = isPdf
       ? await openai.responses.create({

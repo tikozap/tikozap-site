@@ -5,7 +5,15 @@ import { toFile } from "openai/uploads";
 import { prisma } from "@/lib/prisma";
 import { buildAbsoluteUrl, readTwilioParams, validateTwilioWebhookOrThrow } from "@/lib/twilio/validate";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured.");
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 export const runtime = "nodejs";
 
@@ -110,6 +118,8 @@ if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
     });
 
     console.log("[recording-status] Sending audio to Whisper for transcription...");
+
+    const openai = getOpenAI();
 
     const transcription = await openai.audio.transcriptions.create({
       file,

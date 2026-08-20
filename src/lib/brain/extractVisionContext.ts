@@ -1,5 +1,6 @@
 // src/lib/brain/extractVisionContext.ts
-import { openai } from "@/lib/openai";
+
+import { getOpenAI } from "@/lib/openai";
 import type { UserImageInput, VisionContext } from "./types";
 
 type ExtractVisionArgs = {
@@ -20,6 +21,8 @@ export async function extractVisionContext(
 
   try {
     const dataUrl = toDataUrl(img.base64, img.mimeType);
+
+    const openai = getOpenAI();
 
     const resp = await openai.responses.create({
       model: "gpt-4.1-mini",

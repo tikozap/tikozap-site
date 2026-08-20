@@ -4,9 +4,15 @@ import 'server-only';
 
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 export type LearningHistoryItem = {
   instruction: string;
@@ -27,8 +33,10 @@ export async function buildCurrentUnderstanding(
 
   // Safe fallback if OpenAI is unavailable:
   // preserve the existing newest-first behavior.
-  if (!process.env.OPENAI_API_KEY) {
-    return ordered
+const openai = getOpenAI();
+
+if (!openai) {
+  return ordered
       .map(
         (item, index) =>
           `${index + 1}. [${item.updatedAt.toISOString()}] ${item.instruction.trim()}`

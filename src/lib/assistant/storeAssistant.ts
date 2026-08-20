@@ -2,7 +2,15 @@
 import OpenAI from 'openai';
 import { prisma } from '@/lib/prisma';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 export async function storeAssistantReply(args: {
   tenantId: string;
@@ -21,9 +29,11 @@ export async function storeAssistantReply(args: {
   const storeName = tenant?.storeName || 'the store';
 
   // If no OpenAI key (or in dev), return a safe fallback
-  if (!process.env.OPENAI_API_KEY) {
-    return `Thanks for calling ${storeName}. Could you share your order number or the email used for your purchase?`;
-  }
+const openai = getOpenAI();
+
+if (!openai) {
+  return `Thanks for calling ${storeName}. Could you share your order number or the email used for your purchase?`;
+}
 
   const system = [
     `You are a customer-ops phone agent for "${storeName}".`,

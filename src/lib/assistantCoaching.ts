@@ -4,9 +4,15 @@ import OpenAI from 'openai';
 
 import { prisma } from '@/lib/prisma';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 type SaveAssistantCoachingInput = {
   tenantId: string;
@@ -123,12 +129,14 @@ if (!clean || clean.length < 8) {
   return `${safeName} noted:\n\n${clean}`;
 }
 
-if (!process.env.OPENAI_API_KEY) {
+const openai = getOpenAI();
+
+if (!openai) {
   return `${safeName} noted:\n\n${clean}`;
 }
 
-  try {
-    const response = await openai.chat.completions.create({
+try {
+  const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL_SUPPORT || 'gpt-4o-mini',
       temperature: 0.25,
       max_tokens: 90,
