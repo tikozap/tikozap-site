@@ -1,7 +1,7 @@
 // src/app/api/stripe/portal/route.ts
 
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
@@ -53,6 +53,8 @@ export async function POST(req: Request) {
   }
 
   const origin = process.env.APP_BASE_URL || 'http://localhost:3000';
+
+  const stripe = getStripe();
 
   const session = await stripe.billingPortal.sessions.create({
     customer: tenant.stripeCustomerId,

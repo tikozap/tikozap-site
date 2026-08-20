@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
+    const stripe = getStripe();
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
 } catch (err: any) {
   console.error(

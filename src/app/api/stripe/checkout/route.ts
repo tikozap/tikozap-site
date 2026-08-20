@@ -1,7 +1,7 @@
 // src/app/api/stripe/checkout/route.ts
 
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
@@ -69,7 +69,9 @@ export async function POST(req: Request) {
       process.env.APP_BASE_URL ||
       new URL(req.url).origin;
 
-    const session = await stripe.checkout.sessions.create({
+      const stripe = getStripe();
+
+      const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer_email: auth.user.email || undefined,
 
