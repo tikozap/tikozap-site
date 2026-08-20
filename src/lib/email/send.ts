@@ -4,7 +4,7 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 
-import { resend } from './resend';
+import { getResend } from './resend';
 
 type SendEmailOptions = {
   to: string | string[];
@@ -21,6 +21,8 @@ export async function sendEmail({
   subject,
   react,
 }: SendEmailOptions) {
+  const resend = getResend();
+
   const { data, error } = await resend.emails.send({
     from,
     to,
