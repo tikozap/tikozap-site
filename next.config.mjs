@@ -47,34 +47,106 @@ const nextConfig = {
     ];
   },
 
-  async redirects() {
-    return [
-      {
-        source: '/dashboard/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'tikozap.com',
-          },
-        ],
-        destination:
-          'https://app.tikozap.com/dashboard/:path*',
-        permanent: false,
-      },
-      {
-        source: '/onboarding/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'tikozap.com',
-          },
-        ],
-        destination:
-          'https://app.tikozap.com/onboarding/:path*',
-        permanent: false,
-      },
-    ];
-  },
-};
+async redirects() {
+  return [
+    {
+      source: '/dashboard/:path*',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/dashboard/:path*',
+      permanent: false,
+    },
+    {
+      source: '/onboarding/:path*',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/onboarding/:path*',
+      permanent: false,
+    },
+    {
+      source: '/login',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/login',
+      permanent: false,
+    },
+    {
+      source: '/signup',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/signup',
+      permanent: false,
+    },
+    {
+      source: '/logout',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/logout',
+      permanent: false,
+    },
+    {
+      source: '/forgot-password',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/forgot-password',
+      permanent: false,
+    },
+    {
+      source: '/reset-password',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/reset-password',
+      permanent: false,
+    },
+    {
+      source: '/verify-email',
+      has: [
+        {
+          type: 'host',
+          value: 'tikozap.com',
+        },
+      ],
+      destination:
+        'https://app.tikozap.com/verify-email',
+      permanent: false,
+    },
+  ];
+},
+}
 
 export default nextConfig;
