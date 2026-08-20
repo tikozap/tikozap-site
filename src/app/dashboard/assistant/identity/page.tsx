@@ -181,7 +181,10 @@ const scale = boxSize / sourceSize;
         }}
       >
         {size === 'voice' ? (
-          <OrbLarge state="idle" />
+          <OrbLarge
+  state="idle"
+  size="homepage"
+/>
         ) : (
           <Orb state="idle" tiltX={0} tiltY={0} />
         )}
