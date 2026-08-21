@@ -34,7 +34,8 @@ voice: {
   remainingMinutes: number;
   utilizationPct: number;
   periodStart: string | null;
-
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
   freeQuestionsLimitDaily: number;
   freeQuestionsUsedToday: number;
   freeQuestionsRemainingToday: number;
@@ -651,8 +652,23 @@ const active =
             {usage.voice.pack
               ? `Voice ${usage.voice.pack.charAt(0).toUpperCase()}${usage.voice.pack.slice(1)}`
               : 'Voice'}{' '}
-            · {usage.voice.usedMinutes}/{usage.voice.limitMinutes} minutes used this month
+            · {usage.voice.usedMinutes}/{usage.voice.limitMinutes} minutes used this billing cycle
           </p>
+
+{usage.voice.cancelAtPeriodEnd &&
+usage.voice.currentPeriodEnd ? (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: '#b45309',
+      fontWeight: 700,
+    }}
+  >
+    Your Voice plan is scheduled to cancel on{' '}
+    {dateLabel(usage.voice.currentPeriodEnd)}.
+  </p>
+) : null}
 
           <div
             style={{
@@ -688,7 +704,7 @@ const active =
               color: usage.voice.remainingMinutes <= 0 ? '#b91c1c' : '#065f46',
             }}
           >
-            Remaining this month: {usage.voice.remainingMinutes} minutes
+            Remaining this billing cycle: {usage.voice.remainingMinutes} minutes
           </p>
         </>
       ) : (

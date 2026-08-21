@@ -17,6 +17,9 @@ export type VoiceUsageSummary = {
 
   periodStart: string | null;
 
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+
   freeQuestionsLimitDaily: number;
   freeQuestionsUsedToday: number;
   freeQuestionsRemainingToday: number;
@@ -37,21 +40,21 @@ function startOfTodayUtc() {
 export async function getTenantVoiceUsage(
   tenantId: string
 ): Promise<VoiceUsageSummary> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: {
-      voiceEnabled: true,
-      voicePack: true,
-
-      voiceMinutesLimit: true,
-      voiceMinutesUsed: true,
-      voiceUsagePeriodStart: true,
-
-      voiceQuestionsToday: true,
-      voiceQuestionsDate: true,
-      voiceQuestionsTotal: true,
-    },
-  });
+const tenant = await prisma.tenant.findUnique({
+  where: { id: tenantId },
+  select: {
+    voiceEnabled: true,
+    voicePack: true,
+    voiceMinutesLimit: true,
+    voiceMinutesUsed: true,
+    voiceUsagePeriodStart: true,
+    voiceCancelAtPeriodEnd: true,
+    voiceCurrentPeriodEnd: true,
+    voiceQuestionsToday: true,
+    voiceQuestionsDate: true,
+    voiceQuestionsTotal: true,
+  },
+});
 
   if (!tenant) {
     throw new Error('Tenant not found');
@@ -73,18 +76,18 @@ export async function getTenantVoiceUsage(
             }
           : {}),
       },
-      select: {
-        voiceEnabled: true,
-        voicePack: true,
-
-        voiceMinutesLimit: true,
-        voiceMinutesUsed: true,
-        voiceUsagePeriodStart: true,
-
-        voiceQuestionsToday: true,
-        voiceQuestionsDate: true,
-        voiceQuestionsTotal: true,
-      },
+select: {
+  voiceEnabled: true,
+  voicePack: true,
+  voiceMinutesLimit: true,
+  voiceMinutesUsed: true,
+  voiceUsagePeriodStart: true,
+  voiceCancelAtPeriodEnd: true,
+  voiceCurrentPeriodEnd: true,
+  voiceQuestionsToday: true,
+  voiceQuestionsDate: true,
+  voiceQuestionsTotal: true,
+},
     });
 
     Object.assign(tenant, updated);
@@ -99,32 +102,44 @@ export async function getTenantVoiceUsage(
 
   const questionsUsedToday = tenant.voiceQuestionsToday || 0;
 
-  return {
-    enabled: tenant.voiceEnabled,
+return {
+  enabled: tenant.voiceEnabled,
 
-    pack: tenant.voicePack,
+  pack: tenant.voicePack,
 
-    usedMinutes: used,
-    limitMinutes: limit,
-    remainingMinutes: remaining,
+  usedMinutes: used,
+  limitMinutes: limit,
+  remainingMinutes: remaining,
 
-    utilizationPct,
+  utilizationPct,
 
-    periodStart: tenant.voiceUsagePeriodStart
-      ? tenant.voiceUsagePeriodStart.toISOString()
+  periodStart: tenant.voiceUsagePeriodStart
+    ? tenant.voiceUsagePeriodStart.toISOString()
+    : null,
+
+  cancelAtPeriodEnd:
+    tenant.voiceCancelAtPeriodEnd || false,
+
+  currentPeriodEnd:
+    tenant.voiceCurrentPeriodEnd
+      ? tenant.voiceCurrentPeriodEnd.toISOString()
       : null,
 
-    freeQuestionsLimitDaily: FREE_VOICE_QUESTIONS_PER_DAY,
-    freeQuestionsUsedToday: questionsUsedToday,
-    freeQuestionsRemainingToday: Math.max(
-      0,
-      FREE_VOICE_QUESTIONS_PER_DAY - questionsUsedToday
-    ),
-    freeQuestionsDate: tenant.voiceQuestionsDate
-      ? tenant.voiceQuestionsDate.toISOString()
-      : null,
-    freeQuestionsTotal: tenant.voiceQuestionsTotal || 0,
-  };
+  freeQuestionsLimitDaily: FREE_VOICE_QUESTIONS_PER_DAY,
+
+  freeQuestionsUsedToday: questionsUsedToday,
+
+  freeQuestionsRemainingToday: Math.max(
+    0,
+    FREE_VOICE_QUESTIONS_PER_DAY - questionsUsedToday
+  ),
+
+  freeQuestionsDate: tenant.voiceQuestionsDate
+    ? tenant.voiceQuestionsDate.toISOString()
+    : null,
+
+  freeQuestionsTotal: tenant.voiceQuestionsTotal || 0,
+};
 }
 
 export async function incrementVoiceUsage(
