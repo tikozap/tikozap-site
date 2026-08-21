@@ -34,6 +34,18 @@ function isVoicePrice(priceId: string | null | undefined) {
   );
 }
 
+function subscriptionPeriodStart(
+  subscription: Stripe.Subscription
+) {
+  const value =
+    (subscription as any).current_period_start ||
+    (subscription.items?.data?.[0] as any)?.current_period_start;
+
+  return typeof value === 'number'
+    ? new Date(value * 1000)
+    : null;
+}
+
 function subscriptionPeriodEnd(subscription: Stripe.Subscription) {
   const value =
     (subscription as any).current_period_end ||
@@ -82,36 +94,62 @@ export async function POST(req: Request) {
       const tenantId = session.metadata?.tenantId;
       const kind = session.metadata?.kind;
 
-      if (tenantId && kind === 'voice') {
-        const voicePack = session.metadata?.voicePack || null;
-        const voiceMinutesLimit = Number(
-          session.metadata?.voiceMinutesLimit || 0
-        );
+if (tenantId && kind === 'voice') {
+  const voicePack =
+    session.metadata?.voicePack || null;
 
-        await prisma.tenant.update({
-          where: { id: tenantId },
-          data: {
-            voiceEnabled: true,
-            voicePack,
-            voiceMinutesLimit,
-            voiceMinutesUsed: 0,
-            voiceUsagePeriodStart: new Date(),
+  const voiceMinutesLimit = Number(
+    session.metadata?.voiceMinutesLimit || 0
+  );
 
-            stripeVoiceCustomerId:
-              typeof session.customer === 'string'
-                ? session.customer
-                : undefined,
+  const subscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id || null;
 
-            stripeVoiceSubscriptionId:
-              typeof session.subscription === 'string'
-                ? session.subscription
-                : undefined,
+  let periodStart: Date | null = null;
+  let periodEnd: Date | null = null;
 
-            voiceBillingStatus: 'active',
-            voiceCancelAtPeriodEnd: false,
-            voiceCurrentPeriodEnd: null,
-          },
-        });
+  if (subscriptionId) {
+    const stripe = getStripe();
+
+    const subscription =
+      await stripe.subscriptions.retrieve(
+        subscriptionId
+      );
+
+    periodStart =
+      subscriptionPeriodStart(subscription);
+
+    periodEnd =
+      subscriptionPeriodEnd(subscription);
+  }
+
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      voiceEnabled: true,
+      voicePack,
+      voiceMinutesLimit,
+      voiceMinutesUsed: 0,
+
+      voiceUsagePeriodStart:
+        periodStart || new Date(),
+
+      stripeVoiceCustomerId:
+        typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id || undefined,
+
+      stripeVoiceSubscriptionId:
+        subscriptionId || undefined,
+
+      voiceBillingStatus: 'active',
+      voiceCancelAtPeriodEnd: false,
+      voiceCurrentPeriodEnd: periodEnd,
+    },
+  });
+
       } else {
         const plan = session.metadata?.plan;
 
@@ -164,18 +202,61 @@ export async function POST(req: Request) {
         });
       }
 
-      if (isVoicePrice(priceId)) {
-        await prisma.tenant.updateMany({
-          where: { stripeVoiceSubscriptionId: subscription.id },
-          data: {
-            voiceBillingStatus: subscription.status,
-            voiceCancelAtPeriodEnd: Boolean(
-              subscription.cancel_at_period_end
-            ),
-            voiceCurrentPeriodEnd: subscriptionPeriodEnd(subscription),
-          },
-        });
-      }
+if (isVoicePrice(priceId)) {
+  const periodStart =
+    subscriptionPeriodStart(subscription);
+
+  const periodEnd =
+    subscriptionPeriodEnd(subscription);
+
+  const tenant =
+    await prisma.tenant.findFirst({
+      where: {
+        stripeVoiceSubscriptionId: subscription.id,
+      },
+      select: {
+        id: true,
+        voiceUsagePeriodStart: true,
+      },
+    });
+
+  if (tenant) {
+    const isNewBillingPeriod =
+      Boolean(periodStart) &&
+      (
+        !tenant.voiceUsagePeriodStart ||
+        periodStart!.getTime() >
+          tenant.voiceUsagePeriodStart.getTime()
+      );
+
+    await prisma.tenant.update({
+      where: {
+        id: tenant.id,
+      },
+      data: {
+        voiceBillingStatus: subscription.status,
+
+        voiceCancelAtPeriodEnd: Boolean(
+          subscription.cancel_at_period_end
+        ),
+
+        voiceCurrentPeriodEnd: periodEnd,
+
+        ...(periodStart
+          ? {
+              voiceUsagePeriodStart: periodStart,
+            }
+          : {}),
+
+        ...(isNewBillingPeriod
+          ? {
+              voiceMinutesUsed: 0,
+            }
+          : {}),
+      },
+    });
+  }
+}
     }
 
     if (event.type === 'customer.subscription.deleted') {

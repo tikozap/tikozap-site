@@ -26,14 +26,6 @@ export type VoiceUsageSummary = {
 
 const FREE_VOICE_QUESTIONS_PER_DAY = 20;
 
-function startOfCurrentMonthUtc() {
-  const now = new Date();
-
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
-  );
-}
-
 function startOfTodayUtc() {
   const now = new Date();
 
@@ -65,26 +57,15 @@ export async function getTenantVoiceUsage(
     throw new Error('Tenant not found');
   }
 
-  const currentMonthStart = startOfCurrentMonthUtc();
   const todayStart = startOfTodayUtc();
-
-  const needsMonthReset =
-    !tenant.voiceUsagePeriodStart ||
-    tenant.voiceUsagePeriodStart < currentMonthStart;
 
   const needsDailyQuestionReset =
     !tenant.voiceQuestionsDate || tenant.voiceQuestionsDate < todayStart;
 
-  if (needsMonthReset || needsDailyQuestionReset) {
+  if (needsDailyQuestionReset) {
     const updated = await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        ...(needsMonthReset
-          ? {
-              voiceMinutesUsed: 0,
-              voiceUsagePeriodStart: currentMonthStart,
-            }
-          : {}),
         ...(needsDailyQuestionReset
           ? {
               voiceQuestionsToday: 0,
