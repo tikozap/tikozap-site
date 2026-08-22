@@ -12,6 +12,8 @@ type BillingUsage = {
   plan: BillingPlan;
   billingStatus?: string;
   billingInterval?: 'monthly' | 'yearly';
+  entitlementState?: 'paid' | 'trial' | 'trial_expired';
+  trialEndsAt?: string | null;
   cancelAtPeriodEnd?: boolean;
   currentPeriodEnd?: string | null;
 
@@ -190,10 +192,12 @@ const changePlan = async (plan: string) => {
   const clickedBasePlan = plan.replace('-yearly', '');
 const clickedInterval = plan.endsWith('-yearly') ? 'yearly' : 'monthly';
 
-if (
-  savingPlan ||
-  (clickedBasePlan === selectedPlan && clickedInterval === usage?.billingInterval)
-) {
+const isCurrentPaidPlan =
+  usage?.entitlementState === 'paid' &&
+  clickedBasePlan === selectedPlan &&
+  clickedInterval === usage?.billingInterval;
+
+if (savingPlan || isCurrentPaidPlan) {
   return;
 }
 
@@ -286,6 +290,15 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
   }
 };
 
+const isActiveTrial =
+  usage?.entitlementState === 'trial';
+
+const isExpiredTrial =
+  usage?.entitlementState === 'trial_expired';
+
+const hasPaidPlan =
+  usage?.entitlementState === 'paid';
+
   return (
     <div className="db-container">
       <MobilePageHeader title="Billing" />
@@ -321,26 +334,49 @@ const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
             <p className="db-cardText">Loading…</p>
           ) : (
             <>
-              <p className="db-cardText">
-                {prettyPlan(usage.plan)}
-                {usage.billingStatus === 'trialing' ? (
-                  <span
-                   style={{
-                     marginLeft: 6,
-                     padding: '2px 7px',
-                     borderRadius: 999,
-                     background: '#ecfdf5',
-                     color: '#047857',
-                     fontSize: 12,
-                     fontWeight: 800,
-                   }}
-                 >
-                   Trial
-                 </span>
-                ) : null}
-                 {' '}· {usage.usedConversations}/{usage.monthlyLimit} conversations used (
-                {usage.utilizationPct}%)
-              </p>
+{isExpiredTrial ? (
+  <>
+    <p
+      className="db-cardText"
+      style={{ fontWeight: 700 }}
+    >
+      No active plan
+    </p>
+
+    <p
+      className="db-cardText"
+      style={{
+        marginTop: 6,
+        color: '#b45309',
+      }}
+    >
+      Your 14-day Pro trial has ended. Choose a plan below to continue.
+    </p>
+  </>
+) : (
+  <p className="db-cardText">
+    {prettyPlan(usage.plan)}
+
+    {isActiveTrial ? (
+      <span
+        style={{
+          marginLeft: 6,
+          padding: '2px 7px',
+          borderRadius: 999,
+          background: '#ecfdf5',
+          color: '#047857',
+          fontSize: 12,
+          fontWeight: 800,
+        }}
+      >
+        Trial
+      </span>
+    ) : null}
+
+    {' '}· {usage.usedConversations}/{usage.monthlyLimit} conversations used (
+    {usage.utilizationPct}%)
+  </p>
+)}
               <p className="db-cardText" style={{ fontSize: 13 }}>
                 Billing window: {monthLabel(usage.windowStart)}
               </p>
@@ -490,10 +526,8 @@ lineHeight: 1,
       ? 'yearly'
       : 'monthly';
 
-const isTrialing = usage?.billingStatus === 'trialing';
-
 const active =
-  !isTrialing &&
+  hasPaidPlan &&
   normalizedPlan === selectedPlan &&
   optionInterval === usage?.billingInterval;
 

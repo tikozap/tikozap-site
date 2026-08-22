@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUserAndTenant } from "@/lib/auth";
 import { getTenantBillingUsage } from "@/lib/billingUsage";
 import { getTenantVoiceUsage } from "@/lib/voiceUsage";
+import { getTenantEntitlement } from "@/lib/tenantEntitlement";
 
 export const runtime = "nodejs";
 
@@ -17,16 +18,20 @@ export async function GET() {
     );
   }
 
-  const usage = await getTenantBillingUsage(auth.tenant.id);
-  const voiceUsage = await getTenantVoiceUsage(auth.tenant.id);
+const [usage, voiceUsage, entitlement] = await Promise.all([
+  getTenantBillingUsage(auth.tenant.id),
+  getTenantVoiceUsage(auth.tenant.id),
+  getTenantEntitlement(auth.tenant.id),
+]);
 
-  return NextResponse.json({
-    ok: true,
-    usage: {
-  ...usage,
-  billingStatus: auth.tenant.billingStatus || "trialing",
-
-  voice: voiceUsage,
-    },
-  });
+return NextResponse.json({
+  ok: true,
+  usage: {
+    ...usage,
+    billingStatus: auth.tenant.billingStatus || null,
+    entitlementState: entitlement.state,
+    trialEndsAt: entitlement.trialEndsAt,
+    voice: voiceUsage,
+  },
+});
 }
