@@ -25,6 +25,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  if (auth.tenant.role !== 'owner') {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Owner access required.',
+    },
+    {
+      status: 403,
+    }
+  );
+}
+
   const body = await req.json().catch(() => ({}));
   const userId = String(body?.userId || "").trim();
   const settings = body?.settings && typeof body.settings === "object"
