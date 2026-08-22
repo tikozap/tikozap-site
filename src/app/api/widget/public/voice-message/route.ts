@@ -229,8 +229,30 @@ if (!voiceUsageResult.ok) {
   let savedMessage;
 
   if (messageId) {
+    const existingMessage = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        conversationId: convo.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingMessage) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Message not found.",
+        },
+        { status: 404 }
+      );
+    }
+
     savedMessage = await prisma.message.update({
-      where: { id: messageId },
+      where: {
+        id: existingMessage.id,
+      },
       data: {
         content,
       },
