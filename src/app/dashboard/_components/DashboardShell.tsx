@@ -123,17 +123,26 @@ export default function DashboardShell({
   children,
   tenantName,
   planName,
+  entitlementState,
   role,
 }: {
   children: ReactNode;
   tenantName: string;
   planName: string;
+  entitlementState: 'paid' | 'trial' | 'trial_expired';
   role: 'owner' | 'staff';
 }) {
   const router = useRouter();
   const pathname = usePathname() || '';
 
   const isOwner = role === 'owner';
+
+  const planLabel =
+  entitlementState === 'trial'
+    ? 'Pro Trial'
+    : entitlementState === 'trial_expired'
+      ? 'No active plan'
+      : planName.charAt(0).toUpperCase() + planName.slice(1);
 
   const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -214,7 +223,7 @@ export default function DashboardShell({
             <div className="db-ws">{tenantName}</div>
 
             <div className="db-meta">
-              Plan: {planName === 'pro' ? 'Pro Trial' : planName}
+              Plan: {planLabel}
             </div>
           </div>
 

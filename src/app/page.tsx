@@ -107,10 +107,6 @@ export default function Page() {
 
       </section>
 
-<script
-  src="https://app.tikozap.com/widget.js"
-  data-tikozap-key="tz_1bf3625186119c6aabaa6df7621ea383"
-></script>
 
       <style jsx>{`
         .hero-paths {

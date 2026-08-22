@@ -6,6 +6,7 @@ import './dashboard.css';
 import DashboardShell from './_components/DashboardShell';
 import { getAuthedUserAndTenant } from '@/lib/auth';
 import type { Metadata } from 'next';
+import { getTenantEntitlement } from '@/lib/tenantEntitlement';
 
 export const metadata: Metadata = {
   robots: {
@@ -20,11 +21,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     redirect('/login');
   }
 
+  const entitlement = await getTenantEntitlement(auth.tenant.id);
+
   return (
     <div className="db-wrap">
 <DashboardShell
   tenantName={auth.tenant.storeName || "Your Store"}
   planName={auth.tenant.billingPlan || "Starter"}
+  entitlementState={entitlement.state}
   role={auth.tenant.role}
 >
   {children}
