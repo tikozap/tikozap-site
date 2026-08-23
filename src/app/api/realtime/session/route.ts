@@ -6,6 +6,7 @@ import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstruct
 import { getTikoLearning } from '@/lib/tikoLearningContext';
 import { prisma } from "@/lib/prisma";
 import { getTenantVoiceUsage } from "@/lib/voiceUsage";
+import { requireSameOrigin } from "@/lib/security/requireSameOrigin";
 import {
   getTenantEntitlement,
   TRIAL_PAUSED_VISITOR_MESSAGE,
@@ -69,6 +70,18 @@ export async function POST(req: Request) {
       body?.mode === "marketing"
         ? "marketing"
         : "merchant";
+
+   if (mode === "marketing" && !requireSameOrigin(req)) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Invalid request origin.",
+    },
+    {
+      status: 403,
+    }
+  );
+}
 
     const publicKey = String(
       body?.publicKey || ""

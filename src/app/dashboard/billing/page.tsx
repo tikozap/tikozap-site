@@ -224,48 +224,6 @@ if (savingPlan || isCurrentPaidPlan) {
   }
 };
 
-const configureVoice = async (
-  action: 'enable' | 'disable',
-  pack?: 'starter' | 'pro' | 'business'
-) => {
-  setNotice('');
-
-  try {
-    const res = await fetch('/api/voice/config', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        action,
-        pack,
-      }),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.ok) {
-      throw new Error(
-        data?.error || 'Could not update voice settings.'
-      );
-    }
-
-    await loadUsage();
-
-    setNotice(
-      action === 'disable'
-        ? 'Voice disabled successfully.'
-        : 'Voice pack updated successfully.'
-    );
-  } catch (err: any) {
-    setNotice(
-      err?.message || 'Could not update voice settings.'
-    );
-  }
-};
-
-
-
 const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
   if (pack === usage?.voice.pack) return;
 
