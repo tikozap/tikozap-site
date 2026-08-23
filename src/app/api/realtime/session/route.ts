@@ -227,9 +227,13 @@ if (mode === "merchant" && merchantTenantId) {
 }
 
 const tikoLearning =
-  mode === 'marketing'
-    ? await getTikoLearning()
-    : '';
+mode === 'marketing'
+  ? await getTikoLearning({
+      audience: 'tiko',
+      context: 'marketing',
+      channel: 'voice',
+    })
+  : '';
 const baseInstructions =
   mode === "marketing"
     ? buildTikoMarketingInstructions(tikoLearning)

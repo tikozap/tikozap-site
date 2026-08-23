@@ -157,7 +157,11 @@ if (mode === "marketing") {
     );
   }
 
-  const tikoLearning = await getTikoLearning();
+  const tikoLearning = await getTikoLearning({
+  audience: 'tiko',
+  context: 'marketing',
+  channel: 'text',
+});
 
   const response = await client.responses.create({
     model: "gpt-4.1-mini",
