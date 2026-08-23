@@ -19,19 +19,18 @@ function validateMessageImage(value: unknown) {
 
   const item = value as Record<string, unknown>;
 
-  if (
-    item.type !== "image" &&
-    typeof item.dataUrl !== "string"
-  ) {
+  if (item.type !== "image") {
     return true;
   }
 
-  const dataUrl = String(item.dataUrl || "").trim();
+  if (typeof item.dataUrl !== "string") {
+    return false;
+  }
+
+  const dataUrl = item.dataUrl.trim();
 
   if (
-    !/^data:image\/(?:jpeg|png|webp);base64,/i.test(
-      dataUrl
-    )
+    !/^data:image\/(?:jpeg|png|webp);base64,/i.test(dataUrl)
   ) {
     return false;
   }
@@ -93,7 +92,7 @@ if (!products.every(validateMessageImage)) {
     {
       ok: false,
       error:
-        "Images must be JPG, PNG, or WebP and smaller than 2 MB.",
+        "Images must be JPG, PNG, or WebP and within the upload size limit.",
     },
     { status: 400 }
   );
