@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -67,6 +71,29 @@ export async function OPTIONS() {
 
 export async function GET(req: Request) {
   try {
+    const rl = checkRateLimit(req, {
+      namespace: "widget-public-thread",
+      limit: 120,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Too many requests. Please try again shortly.",
+        },
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            ...rateLimitHeaders(rl),
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
 
     const parsed = Query.safeParse({
@@ -126,24 +153,25 @@ export async function GET(req: Request) {
       },
       select: {
         id: true,
-        messages: {
-          where: {
-            role: {
-              not: "note",
-            },
-          },
-          orderBy: [
-  { createdAt: "asc" },
-  { id: "asc" },
-],
-          select: {
-            id: true,
-            role: true,
-            content: true,
-            createdAt: true,
-            productsJson: true,
-          },
-        },
+messages: {
+  where: {
+    role: {
+      not: "note",
+    },
+  },
+  orderBy: [
+    { createdAt: "desc" },
+    { id: "desc" },
+  ],
+  take: 200,
+  select: {
+    id: true,
+    role: true,
+    content: true,
+    createdAt: true,
+    productsJson: true,
+  },
+},
       },
     });
 
