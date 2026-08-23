@@ -12,17 +12,33 @@ import {
 
 export const runtime = 'nodejs';
 
-function verifyPassword(password: string, stored: string | null | undefined) {
+function verifyPassword(
+  password: string,
+  stored: string | null | undefined
+) {
   if (!stored) return false;
 
   const [salt, originalHash] = stored.split(':');
+
   if (!salt || !originalHash) return false;
 
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const hash = crypto
+    .scryptSync(password, salt, 64)
+    .toString('hex');
+
+  const hashBuffer = Buffer.from(hash, 'hex');
+  const originalHashBuffer = Buffer.from(
+    originalHash,
+    'hex'
+  );
+
+  if (hashBuffer.length !== originalHashBuffer.length) {
+    return false;
+  }
 
   return crypto.timingSafeEqual(
-    Buffer.from(hash, 'hex'),
-    Buffer.from(originalHash, 'hex')
+    new Uint8Array(hashBuffer),
+    new Uint8Array(originalHashBuffer)
   );
 }
 
@@ -88,7 +104,15 @@ if (!user.emailVerifiedAt) {
   );
 }
 
-const tenant = user.ownedTenants[0] || user.memberships[0]?.tenant;
+const ownedTenant =
+  user.ownedTenants.find((tenant) => !tenant.isDeleted);
+
+const memberTenant =
+  user.memberships
+    .map((membership) => membership.tenant)
+    .find((tenant) => !tenant.isDeleted);
+
+const tenant = ownedTenant || memberTenant;
 
 const isAdmin =
   user.email.trim().toLowerCase() === 'admin@tikozap.com';
