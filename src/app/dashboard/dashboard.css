@@ -998,3 +998,9 @@ html, body{
     margin-top:6px !important;
   }
 }
+
+@media (min-width: 1001px) {
+  .db-overviewStack {
+    margin-top: 18px;
+  }
+}

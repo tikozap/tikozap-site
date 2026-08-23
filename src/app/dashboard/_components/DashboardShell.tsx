@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import DashboardAskTiko from './DashboardAskTiko';
 
 function NavItem({
   href,
@@ -288,6 +289,8 @@ export default function DashboardShell({
 
         <main className="db-main">{children}</main>
       </div>
+
+      <DashboardAskTiko />
 
       <style jsx global>{`
         .db-shell {
