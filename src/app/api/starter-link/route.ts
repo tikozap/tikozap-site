@@ -28,6 +28,10 @@ function safeImageSource(value: unknown) {
   if (
     /^data:image\/(?:jpeg|png|webp);base64,/i.test(raw)
   ) {
+    if (raw.length > 3_000_000) {
+      return null;
+    }
+
     return raw;
   }
 
