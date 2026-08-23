@@ -22,23 +22,6 @@ function normalize(value: unknown) {
   return String(value || "").trim();
 }
 
-async function findRealTenantId(auth: any) {
-  if (!auth) return null;
-
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      OR: [
-        { id: auth.tenant.id },
-        { slug: auth.tenant.slug },
-        { storeName: auth.tenant.storeName },
-      ],
-    },
-    select: { id: true },
-  });
-
-  return tenant?.id || null;
-}
-
 export async function POST(req: Request) {
   if (!requireSameOrigin(req)) {
   return NextResponse.json(

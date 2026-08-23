@@ -95,6 +95,18 @@ export async function POST(req: Request) {
       );
     }
 
+if (text.length > 4000) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Message is too long.',
+    },
+    {
+      status: 400,
+    }
+  );
+}
+
     const tenantId = auth.tenant.id;
 
     const entitlement = await getTenantEntitlement(tenantId);

@@ -248,46 +248,6 @@ export default function DemoChat() {
         setShowLeadCta(true);
       }
 
-      if (
-        userTurnCount === 2 &&
-        !trimmed.toLowerCase().includes("revenue") &&
-        !trimmed.toLowerCase().includes("roi")
-      ) {
-        fetch("/api/demo/revenue-estimate")
-          .then((r) => r.json())
-          .then((data) => {
-            if (!data?.ok || !data?.estimate) return;
-
-            const est = data.estimate;
-            const summary = data.summary;
-
-            const revenueText =
-              `Here’s an example ROI scenario.\n\n` +
-              `• Store: ${summary?.storeName || "Shopify Store"}\n` +
-              `• Example monthly revenue: ~$${Math.round(est.baselineRevenue)}\n` +
-              `• Estimated lift with Tiko: +$${Math.round(est.conservativeGain)} to +$${Math.round(est.strongGain)}\n` +
-              `• Expected midpoint: ~$${Math.round(est.expectedGain)}\n\n` +
-              `That’s the upside when shoppers get answers instantly instead of leaving.\n\n` +
-              `Want me to show how this would work on your store?`;
-
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `a-roi-${Date.now()}`,
-                role: "assistant",
-                text: revenueText,
-                source: "rule",
-                safePreview: true,
-                products: [],
-              },
-            ]);
-
-            setShowLeadCta(true);
-          })
-          .catch((err) => {
-            console.error("Revenue estimate fetch failed", err);
-          });
-      }
     } catch (err) {
       console.error("sendMessage error", err);
       setIsLoading(false);
