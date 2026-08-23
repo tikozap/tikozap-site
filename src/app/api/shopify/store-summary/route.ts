@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import type { ShopifyStoreSummary } from "@/lib/revenueEstimate";
 import { shopifyAdminGraphQL } from "@/lib/shopify";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,20 @@ const STORE_SUMMARY_QUERY = `
 `;
 
 export async function GET() {
+  const admin = await requireAdmin();
+
+  if (!admin) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Unauthorized",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
   try {
     const json = await shopifyAdminGraphQL<StoreSummaryResponse>(
       STORE_SUMMARY_QUERY,
