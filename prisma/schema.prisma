@@ -235,11 +235,16 @@ model TikoLearning {
   source String  @default("admin_coaching")
   active Boolean @default(true)
 
+  audience String @default("tiko")
+  context  String @default("everywhere")
+  channel  String @default("all")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([active])
   @@index([createdAt])
+  @@index([audience, context, channel, active])
 }
 
 model EmmaObservation {
