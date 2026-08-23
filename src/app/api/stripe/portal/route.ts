@@ -52,7 +52,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const origin = process.env.APP_BASE_URL || 'http://localhost:3000';
+  const origin =
+    process.env.APP_BASE_URL ||
+    new URL(req.url).origin;
 
   const stripe = getStripe();
 
