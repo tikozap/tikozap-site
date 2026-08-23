@@ -9,13 +9,8 @@ export default async function InstallStep() {
 
   const isStarterLinkStore = auth?.tenant?.starterLinkEnabled === true;
 
-const nextHref = isStarterLinkStore
-  ? '/dashboard/tikozap-link'
-  : '/dashboard/widget';
-
-const nextLabel = isStarterLinkStore
-  ? 'Go to Starter Link'
-  : 'Go to Widget';
+const nextHref = '/dashboard';
+const nextLabel = 'Go to Dashboard';
 
   return (
     <div className="space-y-6">
