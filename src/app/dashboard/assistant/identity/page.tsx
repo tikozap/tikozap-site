@@ -2,11 +2,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import MobilePageHeader from '../../_components/MobilePageHeader';
 import AssistantSectionMenu from '../_components/AssistantSectionMenu';
 import { Orb } from '@/components/Orb';
 import { OrbLarge } from '@/components/OrbLarge';
+
 
 const DEFAULTS = {
   name: 'Assistant',
@@ -276,6 +277,9 @@ export default function IdentityPage() {
   const [sellingStyle, setSellingStyle] = useState(DEFAULTS.sellingStyle);
   const [voiceStyle, setVoiceStyle] = useState(DEFAULTS.voiceStyle);
   const [saving, setSaving] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const allowNavigationRef = useRef(false);
 
   const assistantName = name.trim() || 'Your assistant';
   const assistantRole = role.trim() || 'Customer Support';
@@ -286,6 +290,23 @@ export default function IdentityPage() {
     useState<AssistantAppearance>('orb');
   const [voiceAppearance, setVoiceAppearance] =
     useState<AssistantAppearance>('orb');
+
+const identitySnapshot = useMemo(
+  () =>
+    JSON.stringify({
+      name,
+      iconDataUrl,
+      greeting,
+    }),
+  [
+    name,
+    iconDataUrl,
+    greeting,
+  ]
+);
+
+const hasUnsavedChanges =
+  Boolean(savedSnapshot) && identitySnapshot !== savedSnapshot;
 
   useEffect(() => {
     fetch('/api/settings', { cache: 'no-store' })
@@ -313,6 +334,15 @@ export default function IdentityPage() {
         setResponseStyle(settings.tz_ai_response_style || DEFAULTS.responseStyle);
         setSellingStyle(settings.tz_ai_product_behavior || DEFAULTS.sellingStyle);
         setVoiceStyle(settings.tz_voice_response_style || DEFAULTS.voiceStyle);
+
+ setSavedSnapshot(
+  JSON.stringify({
+    name: settings.tz_assistant_name || DEFAULTS.name,
+    iconDataUrl: settings.tz_assistant_icon_data_url || '',
+    greeting:
+      settings.tz_assistant_greeting || DEFAULTS.greeting,
+  })
+);
       })
       .catch(() => {});
   }, []);
@@ -353,7 +383,101 @@ function handleIconUpload(file: File | null) {
   reader.readAsDataURL(file);
 }
 
-  async function saveIdentity() {
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (allowNavigationRef.current) return;
+
+    event.preventDefault();
+    event.returnValue = '';
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  };
+}, [hasUnsavedChanges]);
+
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleClick = (event: MouseEvent) => {
+    if (allowNavigationRef.current) return;
+
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest('a');
+
+    if (!anchor) return;
+
+    const href = anchor.getAttribute('href');
+
+    if (!href || !href.startsWith('/dashboard')) return;
+
+    if (
+      anchor.getAttribute('target') === '_blank' ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setPendingHref(href);
+  };
+
+  document.addEventListener('click', handleClick, true);
+
+  return () => {
+    document.removeEventListener('click', handleClick, true);
+  };
+}, [hasUnsavedChanges]);
+
+async function saveChoiceSetting(
+  key: string,
+  value: string
+): Promise<boolean> {
+  try {
+    const raw = localStorage.getItem('tz_settings_cache');
+    const cached = raw ? JSON.parse(raw) : {};
+
+    const nextSettings = {
+      ...cached,
+      [key]: value,
+    };
+
+    const response = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: nextSettings }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Could not save setting.');
+    }
+
+    localStorage.setItem(
+      'tz_settings_cache',
+      JSON.stringify(nextSettings)
+    );
+    localStorage.setItem(key, value);
+
+    window.dispatchEvent(new Event('tz-settings-change'));
+
+    return true;
+  } catch (error) {
+    console.error('[Identity] Failed to save choice', error);
+    alert('Could not save this setting.');
+    return false;
+  }
+}
+
+  async function saveIdentity(): Promise<boolean> {
     setSaving(true);
 
     try {
@@ -398,7 +522,14 @@ localStorage.setItem(
 
 window.dispatchEvent(new Event('tz-settings-change'));
 
+setSavedSnapshot(identitySnapshot);
+
 alert(`${assistantName}'s identity has been updated.`);
+return true;
+    } catch (error) {
+      console.error('[Identity] Failed to save', error);
+      alert('Could not save assistant identity.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -518,7 +649,19 @@ alert(`${assistantName}'s identity has been updated.`);
     'Customer Support',
     'Sales Assistant',
   ]}
-  onChange={setRole}
+  onChange={async (value) => {
+  const previous = role;
+  setRole(value);
+
+  const saved = await saveChoiceSetting(
+    'tz_assistant_role',
+    value
+  );
+
+  if (!saved) {
+    setRole(previous);
+  }
+}}
 />
 
           <label className="id-field">
@@ -561,9 +704,21 @@ alert(`${assistantName}'s identity has been updated.`);
   avatarUrl={iconDataUrl}
   size="launcher"
   assistantName={assistantName}
-  onChange={(value) =>
-    setLauncherAppearance(value as LauncherAppearance)
+  onChange={async (value) => {
+  const next = value as LauncherAppearance;
+  const previous = launcherAppearance;
+
+  setLauncherAppearance(next);
+
+  const saved = await saveChoiceSetting(
+    'tz_launcher_appearance',
+    next
+  );
+
+  if (!saved) {
+    setLauncherAppearance(previous);
   }
+}}
 />
 
 <AppearanceChoices
@@ -583,9 +738,21 @@ alert(`${assistantName}'s identity has been updated.`);
   avatarUrl={iconDataUrl}
   size="chat"
   assistantName={assistantName}
-  onChange={(value) =>
-    setChatAppearance(value as AssistantAppearance)
+  onChange={async (value) => {
+  const next = value as AssistantAppearance;
+  const previous = chatAppearance;
+
+  setChatAppearance(next);
+
+  const saved = await saveChoiceSetting(
+    'tz_chat_appearance',
+    next
+  );
+
+  if (!saved) {
+    setChatAppearance(previous);
   }
+}}
 />
 
 <AppearanceChoices
@@ -605,9 +772,21 @@ alert(`${assistantName}'s identity has been updated.`);
   avatarUrl={iconDataUrl}
   size="voice"
   assistantName={assistantName}
-  onChange={(value) =>
-    setVoiceAppearance(value as AssistantAppearance)
+  onChange={async (value) => {
+  const next = value as AssistantAppearance;
+  const previous = voiceAppearance;
+
+  setVoiceAppearance(next);
+
+  const saved = await saveChoiceSetting(
+    'tz_voice_appearance',
+    next
+  );
+
+  if (!saved) {
+    setVoiceAppearance(previous);
   }
+}}
 />
         </section>
 
@@ -618,14 +797,38 @@ alert(`${assistantName}'s identity has been updated.`);
             label="Tone"
             value={tone}
             options={['Friendly', 'Professional', 'Warm', 'Luxury boutique', 'Casual']}
-            onChange={setTone}
+            onChange={async (value) => {
+  const previous = tone;
+  setTone(value);
+
+  const saved = await saveChoiceSetting(
+    'tz_ai_tone',
+    value
+  );
+
+  if (!saved) {
+    setTone(previous);
+  }
+}}
           />
 
           <ChoiceGroup
             label="Response style"
             value={responseStyle}
             options={['Helpful', 'Concise', 'Natural', 'Detailed when helpful']}
-            onChange={setResponseStyle}
+            onChange={async (value) => {
+  const previous = responseStyle;
+  setResponseStyle(value);
+
+  const saved = await saveChoiceSetting(
+    'tz_ai_response_style',
+    value
+  );
+
+  if (!saved) {
+    setResponseStyle(previous);
+  }
+}}
           />
 
           <ChoiceGroup
@@ -637,7 +840,19 @@ alert(`${assistantName}'s identity has been updated.`);
               'Soft recommendation',
               'Actively recommend products',
             ]}
-            onChange={setSellingStyle}
+            onChange={async (value) => {
+  const previous = sellingStyle;
+  setSellingStyle(value);
+
+  const saved = await saveChoiceSetting(
+    'tz_ai_product_behavior',
+    value
+  );
+
+  if (!saved) {
+    setSellingStyle(previous);
+  }
+}}
           />
 
           <ChoiceGroup
@@ -649,7 +864,19 @@ alert(`${assistantName}'s identity has been updated.`);
               'Calm and supportive',
               'Detailed & supportive',
             ]}
-            onChange={setVoiceStyle}
+            onChange={async (value) => {
+  const previous = voiceStyle;
+  setVoiceStyle(value);
+
+  const saved = await saveChoiceSetting(
+    'tz_voice_response_style',
+    value
+  );
+
+  if (!saved) {
+    setVoiceStyle(previous);
+  }
+}}
           />
         </section>
 
@@ -669,6 +896,64 @@ alert(`${assistantName}'s identity has been updated.`);
           </p>
         </div>
       </div>
+
+{pendingHref ? (
+  <div className="id-unsavedBackdrop">
+    <div
+      className="id-unsavedDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="id-unsaved-title"
+    >
+      <h2 id="id-unsaved-title">
+        You have unsaved changes.
+      </h2>
+
+      <p>Save your changes before leaving?</p>
+
+      <div className="id-unsavedActions">
+        <button
+          type="button"
+          className="id-unsavedCancel"
+          onClick={() => setPendingHref(null)}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="id-unsavedLeave"
+          onClick={() => {
+            const href = pendingHref;
+            allowNavigationRef.current = true;
+            window.location.href = href;
+          }}
+          disabled={saving}
+        >
+          Leave without saving
+        </button>
+
+        <button
+          type="button"
+          className="id-unsavedSave"
+          onClick={async () => {
+            const href = pendingHref;
+            const saved = await saveIdentity();
+
+            if (!saved) return;
+
+            allowNavigationRef.current = true;
+            window.location.href = href;
+          }}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save & leave'}
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
 
       <style jsx>{`
         .id-page {
@@ -1217,6 +1502,72 @@ alert(`${assistantName}'s identity has been updated.`);
 .id-photoOrbPreview :global(*) {
   max-width: 100%;
   max-height: 100%;
+}
+
+.id-unsavedBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.id-unsavedDialog {
+  width: min(440px, 100%);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.id-unsavedDialog h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+}
+
+.id-unsavedDialog p {
+  margin: 8px 0 20px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.id-unsavedActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.id-unsavedActions button {
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.id-unsavedCancel,
+.id-unsavedLeave {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+
+.id-unsavedSave {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.id-unsavedActions button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
       `}</style>
     </div>
