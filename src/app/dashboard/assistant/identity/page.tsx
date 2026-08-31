@@ -383,60 +383,7 @@ function handleIconUpload(file: File | null) {
   reader.readAsDataURL(file);
 }
 
-useEffect(() => {
-  if (!hasUnsavedChanges) return;
 
-  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (allowNavigationRef.current) return;
-
-    event.preventDefault();
-    event.returnValue = '';
-  };
-
-  window.addEventListener('beforeunload', handleBeforeUnload);
-
-  return () => {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-  };
-}, [hasUnsavedChanges]);
-
-useEffect(() => {
-  if (!hasUnsavedChanges) return;
-
-  const handleClick = (event: MouseEvent) => {
-    if (allowNavigationRef.current) return;
-
-    const target = event.target as HTMLElement | null;
-    const anchor = target?.closest('a');
-
-    if (!anchor) return;
-
-    const href = anchor.getAttribute('href');
-
-    if (!href || !href.startsWith('/dashboard')) return;
-
-    if (
-      anchor.getAttribute('target') === '_blank' ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    setPendingHref(href);
-  };
-
-  document.addEventListener('click', handleClick, true);
-
-  return () => {
-    document.removeEventListener('click', handleClick, true);
-  };
-}, [hasUnsavedChanges]);
 
 async function saveChoiceSetting(
   key: string,
@@ -534,6 +481,61 @@ return true;
       setSaving(false);
     }
   }
+
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (allowNavigationRef.current) return;
+
+    event.preventDefault();
+    event.returnValue = '';
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  };
+}, [hasUnsavedChanges]);
+
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleClick = (event: MouseEvent) => {
+    if (allowNavigationRef.current) return;
+
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest('a');
+
+    if (!anchor) return;
+
+    const href = anchor.getAttribute('href');
+
+    if (!href || !href.startsWith('/dashboard')) return;
+
+    if (
+      anchor.getAttribute('target') === '_blank' ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setPendingHref(href);
+  };
+
+  document.addEventListener('click', handleClick, true);
+
+  return () => {
+    document.removeEventListener('click', handleClick, true);
+  };
+}, [hasUnsavedChanges]);
 
   return (
     <div className="db-container">
