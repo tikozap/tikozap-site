@@ -3,7 +3,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import MobilePageHeader from "../_components/MobilePageHeader";
 
 const fieldLabel: CSSProperties = {
@@ -61,8 +67,13 @@ function safeJsonParse<T>(value: unknown, fallback: T): T {
 export default function TikoZapLinkPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savedMsg, setSavedMsg] = useState("");
-  const [copiedMsg, setCopiedMsg] = useState("");
+const [savedMsg, setSavedMsg] = useState("");
+
+const [copiedMsg, setCopiedMsg] = useState("");
+
+const [savedSnapshot, setSavedSnapshot] = useState("");
+const [pendingHref, setPendingHref] = useState<string | null>(null);
+const allowNavigationRef = useRef(false);
 
   const [slug, setSlug] = useState("my-store");
 const [storeName, setStoreName] = useState("My Store");
@@ -92,6 +103,48 @@ const [contactEmail, setContactEmail] = useState("");
 
   const [starterLinkEnabled, setStarterLinkEnabled] = useState(false);
   const [changingEnabled, setChangingEnabled] = useState(false);
+
+  const starterLinkSnapshot = useMemo(
+  () =>
+    JSON.stringify({
+      slug,
+      storeName,
+      logoUrl,
+      tagline,
+      subheading,
+      assistantName,
+      greeting,
+      aboutText,
+      contactEmail,
+      shippingNote,
+      returnNote,
+      showProductsNav,
+      showContactNav,
+      bestSeller,
+      products,
+    }),
+  [
+    slug,
+    storeName,
+    logoUrl,
+    tagline,
+    subheading,
+    assistantName,
+    greeting,
+    aboutText,
+    contactEmail,
+    shippingNote,
+    returnNote,
+    showProductsNav,
+    showContactNav,
+    bestSeller,
+    products,
+  ]
+);
+
+const hasUnsavedChanges =
+  Boolean(savedSnapshot) &&
+  starterLinkSnapshot !== savedSnapshot;
 
   const previewHref = `/l/${slug || "my-store"}`;
   const starterLinkUrl =
@@ -134,23 +187,56 @@ const [contactEmail, setContactEmail] = useState("");
       setShowProductsNav(page.showProductsNav ?? true);
       setShowContactNav(page.showContactNav ?? true);
 
-      setBestSeller(
-        safeJsonParse<ProductForm>(page.bestSellerJson, emptyProduct())
-      );
+const loadedBestSeller = safeJsonParse<ProductForm>(
+  page.bestSellerJson,
+  emptyProduct()
+);
 
-      const parsedProducts = safeJsonParse<ProductForm[]>(page.productsJson, []);
-      setProducts([
-        ...parsedProducts,
-        ...Array.from({ length: Math.max(0, 9 - parsedProducts.length) }, () =>
-          emptyProduct()
-        ),
-      ].slice(0, 9));
+setBestSeller(loadedBestSeller);
+
+const parsedProducts = safeJsonParse<ProductForm[]>(
+  page.productsJson,
+  []
+);
+
+const loadedProducts = [
+  ...parsedProducts,
+  ...Array.from(
+    { length: Math.max(0, 9 - parsedProducts.length) },
+    () => emptyProduct()
+  ),
+].slice(0, 9);
+
+setProducts(loadedProducts);
+
+setSavedSnapshot(
+  JSON.stringify({
+    slug: data.slug || "my-store",
+    storeName: data.storeName || "My Store",
+    logoUrl: page.logoUrl || "",
+    tagline: page.tagline || "Tagline for store",
+    subheading: page.subheading || "Store’s subheading",
+    assistantName:
+      data.assistant?.assistantName || "Store Assistant",
+    greeting:
+      data.assistant?.greeting ||
+      "Hi! I can help with products, order tracking, shipping, and returns.",
+    aboutText: page.footerLine || "",
+    contactEmail: page.contactEmail || "",
+    shippingNote: page.shippingNote || "",
+    returnNote: page.returnNote || "",
+    showProductsNav: page.showProductsNav ?? true,
+    showContactNav: page.showContactNav ?? true,
+    bestSeller: loadedBestSeller,
+    products: loadedProducts,
+  })
+);
     } finally {
       setLoading(false);
     }
   }
 
-  async function saveData() {
+  async function saveData(): Promise<boolean> {
     setSaving(true);
     setSavedMsg("");
 
@@ -193,9 +279,16 @@ const [contactEmail, setContactEmail] = useState("");
       }
 
       setSavedMsg("Saved.");
-    } catch (e: any) {
-      setSavedMsg(e?.message || "Could not save.");
-    } finally {
+setSavedSnapshot(starterLinkSnapshot);
+
+return true;
+} catch (e: any) {
+
+  setSavedMsg(e?.message || "Could not save.");
+
+  return false;
+
+} finally {
       setSaving(false);
     }
   }
@@ -254,6 +347,64 @@ async function toggleStarterLinkEnabled() {
     setChangingEnabled(false);
   }
 }
+
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (allowNavigationRef.current) return;
+
+    event.preventDefault();
+    event.returnValue = "";
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener(
+      "beforeunload",
+      handleBeforeUnload
+    );
+  };
+}, [hasUnsavedChanges]);
+
+useEffect(() => {
+  if (!hasUnsavedChanges) return;
+
+  const handleClick = (event: MouseEvent) => {
+    if (allowNavigationRef.current) return;
+
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest("a");
+
+    if (!anchor) return;
+
+    const href = anchor.getAttribute("href");
+
+    if (!href || !href.startsWith("/dashboard")) return;
+
+    if (
+      anchor.getAttribute("target") === "_blank" ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setPendingHref(href);
+  };
+
+  document.addEventListener("click", handleClick, true);
+
+  return () => {
+    document.removeEventListener("click", handleClick, true);
+  };
+}, [hasUnsavedChanges]);
 
   return (
     <div className="db-container">
@@ -749,6 +900,106 @@ async function toggleStarterLinkEnabled() {
           </div>
         </div>
       </div>
+
+      {pendingHref ? (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 10000,
+      background: "rgba(17, 24, 39, 0.38)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20,
+    }}
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sl-unsaved-title"
+      style={{
+        width: "100%",
+        maxWidth: 440,
+        background: "#ffffff",
+        borderRadius: 16,
+        padding: 24,
+        boxShadow:
+          "0 24px 70px rgba(17, 24, 39, 0.22)",
+      }}
+    >
+      <h2
+        id="sl-unsaved-title"
+        style={{
+          margin: 0,
+          fontSize: 20,
+          color: "#111827",
+        }}
+      >
+        You have unsaved changes.
+      </h2>
+
+      <p
+        style={{
+          margin: "8px 0 20px",
+          color: "#6b7280",
+        }}
+      >
+        Save your changes before leaving?
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          justifyContent: "flex-end",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => setPendingHref(null)}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="db-btn"
+          onClick={() => {
+            const href = pendingHref;
+
+            allowNavigationRef.current = true;
+            window.location.href = href;
+          }}
+          disabled={saving}
+        >
+          Leave without saving
+        </button>
+
+        <button
+          type="button"
+          className="db-btn primary"
+          onClick={async () => {
+            const href = pendingHref;
+
+            const saved = await saveData();
+
+            if (!saved) return;
+
+            allowNavigationRef.current = true;
+            window.location.href = href;
+          }}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save & leave"}
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
       <style jsx>{`
   .sl-enableRow {
     width: 100%;
