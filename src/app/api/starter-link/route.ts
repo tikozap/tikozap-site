@@ -123,6 +123,12 @@ function bool(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function sanitizeFeaturedProductType(value: unknown) {
+  return value === 'newArrivals'
+    ? 'newArrivals'
+    : 'bestsellers';
+}
+
 export async function GET() {
   const auth = await getAuthedUserAndTenant();
   if (!auth) return NextResponse.json({ ok: false }, { status: 401 });
@@ -316,6 +322,9 @@ const safeBestSellerJson =
 const safeProductsJson =
   sanitizeProductsJson(page.productsJson);
 
+const safeFeaturedProductType =
+  sanitizeFeaturedProductType(page.featuredProductType);
+
   try {
     const tenant = await prisma.tenant.update({
       where: { id: realTenantId },
@@ -339,8 +348,9 @@ settingsJson: JSON.stringify(nextSettings),
               contactEmail: clean(page.contactEmail) || null,
               shippingNote: clean(page.shippingNote) || null,
               returnNote: clean(page.returnNote) || null,
-bestSellerJson: safeBestSellerJson,
-productsJson: safeProductsJson,
+              bestSellerJson: safeBestSellerJson,
+              productsJson: safeProductsJson,
+              featuredProductType: safeFeaturedProductType,
               showProductsNav: bool(page.showProductsNav, true),
               showContactNav: bool(page.showContactNav, true),
               showFooterBrand: bool(page.showFooterBrand, true),
@@ -353,8 +363,9 @@ productsJson: safeProductsJson,
               contactEmail: clean(page.contactEmail) || null,
               shippingNote: clean(page.shippingNote) || null,
               returnNote: clean(page.returnNote) || null,
-bestSellerJson: safeBestSellerJson,
-productsJson: safeProductsJson,
+              bestSellerJson: safeBestSellerJson,
+              productsJson: safeProductsJson,
+              featuredProductType: safeFeaturedProductType,
               showProductsNav: bool(page.showProductsNav, true),
               showContactNav: bool(page.showContactNav, true),
               showFooterBrand: bool(page.showFooterBrand, true),

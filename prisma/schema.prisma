@@ -130,6 +130,7 @@ model StarterLinkPage {
   returnNote      String?
   bestSellerJson  String?
   productsJson    String?
+  featuredProductType String @default("bestsellers")
   showProductsNav Boolean  @default(true)
   showContactNav  Boolean  @default(true)
   showFooterBrand Boolean  @default(true)

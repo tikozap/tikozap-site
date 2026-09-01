@@ -97,6 +97,10 @@ const [contactEmail, setContactEmail] = useState("");
 
   const [bestSeller, setBestSeller] = useState<ProductForm>(emptyProduct());
 
+const [featuredProductType, setFeaturedProductType] =
+  useState<"bestsellers" | "newArrivals">("bestsellers");
+
+
   const [products, setProducts] = useState<ProductForm[]>(
     Array.from({ length: 9 }, () => emptyProduct())
   );
@@ -121,6 +125,7 @@ const [contactEmail, setContactEmail] = useState("");
       showProductsNav,
       showContactNav,
       bestSeller,
+      featuredProductType,
       products,
     }),
   [
@@ -138,6 +143,7 @@ const [contactEmail, setContactEmail] = useState("");
     showProductsNav,
     showContactNav,
     bestSeller,
+    featuredProductType,
     products,
   ]
 );
@@ -184,8 +190,15 @@ const hasUnsavedChanges =
       setShippingNote(page.shippingNote || "");
       setReturnNote(page.returnNote || "");
 
-      setShowProductsNav(page.showProductsNav ?? true);
-      setShowContactNav(page.showContactNav ?? true);
+setShowProductsNav(page.showProductsNav ?? true);
+setShowContactNav(page.showContactNav ?? true);
+
+const loadedFeaturedProductType =
+  page.featuredProductType === "newArrivals"
+    ? "newArrivals"
+    : "bestsellers";
+
+setFeaturedProductType(loadedFeaturedProductType);
 
 const loadedBestSeller = safeJsonParse<ProductForm>(
   page.bestSellerJson,
@@ -227,6 +240,7 @@ setSavedSnapshot(
     returnNote: page.returnNote || "",
     showProductsNav: page.showProductsNav ?? true,
     showContactNav: page.showContactNav ?? true,
+    featuredProductType: loadedFeaturedProductType,
     bestSeller: loadedBestSeller,
     products: loadedProducts,
   })
@@ -266,6 +280,7 @@ setSavedSnapshot(
             returnNote,
             bestSellerJson: JSON.stringify(bestSeller),
             productsJson: JSON.stringify(cleanProducts),
+            featuredProductType,
             showProductsNav,
             showContactNav,
             showFooterBrand: true,
@@ -675,8 +690,66 @@ useEffect(() => {
         <div className="db-card">
           <div className="db-cardTitle">Products</div>
 <p className="db-cardText">
-  Feature your best seller and 9 products on your storefront page.
+
+  Feature a bestseller or new arrival and 9 products on your storefront page.
+
 </p>
+
+<div
+  style={{
+    marginTop: 12,
+    display: "inline-flex",
+    padding: 4,
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    background: "#f8fafc",
+    gap: 4,
+  }}
+>
+  <button
+    type="button"
+    onClick={() => setFeaturedProductType("bestsellers")}
+    style={{
+      border: 0,
+      borderRadius: 9,
+      padding: "8px 14px",
+      fontWeight: 800,
+      cursor: "pointer",
+      background:
+        featuredProductType === "bestsellers" ? "#ffffff" : "transparent",
+      color:
+        featuredProductType === "bestsellers" ? "#111827" : "#6b7280",
+      boxShadow:
+        featuredProductType === "bestsellers"
+          ? "0 1px 3px rgba(0,0,0,0.10)"
+          : "none",
+    }}
+  >
+    Bestsellers
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setFeaturedProductType("newArrivals")}
+    style={{
+      border: 0,
+      borderRadius: 9,
+      padding: "8px 14px",
+      fontWeight: 800,
+      cursor: "pointer",
+      background:
+        featuredProductType === "newArrivals" ? "#ffffff" : "transparent",
+      color:
+        featuredProductType === "newArrivals" ? "#111827" : "#6b7280",
+      boxShadow:
+        featuredProductType === "newArrivals"
+          ? "0 1px 3px rgba(0,0,0,0.10)"
+          : "none",
+    }}
+  >
+    New Arrivals
+  </button>
+</div>
 
 <div
   style={{
@@ -695,7 +768,12 @@ useEffect(() => {
 
           <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 18, padding: 14, background: "#f8fafc" }}>
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>Best Seller</div>
+
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>
+                {featuredProductType === "newArrivals"
+                  ? "New Arrivals"
+                  : "Bestsellers"}
+              </div>
 
               <div style={{ display: "grid", gap: 12 }}>
                 <label style={fieldWrap}>

@@ -101,7 +101,11 @@ let shippingNote = "";
 let returnNote = "";
 
 let showProductsNav = true;
+
 let showContactNav = true;
+
+let featuredProductType: "bestsellers" | "newArrivals" = "bestsellers";
+
 let bestSeller: StarterLinkProduct = EMPTY_BEST_SELLER;
 let featuredProducts: StarterLinkProduct[] = [];
 
@@ -172,8 +176,14 @@ aboutText = /powered by tikozap/i.test(savedAboutText)
   shippingNote = page.shippingNote || "";
   returnNote = page.returnNote || "";
 
-  showProductsNav = page.showProductsNav;
-  showContactNav = page.showContactNav;
+showProductsNav = page.showProductsNav;
+
+showContactNav = page.showContactNav;
+
+featuredProductType =
+  page.featuredProductType === "newArrivals"
+    ? "newArrivals"
+    : "bestsellers";
 }
 
 contactEmail =
@@ -251,20 +261,33 @@ brandColor =
 <div id="products">
   {hasBestSeller ? (
     <section className="sl-bestSeller">
-      <div className="sl-sectionTitle">Best Seller</div>
+      <div className="sl-sectionTitle">
+  {featuredProductType === "newArrivals"
+    ? "New Arrivals"
+    : "Bestsellers"}
+</div>
 
       <article className="sl-bestCard">
         {bestSeller.image ? (
           <img
             src={bestSeller.image}
-            alt={bestSeller.title || "Best seller"}
+            alt={
+  bestSeller.title ||
+  (featuredProductType === "newArrivals"
+    ? "New arrival"
+    : "Bestseller")
+}
             className="sl-bestImage"
           />
         ) : null}
 
         <div className="sl-bestMeta">
           <div>
-            <div className="sl-bestBadge">Customer favorite</div>
+            <div className="sl-bestBadge">
+  {featuredProductType === "newArrivals"
+    ? "Just arrived"
+    : "Customer favorite"}
+</div>
             {bestSeller.title ? (
               <div className="sl-bestTitle">{bestSeller.title}</div>
             ) : null}
