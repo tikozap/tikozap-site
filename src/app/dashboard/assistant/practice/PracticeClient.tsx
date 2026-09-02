@@ -277,7 +277,7 @@ body: JSON.stringify({
 
 return (
   <div>
-    <MobilePageHeader title="Test & Coach" />
+    <MobilePageHeader title="Test & Teach" />
 
     <div className="practice-page">
       <div className="practice-top">
