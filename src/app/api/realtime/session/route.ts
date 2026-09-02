@@ -1,7 +1,7 @@
 // src/app/api/realtime/session/route.ts
 
 import { NextResponse } from "next/server";
-
+import { HUMAN_HANDOFF_BEHAVIOR } from "@/lib/assistantBehavior";
 import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 import { getTikoLearning } from '@/lib/tikoLearningContext';
 import { prisma } from "@/lib/prisma";
@@ -227,13 +227,12 @@ if (mode === "merchant" && merchantTenantId) {
 }
 
 const tikoLearning =
-mode === 'marketing'
-  ? await getTikoLearning({
-      audience: 'tiko',
-      context: 'marketing',
-      channel: 'voice',
-    })
-  : '';
+  mode === 'marketing'
+    ? await getTikoLearning({
+        target: 'tiko_web',
+        channel: 'voice',
+      })
+    : '';
 const baseInstructions =
   mode === "marketing"
     ? buildTikoMarketingInstructions(tikoLearning)
@@ -247,6 +246,8 @@ const baseInstructions =
 
         "Use the Store Knowledge and Assistant Current Understanding below when answering.",
         "The Assistant Current Understanding contains the merchant's resolved coaching and should take priority over older conflicting store guidance.",
+
+        HUMAN_HANDOFF_BEHAVIOR,
 
         merchantStoreKnowledge,
 
@@ -316,6 +317,10 @@ const instructions = [
                 format: {
                   type: "audio/pcm",
                   rate: 24000,
+                },
+
+                noise_reduction: {
+                  type: "far_field",
                 },
 
                 turn_detection: {

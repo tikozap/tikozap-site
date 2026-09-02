@@ -11,6 +11,13 @@ type TikoLearningItem = {
   instruction: string;
   summary?: string | null;
   source: string;
+
+appliesText: boolean;
+appliesVoice: boolean;
+appliesTikoWeb: boolean;
+appliesTikoDash: boolean;
+appliesAssistants: boolean;
+
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +43,12 @@ export default function TikoAdminClient() {
   const [search, setSearch] = useState('');
   const [newNote, setNewNote] = useState('');
   const [notedReply, setNotedReply] = useState('');
+  const [noteText, setNoteText] = useState(true);
+  const [noteVoice, setNoteVoice] = useState(true);
+
+  const [noteTikoWeb, setNoteTikoWeb] = useState(true);
+  const [noteTikoDash, setNoteTikoDash] = useState(true);
+  const [noteAssistants, setNoteAssistants] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -47,10 +60,27 @@ export default function TikoAdminClient() {
   content: string;
 };
 
+type TikoTestContext =
+  | 'marketing'
+  | 'dashboard';
+
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [question, setQuestion] = useState('');
 const [sendingQuestion, setSendingQuestion] = useState(false);
-const [conversationId, setConversationId] = useState<string | null>(null);
+
+const [testContext, setTestContext] =
+  useState<TikoTestContext>('marketing');
+  const [coachingMessageIndex, setCoachingMessageIndex] =
+  useState<number | null>(null);
+
+const [coachingText, setCoachingText] =
+  useState('');
+
+const [savingCoaching, setSavingCoaching] =
+  useState(false);
+
+const [coachingReply, setCoachingReply] =
+  useState('');
 const NOTES_STEP = 5;
 const [visibleNoteCount, setVisibleNoteCount] = useState(NOTES_STEP);
 
@@ -141,9 +171,16 @@ const showingMoreThanDefault =
         headers: {
           'content-type': 'application/json',
         },
-        body: JSON.stringify({
-          instruction,
-        }),
+body: JSON.stringify({
+  instruction,
+
+  appliesText: noteText,
+  appliesVoice: noteVoice,
+
+  appliesTikoWeb: noteTikoWeb,
+  appliesTikoDash: noteTikoDash,
+  appliesAssistants: noteAssistants,
+}),
       });
 
       const data = await res.json().catch(() => null);
@@ -269,7 +306,86 @@ if (data?.reply) {
     }
   }
 
-  async function askTiko() {
+async function saveTestCoaching() {
+  const instruction =
+    coachingText.trim();
+
+  if (
+    !instruction ||
+    savingCoaching ||
+    coachingMessageIndex === null
+  ) {
+    return;
+  }
+
+  setSavingCoaching(true);
+  setError('');
+  setCoachingReply('');
+
+  try {
+    const res = await fetch(
+      '/api/admin/tiko/learning',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+body: JSON.stringify({
+  instruction,
+
+  appliesText: true,
+  appliesVoice: false,
+
+  appliesTikoWeb:
+    testContext === 'marketing',
+
+  appliesTikoDash:
+    testContext === 'dashboard',
+
+  appliesAssistants: false,
+
+  fromTestCoach: true,
+}),
+      }
+    );
+
+    const data =
+      await res.json().catch(() => null);
+
+    if (
+      !res.ok ||
+      !data?.ok ||
+      !data?.item
+    ) {
+      throw new Error(
+        data?.error ||
+          'Could not save Tiko coaching.'
+      );
+    }
+
+    setItems((current) => [
+      data.item,
+      ...current,
+    ]);
+
+    if (data?.reply) {
+      setCoachingReply(
+        String(data.reply)
+      );
+    }
+
+    setCoachingText('');
+  } catch (err: any) {
+    setError(
+      err?.message ||
+        'Could not save Tiko coaching.'
+    );
+  } finally {
+    setSavingCoaching(false);
+  }
+}
+
+async function askTiko() {
   const message = question.trim();
 
   if (!message || sendingQuestion) return;
@@ -281,81 +397,56 @@ if (data?.reply) {
     content: message,
   };
 
-  const history = [...messages, userMessage];
+  const nextMessages = [
+    ...messages,
+    userMessage,
+  ];
 
-  setMessages(history);
+  setMessages(nextMessages);
   setQuestion('');
 
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-body: JSON.stringify({
-  message,
-  conversationId,
-  mode: 'marketing',
-}),
-    });
-
-    const reader = res.body?.getReader();
-
-    if (!reader) {
-      throw new Error('No response.');
-    }
-
-    const decoder = new TextDecoder();
-
-    let answer = '';
-    let nextConversationId = conversationId;
-
-    while (true) {
-      const { value, done } = await reader.read();
-
-      if (done) break;
-
-      const text = decoder.decode(value);
-
-      for (const line of text.split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-
-        try {
-          const evt = JSON.parse(line.slice(6));
-
-          if (
-            evt.type === 'meta' &&
-            evt.conversationId
-          ) {
-            nextConversationId =
-              evt.conversationId;
-          }
-
-if (
-  evt.type === 'delta' &&
-  evt.delta
-) {
-  answer += evt.delta;
-}
-        } catch {}
+    const res = await fetch(
+      '/api/admin/tiko/test',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          context: testContext,
+          history: messages,
+        }),
       }
-    }
+    );
 
-    setConversationId(nextConversationId);
+    const data =
+      await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        data?.error ||
+          'Could not test Tiko.'
+      );
+    }
 
     setMessages([
-      ...history,
+      ...nextMessages,
       {
         role: 'assistant',
-        content: answer.trim(),
+        content: String(
+          data.answer || ''
+        ).trim(),
       },
     ]);
-  } catch {
+  } catch (err: any) {
     setMessages([
-      ...history,
+      ...nextMessages,
       {
         role: 'assistant',
         content:
+          err?.message ||
           'Sorry, something went wrong.',
       },
     ]);
@@ -403,16 +494,74 @@ if (
         type="button"
         className="tikoStartOver"
         disabled={sendingQuestion}
-        onClick={() => {
-          setMessages([]);
-          setQuestion('');
-          setConversationId(null);
-        }}
+onClick={() => {
+  setMessages([]);
+  setQuestion('');
+  setCoachingMessageIndex(null);
+  setCoachingText('');
+  setCoachingReply('');
+}}
       >
         Start over
       </button>
     ) : null}
   </div>
+
+<div className="tikoTestContext">
+  <span className="tikoTestContextLabel">
+    Test Tiko as:
+  </span>
+
+  <div className="tikoTestContextOptions">
+    <button
+      type="button"
+      className={
+        testContext === 'marketing'
+          ? 'active'
+          : ''
+      }
+      disabled={sendingQuestion}
+      onClick={() => {
+        if (testContext === 'marketing') {
+          return;
+        }
+
+        setTestContext('marketing');
+        setMessages([]);
+        setQuestion('');
+        setCoachingMessageIndex(null);
+        setCoachingText('');
+        setCoachingReply('');
+      }}
+    >
+      Website
+    </button>
+
+    <button
+      type="button"
+      className={
+        testContext === 'dashboard'
+          ? 'active'
+          : ''
+      }
+      disabled={sendingQuestion}
+      onClick={() => {
+        if (testContext === 'dashboard') {
+          return;
+        }
+
+        setTestContext('dashboard');
+        setMessages([]);
+        setQuestion('');
+        setCoachingMessageIndex(null);
+        setCoachingText('');
+        setCoachingReply('');
+      }}
+    >
+      Dashboard
+    </button>
+  </div>
+</div>
 
   <div className="tikoConversation">
     {messages.length === 0 ? (
@@ -423,40 +572,126 @@ if (
 
         <strong>Start a conversation with Tiko</strong>
 
-        <span>
-          Ask about TikoZap, pricing, setup, Starter Link,
-          Voice, or anything Tiko should know.
-        </span>
+<span>
+  {testContext === 'dashboard'
+    ? 'Ask how to use Overview, Inbox, Assistant, Knowledge, Widget, Starter Link, Billing, Settings, or what a merchant should do next.'
+    : 'Ask about TikoZap, pricing, setup, Starter Link, Voice, or anything a website visitor may ask.'}
+</span>
       </div>
     ) : (
-      messages.map((message, index) => {
-        const isUser = message.role === 'user';
+messages.map((message, index) => {
+  const isUser = message.role === 'user';
 
-        return (
-          <div
-            key={`${message.role}-${index}`}
-            className={[
-              'tikoMessageRow',
-              isUser ? 'is-user' : 'is-tiko',
-            ].join(' ')}
-          >
-            <div className="tikoMessageWrap">
-              <div className="tikoMessageLabel">
-                {isUser ? 'You' : 'Tiko'}
-              </div>
+  return (
+    <div
+      key={`${message.role}-${index}`}
+      className={[
+        'tikoMessageRow',
+        isUser ? 'is-user' : 'is-tiko',
+      ].join(' ')}
+    >
+      <div className="tikoMessageWrap">
+        <div className="tikoMessageLabel">
+          {isUser ? 'You' : 'Tiko'}
+        </div>
 
-              <div
-                className={[
-                  'tikoMessageBubble',
-                  isUser ? 'is-user' : 'is-tiko',
-                ].join(' ')}
+        <div
+          className={[
+            'tikoMessageBubble',
+            isUser ? 'is-user' : 'is-tiko',
+          ].join(' ')}
+        >
+          {message.content}
+        </div>
+
+        {!isUser ? (
+          <>
+            <div className="tikoMessageCoach">
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachingMessageIndex(index);
+                  setCoachingText('');
+                  setCoachingReply('');
+                }}
               >
-                {message.content}
-              </div>
+                Coach
+              </button>
             </div>
-          </div>
-        );
-      })
+
+            {coachingMessageIndex === index ? (
+              <div className="tikoCoachBox">
+                <div className="tikoCoachBoxHead">
+                  <strong>Coach Tiko</strong>
+
+                  <button
+                    type="button"
+                    className="tikoCoachClose"
+                    aria-label="Close coaching"
+                    onClick={() => {
+                      setCoachingMessageIndex(null);
+                      setCoachingText('');
+                      setCoachingReply('');
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <p>
+                  Tell Tiko what he should understand or do
+                  differently next time.
+                </p>
+
+                <textarea
+                  value={coachingText}
+                  onChange={(e) =>
+                    setCoachingText(e.target.value)
+                  }
+                  placeholder="What should Tiko learn from this answer?"
+                  rows={3}
+                  disabled={savingCoaching}
+                />
+
+                {coachingReply ? (
+                  <div className="tikoNoted">
+                    {coachingReply}
+                  </div>
+                ) : null}
+
+                <div className="tikoCoachActions">
+                  <span>
+                    Applies to:{' '}
+                    <strong>
+                      {testContext === 'dashboard'
+                        ? 'Dashboard'
+                        : 'Website'}
+                    </strong>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void saveTestCoaching()
+                    }
+                    disabled={
+                      !coachingText.trim() ||
+                      savingCoaching
+                    }
+                  >
+                    {savingCoaching
+                      ? 'Saving…'
+                      : 'Save coaching'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+})
     )}
 
     {sendingQuestion ? (
@@ -536,15 +771,76 @@ if (
           </div>
 
           <div className="tikoTeach">
-            <div>
-              <h3>Coach Tiko</h3>
+<div>
+  <h3>Teach</h3>
 
-              <p>
-                Add something Tiko should remember for future conversations.
-              </p>
-            </div>
+  <p>
+    Choose where this learning should apply.
+  </p>
+</div>
 
-            <textarea
+<div className="tikoTeachScope">
+  <div className="tikoTeachScopeRow">
+    <label>
+      <input
+        type="checkbox"
+        checked={noteText}
+        onChange={(e) =>
+          setNoteText(e.target.checked)
+        }
+      />
+      Text
+    </label>
+
+    <label>
+      <input
+        type="checkbox"
+        checked={noteVoice}
+        onChange={(e) =>
+          setNoteVoice(e.target.checked)
+        }
+      />
+      Voice
+    </label>
+  </div>
+
+  <div className="tikoTeachScopeRow">
+    <label>
+      <input
+        type="checkbox"
+        checked={noteTikoWeb}
+        onChange={(e) =>
+          setNoteTikoWeb(e.target.checked)
+        }
+      />
+      Tiko (W)
+    </label>
+
+    <label>
+      <input
+        type="checkbox"
+        checked={noteTikoDash}
+        onChange={(e) =>
+          setNoteTikoDash(e.target.checked)
+        }
+      />
+      Tiko (D)
+    </label>
+
+    <label>
+      <input
+        type="checkbox"
+        checked={noteAssistants}
+        onChange={(e) =>
+          setNoteAssistants(e.target.checked)
+        }
+      />
+      Assistants
+    </label>
+  </div>
+</div>
+
+<textarea
               value={newNote}
               onChange={(e) => {
                 setNewNote(e.target.value);
@@ -575,11 +871,18 @@ if (
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                onClick={addNote}
-                disabled={!newNote.trim() || saving}
-              >
+<button
+  type="button"
+  onClick={addNote}
+  disabled={
+    !newNote.trim() ||
+    saving ||
+    (!noteText && !noteVoice) ||
+    (!noteTikoWeb &&
+      !noteTikoDash &&
+      !noteAssistants)
+  }
+>
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -643,11 +946,30 @@ if (
                     key={item.id}
                     className="tikoNote"
                   >
-                    <div className="tikoNoteMeta">
-                      {formatDateTime(item.updatedAt)}
-                      {' · '}
-                      Coach Tiko
-                    </div>
+<div className="tikoNoteMeta">
+  <span>
+    {[
+      item.appliesTikoWeb ? 'Tiko (W)' : '',
+      item.appliesTikoDash ? 'Tiko (D)' : '',
+      item.appliesAssistants ? 'Assistants' : '',
+    ]
+      .filter(Boolean)
+      .join(' / ')}
+  </span>
+
+  <span>
+    {[
+      item.appliesText ? 'Text' : '',
+      item.appliesVoice ? 'Voice' : '',
+    ]
+      .filter(Boolean)
+      .join(' / ')}
+  </span>
+
+  <span>
+    {formatDateTime(item.updatedAt)}
+  </span>
+</div>
 
                     {editing ? (
                       <>
@@ -821,6 +1143,32 @@ filteredItems.length > NOTES_STEP ? (
           gap: 16px;
         }
 
+        .tikoTeachScope {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.tikoTeachScopeRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.tikoTeachScopeRow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.tikoTeachScopeRow input {
+  margin: 0;
+}
+
         .tikoCardHead h2,
         .tikoTeach h3 {
           margin: 0;
@@ -921,12 +1269,15 @@ filteredItems.length > NOTES_STEP ? (
           background: #ffffff;
         }
 
-        .tikoNoteMeta {
-          margin-bottom: 7px;
-          color: #94a3b8;
-          font-size: 11px;
-          font-weight: 500;
-        }
+.tikoNoteMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+}
 
         .tikoNoteText {
           margin: 0;
@@ -981,6 +1332,49 @@ filteredItems.length > NOTES_STEP ? (
           color: #b91c1c;
         }
 
+.tikoTestContext {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+
+.tikoTestContextLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.tikoTestContextOptions {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.tikoTestContextOptions button {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 12px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tikoTestContextOptions button.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.tikoTestContextOptions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
         .tikoTeach {
           display: grid;
           gap: 12px;
@@ -1017,6 +1411,100 @@ filteredItems.length > NOTES_STEP ? (
           padding: 10px 12px;
           font-size: 13px;
         }
+
+        .tikoMessageCoach {
+  margin-top: 6px;
+}
+
+.tikoMessageCoach button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.tikoMessageCoach button:hover {
+  color: #111827;
+}
+
+.tikoCoachBox {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.tikoCoachBoxHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tikoCoachBoxHead strong {
+  font-size: 13px;
+  color: #111827;
+}
+
+.tikoCoachClose {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.tikoCoachBox p {
+  margin: 5px 0 10px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tikoCoachBox textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 74px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.tikoCoachActions {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tikoCoachActions span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.tikoCoachActions button {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 11px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tikoCoachActions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
         .tikoStartOver {
   flex: 0 0 auto;

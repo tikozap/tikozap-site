@@ -19,7 +19,7 @@ model User {
 
   sessions     Session[]
   memberships  Membership[]
-  ownedTenants Tenant[] @relation("TenantOwner")
+  ownedTenants Tenant[]     @relation("TenantOwner")
 }
 
 model Session {
@@ -74,10 +74,10 @@ model Tenant {
   trialStartedAt DateTime?
   trialEndsAt    DateTime?
 
-  trialReminder7SentAt     DateTime?
-  trialReminder5SentAt     DateTime?
-  trialReminder1SentAt     DateTime?
-  trialExpiredEmailSentAt  DateTime?
+  trialReminder7SentAt    DateTime?
+  trialReminder5SentAt    DateTime?
+  trialReminder1SentAt    DateTime?
+  trialExpiredEmailSentAt DateTime?
 
   ownerId String
   owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -119,23 +119,23 @@ model Membership {
 }
 
 model StarterLinkPage {
-  id              String   @id @default(cuid())
-  tenantId        String   @unique
-  logoUrl         String?
-  tagline         String?
-  subheading      String?
-  footerLine      String?
-  contactEmail    String?
-  shippingNote    String?
-  returnNote      String?
-  bestSellerJson  String?
-  productsJson    String?
-  featuredProductType String @default("bestsellers")
-  showProductsNav Boolean  @default(true)
-  showContactNav  Boolean  @default(true)
-  showFooterBrand Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  logoUrl             String?
+  tagline             String?
+  subheading          String?
+  footerLine          String?
+  contactEmail        String?
+  shippingNote        String?
+  returnNote          String?
+  bestSellerJson      String?
+  productsJson        String?
+  featuredProductType String   @default("bestsellers")
+  showProductsNav     Boolean  @default(true)
+  showContactNav      Boolean  @default(true)
+  showFooterBrand     Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
@@ -193,12 +193,12 @@ model PasswordResetToken {
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -239,6 +239,12 @@ model TikoLearning {
   audience String @default("tiko")
   context  String @default("everywhere")
   channel  String @default("all")
+
+  appliesText       Boolean @default(true)
+  appliesVoice      Boolean @default(true)
+  appliesTikoWeb    Boolean @default(true)
+  appliesTikoDash   Boolean @default(true)
+  appliesAssistants Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

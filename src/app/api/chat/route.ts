@@ -157,9 +157,8 @@ if (mode === "marketing") {
     );
   }
 
-  const tikoLearning = await getTikoLearning({
-  audience: 'tiko',
-  context: 'marketing',
+const tikoLearning = await getTikoLearning({
+  target: 'tiko_web',
   channel: 'text',
 });
 

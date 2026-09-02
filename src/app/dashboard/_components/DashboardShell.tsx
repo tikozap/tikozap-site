@@ -244,11 +244,6 @@ export default function DashboardShell({
             />
 
             <NavItem
-              href="/dashboard/phone-agent"
-              label="Phone Agent"
-            />
-
-            <NavItem
               href="/dashboard/tikozap-link"
               label="Starter Link"
             />

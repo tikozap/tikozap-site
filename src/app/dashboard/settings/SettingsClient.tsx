@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import UnsavedChangesGuard from "../_components/UnsavedChangesGuard";
 
 type SectionKey =
   | "general"
@@ -71,12 +72,22 @@ async function loadSavedSettings() {
   return data?.ok && data?.settings ? data.settings : {};
 }
 
-async function saveSavedSettings(settings: Record<string, any>) {
-  await fetch("/api/settings", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ settings }),
-  }).catch(() => {});
+async function saveSavedSettings(
+  settings: Record<string, any>
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    return res.ok && Boolean(data?.ok);
+  } catch {
+    return false;
+  }
 }
 
 function Toggle({
@@ -120,31 +131,33 @@ useEffect(() => {
   };
 }, [storageKey, defaultOn]);
 
-  const toggle = () => {
-    setOn((prev) => {
-      const next = !prev;
-      if (storageKey) {
-  localStorage.setItem(storageKey, next ? "1" : "0");
+const toggle = () => {
+  const next = !on;
 
-  const raw = localStorage.getItem("tz_settings_cache");
-  const cached = raw ? JSON.parse(raw) : {};
-  const nextSettings = {
-    ...cached,
-    [storageKey]: next ? "1" : "0",
-  };
+  setOn(next);
 
-  localStorage.setItem("tz_settings_cache", JSON.stringify(nextSettings));
-  saveSavedSettings(nextSettings);
+  if (storageKey) {
+    localStorage.setItem(storageKey, next ? "1" : "0");
 
-  window.dispatchEvent(new Event("tz-settings-change"));
+    const raw = localStorage.getItem("tz_settings_cache");
+    const cached = raw ? JSON.parse(raw) : {};
 
-}
+    const nextSettings = {
+      ...cached,
+      [storageKey]: next ? "1" : "0",
+    };
 
-onAfterToggle?.(next);
+    localStorage.setItem(
+      "tz_settings_cache",
+      JSON.stringify(nextSettings)
+    );
 
-      return next;
-    });
-  };
+    saveSavedSettings(nextSettings);
+    window.dispatchEvent(new Event("tz-settings-change"));
+  }
+
+  onAfterToggle?.(next);
+};
 
 return (
   <button
@@ -249,40 +262,110 @@ export default function SettingsClient({
 );
   const [brandColor, setBrandColor] = useState("#111111");
   const [showCustomColor, setShowCustomColor] = useState(false);
-
-  const saveStoreProfile = async () => {
-  const raw = localStorage.getItem("tz_settings_cache");
-  const cached = raw ? JSON.parse(raw) : {};
-
-  const res = await fetch("/api/settings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      settings: cached,
-      profile: {
-        ownerName,
-        storeName,
-        websiteUrl: storeWebsite,
-        supportEmail,
-        category,
-        timeZone,
-        businessHours,
-      },
+  const [savedProfileSnapshot, setSavedProfileSnapshot] = useState("");
+const [savedBrandingSnapshot, setSavedBrandingSnapshot] = useState("");
+const profileSnapshot = useMemo(
+  () =>
+    JSON.stringify({
+      ownerName,
+      storeName,
+      storeWebsite,
+      supportEmail,
+      category,
+      timeZone,
+      businessHours,
     }),
-  });
+  [
+    ownerName,
+    storeName,
+    storeWebsite,
+    supportEmail,
+    category,
+    timeZone,
+    businessHours,
+  ]
+);
 
-  const data = await res.json().catch(() => ({}));
+const brandingSnapshot = useMemo(
+  () =>
+    JSON.stringify({
+      brandColor,
+    }),
+  [brandColor]
+);
 
-  if (!res.ok || !data?.ok) {
-    alert("Could not save store profile.");
-    return;
+const profileDirty =
+  Boolean(savedProfileSnapshot) &&
+  profileSnapshot !== savedProfileSnapshot;
+
+const brandingDirty =
+  Boolean(savedBrandingSnapshot) &&
+  brandingSnapshot !== savedBrandingSnapshot;
+
+const hasUnsavedChanges = profileDirty || brandingDirty;
+
+const saveUnsavedSettings = async (): Promise<boolean> => {
+  if (profileDirty) {
+    const profileSaved = await saveStoreProfile();
+
+    if (!profileSaved) {
+      return false;
+    }
   }
 
-  alert("Store profile saved.");
+  if (brandingDirty) {
+    const brandingSaved = await saveAssistantBranding();
+
+    if (!brandingSaved) {
+      return false;
+    }
+  }
+
+  return true;
 };
-  const saveAssistantBranding = async () => {
+
+const saveStoreProfile = async (): Promise<boolean> => {
+  try {
+    const raw = localStorage.getItem("tz_settings_cache");
+    const cached = raw ? JSON.parse(raw) : {};
+
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        settings: cached,
+        profile: {
+          ownerName,
+          storeName,
+          websiteUrl: storeWebsite,
+          supportEmail,
+          category,
+          timeZone,
+          businessHours,
+        },
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data?.ok) {
+      alert("Could not save store profile.");
+      return false;
+    }
+
+    setSavedProfileSnapshot(profileSnapshot);
+
+alert("Store profile saved.");
+return true;
+  } catch {
+    alert("Could not save store profile.");
+    return false;
+  }
+};
+
+  const saveAssistantBranding = async (): Promise<boolean> => {
   const raw = localStorage.getItem("tz_settings_cache");
   const cached = raw ? JSON.parse(raw) : {};
 
@@ -301,9 +384,20 @@ const nextSettings = {
     localStorage.setItem(key, String(value));
   });
 
-  await saveSavedSettings(nextSettings);
-  window.dispatchEvent(new Event("tz-settings-change"));
-  alert("Widget branding saved.");
+  const saved = await saveSavedSettings(nextSettings);
+
+if (!saved) {
+  alert("Could not save widget branding.");
+  return false;
+}
+
+window.dispatchEvent(new Event("tz-settings-change"));
+
+setSavedBrandingSnapshot(brandingSnapshot);
+
+alert("Widget branding saved.");
+
+return true;
 };
 
   const hasVoiceSubscription = false;
@@ -368,6 +462,23 @@ setBrandColor(
       setTimeZone(profile.timeZone || "America/New_York");
       setBusinessHours(profile.businessHours || "");
 
+      setSavedProfileSnapshot(
+  JSON.stringify({
+    ownerName: profile.ownerName || "",
+    storeName: profile.storeName || "",
+    storeWebsite: profile.websiteUrl || "",
+    supportEmail: profile.supportEmail || "",
+    category: profile.category || "Fashion",
+    timeZone: profile.timeZone || "America/New_York",
+    businessHours: profile.businessHours || "",
+  })
+);
+
+  setSavedBrandingSnapshot(
+  JSON.stringify({
+    brandColor: settings.tz_brand_color?.trim() || "#111111",
+  })
+);
       setSoundEnabled(
         (localStorage.getItem("tz_setting_escalation_sound") ?? "1") === "1"
       );
@@ -487,6 +598,47 @@ const removeTeamMember = async (member: TeamMember) => {
 
   setInviteMessage("Team member removed.");
   await loadTeamMembers();
+};
+
+const deleteAccount = async () => {
+  const confirmation = window.prompt(
+    'Permanently delete your TikoZap account and store data?\n\n' +
+      'Active TikoZap subscriptions will be canceled. Your store, conversations, ' +
+      'assistant learning, knowledge, and settings will be permanently deleted.\n\n' +
+      'This cannot be undone.\n\n' +
+      'Type DELETE to confirm.'
+  );
+
+  if (confirmation === null) {
+    return;
+  }
+
+  if (confirmation.trim() !== "DELETE") {
+    alert('Account not deleted. You must type "DELETE" exactly.');
+    return;
+  }
+
+  const res = await fetch("/api/account/delete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      confirmation: "DELETE",
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.ok) {
+    alert(
+      data?.error ||
+        "Could not delete your account. Please try again or contact support."
+    );
+    return;
+  }
+
+  window.location.href = "/login";
 };
 
 const toggleMemberNotifications = async (member: TeamMember) => {
@@ -614,6 +766,40 @@ const toggleMemberNotifications = async (member: TeamMember) => {
                 <h3>Public identity</h3>
                 <Toggle label="Show store name in chat" desc="Customers see your store name in the assistant header." />
               </section>
+
+              <section className="st-card">
+  <h3>Account</h3>
+
+  <p
+    style={{
+      margin: "0 0 14px",
+      color: "#6b7280",
+      fontSize: 14,
+      lineHeight: 1.6,
+    }}
+  >
+    Permanently delete your TikoZap account and store data.
+    Active TikoZap subscriptions will also be canceled.
+  </p>
+
+  <button
+    type="button"
+    onClick={deleteAccount}
+    style={{
+      width: "fit-content",
+      border: "1px solid #fecaca",
+      borderRadius: 10,
+      background: "#fff",
+      color: "#b91c1c",
+      padding: "9px 14px",
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: "pointer",
+    }}
+  >
+    Delete account
+  </button>
+</section>
             </div>
           ) : null}
 
@@ -890,9 +1076,23 @@ const toggleMemberNotifications = async (member: TeamMember) => {
   storageKey="tz_ai_product_behavior"
 />
 
-      <Toggle label="AI continues helping while waiting for human" desc="Best for small businesses when no one is immediately available." />
-      <Toggle label="Pause AI during human takeover" desc="When staff clicks Take over, Tiko stays quiet." />
-      <Toggle label="Mark human requests with red dot" desc="Escalated conversations become easy to spot." />
+<Toggle
+  label="AI continues helping while waiting for human"
+  desc="Best for small businesses when no one is immediately available."
+  storageKey="tz_ai_continue_while_waiting"
+/>
+
+<Toggle
+  label="Pause AI during human takeover"
+  desc="When staff clicks Take over, Tiko stays quiet."
+  storageKey="tz_ai_pause_during_takeover"
+/>
+
+<Toggle
+  label="Mark human requests with red dot"
+  desc="Escalated conversations become easy to spot."
+  storageKey="tz_ai_mark_human_red_dot"
+/>
     </section>
 
     <section className="st-card">
@@ -1720,6 +1920,12 @@ const toggleMemberNotifications = async (member: TeamMember) => {
   color:#64748b;
 }
       `}</style>
+
+      <UnsavedChangesGuard
+        hasUnsavedChanges={hasUnsavedChanges}
+        onSave={saveUnsavedSettings}
+      />
+
     </div>
   );
 }

@@ -26,16 +26,6 @@ speakerName?: string;
   products?: ChatProduct[];
 };
 
-type WidgetVoiceSettings = {
-  enabled: boolean;
-  pack: string | null;
-  usedMinutes: number;
-  limitMinutes: number;
-  remainingMinutes: number;
-  utilizationPct: number;
-  periodStart: string | null;
-};
-
 type LauncherAppearance = "orb" | "avatar" | "bubble";
 type AssistantAppearance = "orb" | "avatar";
 
@@ -74,28 +64,6 @@ function getOpenKey(publicKey: string) {
 
 function getConversationKey(publicKey: string) {
   return `tz_starter_link_conversation_${publicKey}`;
-}
-
-const FREE_VOICE_DAILY_LIMIT = 20;
-
-function getVoiceKey(publicKey: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  return `tz_voice_${publicKey}_${today}`;
-}
-
-function getVoiceCount(publicKey: string) {
-  try {
-    return Number(localStorage.getItem(getVoiceKey(publicKey)) || "0");
-  } catch {
-    return 0;
-  }
-}
-
-function incrementVoiceCount(publicKey: string) {
-  try {
-    const next = getVoiceCount(publicKey) + 1;
-    localStorage.setItem(getVoiceKey(publicKey), String(next));
-  } catch {}
 }
 
 function getVisitorName(publicKey: string) {
@@ -162,7 +130,6 @@ const [liveTranscript, setLiveTranscript] = useState("");
 const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
 const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
 const [voiceQuotaNotice, setVoiceQuotaNotice] = useState("");
-const [widgetVoice, setWidgetVoice] = useState<WidgetVoiceSettings | null>(null);
 const [assistantAvatarUrl, setAssistantAvatarUrl] = useState("");
 const [launcherAppearance, setLauncherAppearance] =
   useState<LauncherAppearance>("orb");
@@ -275,10 +242,6 @@ useEffect(() => {
       const data = await res.json().catch(() => null);
 
       if (cancelled || !data?.ok) return;
-
-      if (data.widget?.voice) {
-        setWidgetVoice(data.widget.voice);
-      }
 
       setAssistantAvatarUrl(data.widget?.assistantAvatarUrl || "");
       setLauncherAppearance(
@@ -844,33 +807,6 @@ function userDeclinedTextHandoff(text: string) {
 }
 
 async function startRealtimeVoiceSession() {
-  const voiceEnabled = widgetVoice?.enabled === true;
-  const remainingPaidMinutes = widgetVoice?.remainingMinutes ?? 0;
-
-  if (voiceEnabled && remainingPaidMinutes <= 0) {
-    stopRealtimeVoiceSession({ preserveAssistantText: true });
-    setComposerMode("type");
-    setVoiceState("error");
-    setVoiceQuotaNotice(
-      "Realtime Voice Concierge minutes are used up for this month. Please continue in text chat."
-    );
-    return;
-  }
-
-  if (!voiceEnabled) {
-    const used = getVoiceCount(publicKey);
-
-    if (used >= FREE_VOICE_DAILY_LIMIT) {
-      stopRealtimeVoiceSession({ preserveAssistantText: true });
-      setComposerMode("type");
-      setVoiceState("error");
-      setVoiceQuotaNotice(
-        "Today’s free voice limit reached. Please continue in text chat."
-      );
-      return;
-    }
-  }
-
   voiceCountedThisSessionRef.current = false;
 
   if (
@@ -956,41 +892,9 @@ if (!res.ok || !data?.ok) {
   const trimmed = text.trim();
   if (!trimmed) return;
 
-  if (!voiceCountedThisSessionRef.current) {
-    if (!widgetVoice?.enabled) {
-      const used = getVoiceCount(publicKey);
-
-      if (used >= FREE_VOICE_DAILY_LIMIT) {
-        stopRealtimeVoiceSession({ preserveAssistantText: true });
-        setComposerMode("type");
-        setVoiceState("error");
-        setVoiceQuotaNotice(
-          "Today’s free voice limit reached. Please continue in text chat."
-        );
-        return;
-      }
-
-const next = used + 1;
-
-if (next === 3) {
-  setVoiceQuotaNotice(
-    "Voice session note: 2 free voice questions remaining today."
-  );
-} else if (next === 4) {
-  setVoiceQuotaNotice(
-    "Voice session note: 1 free voice question remaining today."
-  );
-} else if (next === 5) {
-  setVoiceQuotaNotice(
-    "This is today’s final free voice question."
-  );
+if (!voiceCountedThisSessionRef.current) {
+  voiceCountedThisSessionRef.current = true;
 }
-
-      incrementVoiceCount(publicKey);
-    }
-
-    voiceCountedThisSessionRef.current = true;
-  }
 
   setLiveTranscript(trimmed);
   transcriptRef.current = trimmed;

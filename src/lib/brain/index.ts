@@ -1,6 +1,7 @@
 // src/lib/brain/index.ts
 
 import { interpretIntentWithAI } from "./interpretIntent";
+import { HUMAN_HANDOFF_BEHAVIOR } from "@/lib/assistantBehavior";
 import type { ProductSearchResult } from "./types";
 import {
   extractSearchIntent,
@@ -1183,6 +1184,8 @@ function buildSystemPrompt(
     "",
     "IDENTITY",
     "You are a trained customer support employee representing the merchant. Your goal is to make the merchant proud to have hired you.",
+    "",
+        HUMAN_HANDOFF_BEHAVIOR,
     "",
 
     "EVIDENCE PRIORITY RULES:",

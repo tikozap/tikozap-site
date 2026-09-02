@@ -12,9 +12,18 @@ const exampleQuestions = [
   'What is Starter Link?',
 ];
 
+type AskTikoMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export default function DashboardAskTiko() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [messages, setMessages] =
+    useState<AskTikoMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -31,6 +40,79 @@ export default function DashboardAskTiko() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
+
+  function startNewChat() {
+  setMessages([]);
+  setDraft('');
+  setError('');
+}
+
+  async function sendMessage(
+  value?: string
+) {
+  const message =
+    String(value ?? draft).trim();
+
+  if (!message || sending) return;
+
+  const userMessage: AskTikoMessage = {
+    role: 'user',
+    content: message,
+  };
+
+  const nextMessages = [
+    ...messages,
+    userMessage,
+  ];
+
+  setMessages(nextMessages);
+  setDraft('');
+  setSending(true);
+  setError('');
+
+  try {
+    const res = await fetch(
+      '/api/dashboard/tiko',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          history: messages,
+        }),
+      }
+    );
+
+    const data =
+      await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        data?.error ||
+          'Could not reach Tiko.'
+      );
+    }
+
+    setMessages([
+      ...nextMessages,
+      {
+        role: 'assistant',
+        content: String(
+          data.answer || ''
+        ).trim(),
+      },
+    ]);
+  } catch (err: any) {
+    setError(
+      err?.message ||
+        'Could not reach Tiko.'
+    );
+  } finally {
+    setSending(false);
+  }
+}
 
   return (
     <>
@@ -66,51 +148,113 @@ export default function DashboardAskTiko() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                className="db-askTikoClose"
-                aria-label="Close Ask Tiko"
-                onClick={() => setOpen(false)}
-              >
-                ×
-              </button>
+<div className="db-askTikoHeadActions">
+  {messages.length > 0 ? (
+    <button
+      type="button"
+      className="db-askTikoNewChat"
+      onClick={startNewChat}
+    >
+      New chat
+    </button>
+  ) : null}
+
+  <button
+    type="button"
+    className="db-askTikoClose"
+    aria-label="Close Ask Tiko"
+    onClick={() => setOpen(false)}
+  >
+    ×
+  </button>
+</div>
             </div>
 
-            <div className="db-askTikoBody">
-              <div className="db-askTikoIntro">
-                <strong>Try asking:</strong>
-              </div>
+<div className="db-askTikoBody">
+  {messages.length === 0 ? (
+    <>
+      <div className="db-askTikoIntro">
+        <strong>Try asking:</strong>
+      </div>
 
-              <div className="db-askTikoExamples">
-                {exampleQuestions.map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    onClick={() => setDraft(question)}
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-            </div>
+      <div className="db-askTikoExamples">
+        {exampleQuestions.map((question) => (
+          <button
+            key={question}
+            type="button"
+            disabled={sending}
+            onClick={() =>
+              void sendMessage(question)
+            }
+          >
+            {question}
+          </button>
+        ))}
+      </div>
+    </>
+  ) : (
+    <div className="db-askTikoMessages">
+      {messages.map((message, index) => (
+        <div
+          key={`${message.role}-${index}`}
+          className={[
+            'db-askTikoMessage',
+            message.role === 'user'
+              ? 'is-user'
+              : 'is-tiko',
+          ].join(' ')}
+        >
+          {message.content}
+        </div>
+      ))}
+
+      {sending ? (
+        <div className="db-askTikoMessage is-tiko">
+          Thinking…
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="db-askTikoError">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  )}
+</div>
 
             <div className="db-askTikoComposer">
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Ask about your Dashboard..."
-                rows={1}
-              />
+<textarea
+  value={draft}
+  onChange={(event) =>
+    setDraft(event.target.value)
+  }
+  placeholder="Ask about your Dashboard..."
+  rows={1}
+  disabled={sending}
+  onKeyDown={(event) => {
+    if (
+      event.key === 'Enter' &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      void sendMessage();
+    }
+  }}
+/>
 
-              <button
-                type="button"
-                className="db-askTikoSend"
-                disabled
-                aria-label="Send"
-                title="Tiko conversation will be connected next"
-              >
-                ↑
-              </button>
+<button
+  type="button"
+  className="db-askTikoSend"
+  disabled={
+    !draft.trim() ||
+    sending
+  }
+  aria-label="Send"
+  onClick={() => void sendMessage()}
+>
+  ↑
+</button>
             </div>
           </aside>
         </>
@@ -206,6 +350,27 @@ export default function DashboardAskTiko() {
           color: #111827;
         }
 
+.db-askTikoHeadActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.db-askTikoNewChat {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.db-askTikoNewChat:hover {
+  background: #f1f5f9;
+  color: #111827;
+}
         .db-askTikoBody {
           min-height: 0;
           overflow-y: auto;
@@ -287,6 +452,41 @@ export default function DashboardAskTiko() {
           opacity: 0.35;
           cursor: default;
         }
+
+.db-askTikoMessages {
+  display: grid;
+  gap: 10px;
+}
+
+.db-askTikoMessage {
+  max-width: 86%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.db-askTikoMessage.is-user {
+  justify-self: end;
+  background: #111827;
+  color: #ffffff;
+}
+
+.db-askTikoMessage.is-tiko {
+  justify-self: start;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.db-askTikoError {
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 12px;
+}
 
 @media (max-width: 1000px) {
   .db-askTikoButton {

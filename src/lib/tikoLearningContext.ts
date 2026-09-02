@@ -3,71 +3,38 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-
 import { buildCurrentUnderstanding } from '@/lib/buildCurrentUnderstanding';
 
-export type TikoLearningAudience =
-  | 'tiko'
-  | 'all_assistants';
-
-export type TikoLearningContext =
-  | 'everywhere'
-  | 'marketing'
-  | 'dashboard';
+export type TikoLearningTarget =
+  | 'tiko_web'
+  | 'tiko_dashboard'
+  | 'assistants';
 
 export type TikoLearningChannel =
-  | 'all'
-  | 'voice'
-  | 'text';
+  | 'text'
+  | 'voice';
 
-export type GetTikoLearningOptions = {
-  audience?: TikoLearningAudience;
-  context?: TikoLearningContext;
-  channel?: TikoLearningChannel;
-};
+export async function getTikoLearning(options: {
+  target: TikoLearningTarget;
+  channel: TikoLearningChannel;
+}) {
+  const targetField =
+    options.target === 'tiko_web'
+      ? 'appliesTikoWeb'
+      : options.target === 'tiko_dashboard'
+        ? 'appliesTikoDash'
+        : 'appliesAssistants';
 
-export async function getTikoLearning(
-  options: GetTikoLearningOptions = {}
-) {
-  const audience =
-    options.audience || 'tiko';
-
-  const context =
-    options.context || 'everywhere';
-
-  const channel =
-    options.channel || 'all';
-
-  const applicableAudiences =
-    audience === 'tiko'
-      ? ['tiko', 'all_assistants']
-      : ['all_assistants'];
-
-  const applicableContexts =
-    context === 'everywhere'
-      ? ['everywhere']
-      : ['everywhere', context];
-
-  const applicableChannels =
-    channel === 'all'
-      ? ['all']
-      : ['all', channel];
+  const channelField =
+    options.channel === 'voice'
+      ? 'appliesVoice'
+      : 'appliesText';
 
   const items = await prisma.tikoLearning.findMany({
     where: {
       active: true,
-
-      audience: {
-        in: applicableAudiences,
-      },
-
-      context: {
-        in: applicableContexts,
-      },
-
-      channel: {
-        in: applicableChannels,
-      },
+      [targetField]: true,
+      [channelField]: true,
     },
 
     orderBy: {
@@ -78,7 +45,6 @@ export async function getTikoLearning(
 
     select: {
       instruction: true,
-      createdAt: true,
       updatedAt: true,
     },
   });
@@ -93,9 +59,8 @@ export async function getTikoLearning(
   return [
     '## Tiko Current Understanding',
     '',
-    'This is the resolved current understanding applicable to this TikoZap context.',
+    'This is the resolved current understanding applicable to this context.',
     'Conflicting historical coaching has already been resolved using semantic meaning and recency.',
-    'Treat this current understanding as authoritative over older conflicting TikoZap knowledge.',
     '',
     currentUnderstanding,
   ].join('\n');

@@ -6,29 +6,13 @@ import { extractRequestHost, isAllowedDomain } from "@/lib/widgetDomain";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rateLimit";
 import { canCreateConversationForTenant } from "@/lib/billingUsage";
 import { incrementVoiceUsage } from "@/lib/voiceUsage";
+import { wantsHuman } from "@/lib/handoffIntent";
 import {
   getTenantEntitlement,
   TRIAL_PAUSED_VISITOR_MESSAGE,
 } from "@/lib/tenantEntitlement";
 
 export const runtime = "nodejs";
-
-function wantsHuman(text: string) {
-  const s = text.toLowerCase();
-  return [
-    "human",
-    "human agent",
-    "human assistant",
-    "manager",
-    "representative",
-    "real person",
-    "live agent",
-    "talk to someone",
-    "speak to someone",
-    "call me",
-    "phone number",
-  ].some((x) => s.includes(x));
-}
 
 function clean(input: unknown) {
   return String(input || "").trim();
@@ -194,13 +178,15 @@ const assistantMessage = await prisma.message.create({
       },
     });
 
+    const shouldAlertHuman = wantsHuman(customerContent);
+
     await prisma.conversation.update({
       where: { id: convo.id },
       data: {
         lastMessageAt: new Date(now + 10),
         archivedAt: null,
-        status: "open",
-        needsHuman: false,
+        status: shouldAlertHuman ? "waiting" : undefined,
+        needsHuman: shouldAlertHuman ? true : undefined,
       },
     });
 

@@ -14,6 +14,26 @@ function clean(value: unknown) {
   return String(value || '').trim();
 }
 
+function normalizeAudience(value: unknown) {
+  return value === 'all_assistants'
+    ? 'all_assistants'
+    : 'tiko';
+}
+
+function normalizeContext(value: unknown) {
+  if (value === 'marketing') return 'marketing';
+  if (value === 'dashboard') return 'dashboard';
+
+  return 'everywhere';
+}
+
+function normalizeChannel(value: unknown) {
+  if (value === 'voice') return 'voice';
+  if (value === 'text') return 'text';
+
+  return 'all';
+}
+
 export async function GET() {
   const admin = await requireAdmin();
 
@@ -41,6 +61,11 @@ export async function GET() {
       instruction: true,
       summary: true,
       source: true,
+      appliesText: true,
+      appliesVoice: true,
+      appliesTikoWeb: true,
+      appliesTikoDash: true,
+      appliesAssistants: true,
       active: true,
       createdAt: true,
       updatedAt: true,
@@ -82,6 +107,24 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const instruction = clean(body.instruction);
 
+const appliesText =
+  body.appliesText !== false;
+
+const appliesVoice =
+  body.appliesVoice !== false;
+
+const appliesTikoWeb =
+  body.appliesTikoWeb !== false;
+
+const appliesTikoDash =
+  body.appliesTikoDash !== false;
+
+const appliesAssistants =
+  body.appliesAssistants === true;
+
+const fromTestCoach =
+  body.fromTestCoach === true;
+
   if (!instruction) {
     return NextResponse.json(
       {
@@ -104,17 +147,35 @@ const normalizedInstruction = reply
   .trim();
 
 const item = await prisma.tikoLearning.create({
-  data: {
-    instruction: normalizedInstruction || instruction,
-    summary: normalizedInstruction || instruction,
-    source: 'admin_coaching',
-    active: true,
-  },
+data: {
+  instruction:
+    normalizedInstruction || instruction,
+
+  summary:
+    normalizedInstruction || instruction,
+
+source: fromTestCoach
+  ? 'admin_test_coaching'
+  : 'admin_coaching',
+
+appliesText,
+appliesVoice,
+appliesTikoWeb,
+appliesTikoDash,
+appliesAssistants,
+
+active: true,
+},
   select: {
     id: true,
     instruction: true,
     summary: true,
     source: true,
+    appliesText: true,
+    appliesVoice: true,
+    appliesTikoWeb: true,
+    appliesTikoDash: true,
+    appliesAssistants: true,
     active: true,
     createdAt: true,
     updatedAt: true,

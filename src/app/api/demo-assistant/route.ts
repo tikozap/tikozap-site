@@ -274,9 +274,8 @@ Would you like help choosing between the website widget and Starter Link?`,
 
 // ---------- GENERAL (ChatGPT-like) ----------
 if (client) {
-  const tikoLearning = await getTikoLearning({
-  audience: 'tiko',
-  context: 'marketing',
+const tikoLearning = await getTikoLearning({
+  target: 'tiko_web',
   channel: 'text',
 });
 

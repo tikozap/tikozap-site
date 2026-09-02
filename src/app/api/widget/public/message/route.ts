@@ -71,12 +71,6 @@ function extractHistory(messages: unknown): ChatMessage[] {
     }));
 }
 
-const HUMAN_HANDOFF_REPLY =
-  "Understood — I’m flagging this conversation for human follow-up now. A team member can take over from here.";
-
-const HUMAN_STILL_WAITING_REPLY =
-  "I understand you're still waiting. The team may be occupied right now, but I’m here and I’ll continue helping as best I can while you wait.";
-
 function shouldShowProductCards(text: string) {
   const s = text.toLowerCase();
 
@@ -333,53 +327,19 @@ const serverHistory: ChatMessage[] = previousMessages
 
 
 if (wantsHuman(text)) {
+  const storeKnowledge = await getStoreKnowledge(widget.tenantId);
 
-  // Customer already waiting for human earlier.
-  // AI may have auto-resumed after staff inactivity.
-  if (conversation.needsHuman) {
+  const handoffResult = await runTikoBrain({
+    message: text,
+    history: serverHistory,
+    storeKnowledge,
+  });
 
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: "assistant",
-        content: HUMAN_STILL_WAITING_REPLY,
-      },
-    });
-
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        needsHuman: true,
-        status: "waiting",
-        aiEnabled: false,
-        lastMessageAt: new Date(),
-      },
-    });
-
-    return NextResponse.json(
-      {
-        ok: true,
-        conversationId: conversation.id,
-        channel,
-        subject,
-        messages: [
-          { role: "customer", content: text },
-          { role: "assistant", content: HUMAN_STILL_WAITING_REPLY },
-        ],
-        products: [],
-      },
-      {
-        headers: { ...corsHeaders, "cache-control": "no-store" },
-      }
-    );
-  }
-
-  // First-time human request
   await prisma.message.create({
     data: {
       conversationId: conversation.id,
       role: "assistant",
-      content: HUMAN_HANDOFF_REPLY,
+      content: handoffResult.reply,
     },
   });
 
@@ -388,7 +348,6 @@ if (wantsHuman(text)) {
     data: {
       needsHuman: true,
       status: "waiting",
-      aiEnabled: false,
       lastMessageAt: new Date(),
     },
   });
@@ -401,7 +360,7 @@ if (wantsHuman(text)) {
       subject,
       messages: [
         { role: "customer", content: text },
-        { role: "assistant", content: HUMAN_HANDOFF_REPLY },
+        { role: "assistant", content: handoffResult.reply },
       ],
       products: [],
     },

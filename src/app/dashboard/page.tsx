@@ -58,7 +58,7 @@ const isStarterLinkStore = !isWebsiteStore;
   </div>
 </div>
 
-      <div className="db-pageStack">
+      <div className="db-pageStack db-overviewStack">
         <section className="db-section">
           <div
             style={{

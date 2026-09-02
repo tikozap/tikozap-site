@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             seriously.
           </p>
 
-          <p className="legal-updated">Last updated: August 19, 2026</p>
+          <p className="legal-updated">Last updated: August 24, 2026</p>
         </div>
       </section>
 
@@ -167,7 +167,10 @@ export default function PrivacyPage() {
 
             <p>
               We only share information with trusted service providers when it
-              is necessary to operate TikoZap. These may include providers for:
+              is necessary to operate TikoZap. We require service providers
+              that process personal information on our behalf to protect that
+              information in a manner consistent with this Privacy Policy and
+              applicable privacy requirements. These may include providers for:
             </p>
             <ul>
               <li>Payment processing</li>
@@ -232,10 +235,18 @@ export default function PrivacyPage() {
               <li>Review or update your account information</li>
               <li>Correct inaccurate information</li>
               <li>Request access to your data</li>
-              <li>Request deletion of your account or data</li>
+              <li>Request deletion of your account and associated data</li>
               <li>Export supported business information when available</li>
               <li>Contact us with privacy questions or concerns</li>
             </ul>
+
+            <p>
+              You may request deletion of your TikoZap account and associated
+              data by contacting us at support@tikozap.com. When an account is
+              deleted, we delete or anonymize associated information that we
+              are not required to retain for legal, security, fraud prevention,
+              billing, or other legitimate business purposes.
+            </p>
           </section>
 
           <section className="legal-block">
