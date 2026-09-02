@@ -282,7 +282,7 @@ return (
     <div className="practice-page">
       <div className="practice-top">
         <div>
-          <h1 className="db-title">Test &amp; Coach</h1>
+          <h1 className="db-title">Test &amp; Teach</h1>
 
           <p className="db-sub">
             Test {safeAssistantName}, coach incorrect answers, and teach new knowledge.
