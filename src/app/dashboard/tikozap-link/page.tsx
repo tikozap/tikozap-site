@@ -240,8 +240,8 @@ setSavedSnapshot(
     returnNote: page.returnNote || "",
     showProductsNav: page.showProductsNav ?? true,
     showContactNav: page.showContactNav ?? true,
-    featuredProductType: loadedFeaturedProductType,
     bestSeller: loadedBestSeller,
+    featuredProductType: loadedFeaturedProductType,
     products: loadedProducts,
   })
 );
