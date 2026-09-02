@@ -105,7 +105,7 @@ function AssistantNav() {
           />
 <NavItem
   href="/dashboard/assistant/practice"
-  label="Test & Coach"
+  label="Test & Teach"
   nested
 />
 

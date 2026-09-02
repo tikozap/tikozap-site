@@ -6,12 +6,12 @@ import MobilePageHeader from '../../_components/MobilePageHeader';
 export default function TestCoachPage() {
   return (
     <div className="db-container">
-      <MobilePageHeader title="Test & Coach" />
+      <MobilePageHeader title="Test & Teach" />
 
       <div className="db-pageStack">
         <div className="tc-top">
           <div>
-            <h1 className="db-title">Test & Coach</h1>
+            <h1 className="db-title">Test & Teach</h1>
             <p className="db-sub">
               Practice with your assistant before the next customer conversation.
             </p>

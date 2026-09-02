@@ -14,7 +14,7 @@ const sections = [
   },
   {
     icon: '💬',
-    label: 'Test & Coach',
+    label: 'Test & Teach',
     href: '/dashboard/assistant/practice',
   },
   {
