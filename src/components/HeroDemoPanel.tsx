@@ -42,7 +42,6 @@ export default function HeroDemoPanel() {
 const [conversationId, setConversationId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const chatHoverRef = useRef(false);
 const [holdingToTalk, setHoldingToTalk] = useState(false);
 const recognitionRef = useRef<any>(null);
 const transcriptRef = useRef("");
@@ -518,19 +517,6 @@ useEffect(() => {
 }, [mode]);
 
   useEffect(() => {
-    function handleWheel() {
-      if (window.innerWidth < 960) return;
-      if (mode !== "panel") return;
-      if (chatHoverRef.current) return;
-
-      closePanel();
-    }
-
-    window.addEventListener("wheel", handleWheel, { passive: true });
-    return () => window.removeEventListener("wheel", handleWheel);
-  }, [mode]);
-
-  useEffect(() => {
   if (typeof window === "undefined") return;
 
   const SpeechRecognition =
@@ -688,15 +674,7 @@ function toggleTextSpeechCapture() {
       ) : null}
 
       {mode === "panel" ? (
-        <div
-          className="hero-chatSafeZone"
-          onMouseEnter={() => {
-            chatHoverRef.current = true;
-          }}
-          onMouseLeave={() => {
-            chatHoverRef.current = false;
-          }}
-        >
+<div className="hero-chatSafeZone">
           <div className="hero-starterChat">
             <div className="hero-starterChat-head">
 <div className="hero-starterChat-menuSpacer" aria-hidden="true" />
@@ -1045,14 +1023,18 @@ function toggleTextSpeechCapture() {
           height: 1rem;
         }
 
-        .hero-chatSafeZone {
-          padding: 82px;
-          margin: -82px;
-        }
+.hero-chatSafeZone {
+  position: fixed;
+  top: 96px;
+  right: max(16px, calc((100vw - 1280px) / 2));
+  z-index: 1000;
+  padding: 0;
+  margin: 0;
+}
 
         .hero-starterChat {
-          width: min(350px, 92vw);
-          height: 540px;
+          width: min(420px, 92vw);
+          height: min(648px, calc(100vh - 120px));
           border-radius: 20px;
           overflow: hidden;
           background: #f8fafc;
