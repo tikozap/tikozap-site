@@ -14,11 +14,11 @@ const modules = [
   },
   {
     icon: '🧪',
-    title: 'Test & Coach',
+    title: 'Test & Teach',
     description:
       'Ask shopper-style questions, review responses, and coach your assistant.',
     href: '/dashboard/assistant/practice',
-    action: 'Test & coach your assistant',
+    action: 'Test & teach your assistant',
   },
   {
     icon: '📓',
