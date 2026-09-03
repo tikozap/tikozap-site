@@ -133,6 +133,18 @@ export default function StarterLinkShowcase() {
           }
         }
 
+@media (max-width: 959px) {
+  .starter-showcase-copy h2 {
+    text-align: center;
+  }
+
+  .starter-bullets {
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
 @media (min-width: 960px) {
   .starter-showcase {
     padding: 5rem 0 5.5rem;

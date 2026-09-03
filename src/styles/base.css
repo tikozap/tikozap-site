@@ -2890,3 +2890,39 @@ a.nav__brand .nav__logo-text {
   }
 }
 
+/* ===== Homepage hero polish — Sep 3, 2026 ===== */
+
+/* Desktop only */
+@media (min-width: 960px) {
+  .hero-new .hero-left {
+    padding-left: 70px;
+  }
+
+  .hero-new .hero-title-main {
+    font-size: clamp(70px, 6.3vw, 98px);
+  }
+
+  .hero-new .hero-title-sub {
+    font-size: clamp(64px, 5.7vw, 88px);
+  }
+
+  .hero-new .hero-ctaBlock {
+    align-self: center;
+  }
+}
+
+/* Mobile only */
+@media (max-width: 520px) {
+  .hero-new .hero-title-main {
+    font-size: clamp(40px, 11vw, 50px);
+  }
+
+  .hero-new .hero-title-sub {
+    font-size: clamp(34px, 9.5vw, 43px);
+  }
+
+  .hero-new .hero-sub {
+    margin-bottom: 32px;
+  }
+}
+
