@@ -58,10 +58,6 @@ function normalizeVoiceText(text: string) {
     .replace(/\s+/g, " ");
 }
 
-function getOpenKey(publicKey: string) {
-  return `tz_assistant_open_${publicKey}`;
-}
-
 function getConversationKey(publicKey: string) {
   return `tz_starter_link_conversation_${publicKey}`;
 }
@@ -555,46 +551,6 @@ useEffect(() => {
 
   return () => window.removeEventListener("resize", updateIsMobile);
 }, []);
-
-useEffect(() => {
-  try {
-    const saved = localStorage.getItem(getOpenKey(publicKey));
-
-    if (saved === "1") {
-      setOpen(true);
-      return;
-    }
-
-    if (saved === "0") {
-      setOpen(false);
-      return;
-    }
-
-    if (desktopDocked && !isMobileView) {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
-  } catch {
-    setOpen(desktopDocked && !isMobileView);
-  }
-}, [publicKey, desktopDocked, isMobileView]);
-
-useEffect(() => {
-  try {
-    localStorage.setItem(getOpenKey(publicKey), open ? "1" : "0");
-  } catch {}
-}, [publicKey, open]);
-
-useEffect(() => {
-  if (!desktopDocked) return;
-
-  if (!isMobileView) {
-    setOpen(true);   // desktop → open
-  } else {
-    setOpen(false);  // mobile → closed
-  }
-}, [desktopDocked, isMobileView]);
 
 useEffect(() => {
     if (!open) return;

@@ -14,7 +14,7 @@ export default function Page() {
         <div className="container-xl hero-grid">
           <div className="hero-left">
 <h1 className="hero-title">
-  <span className="hero-title-main">A trained AI employee</span>
+  <span className="hero-title-main">The AI employee</span>
   <span className="hero-title-sub">for your store</span>
 </h1>
 

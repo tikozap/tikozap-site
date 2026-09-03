@@ -305,8 +305,8 @@ brandColor =
       <div className="sl-sectionTitle">In Stock</div>
 
       <div className="sl-productGrid">
-        {visibleProducts.slice(0, 9).map((item) => (
-          <article key={item.id} className="sl-productCard">
+{visibleProducts.slice(0, 9).map((item, idx) => (
+  <article key={item.id || idx} className="sl-productCard">
             {item.image ? (
               <img
                 src={item.image}
