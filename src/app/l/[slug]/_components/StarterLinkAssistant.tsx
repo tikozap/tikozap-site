@@ -150,6 +150,7 @@ const hasOrbTranscript =
   voiceState === "error";
 
 const messagesRef = useRef<HTMLDivElement | null>(null);
+const shouldAutoScrollRef = useRef(true);
 const endRef = useRef<HTMLDivElement | null>(null);
 const inputRef = useRef<HTMLTextAreaElement | null>(null);
 const panelRef = useRef<HTMLElement | null>(null);
@@ -325,7 +326,7 @@ useEffect(() => {
 }, [open]);
 
 useEffect(() => {
-  if (!open) return;
+  if (!open || !shouldAutoScrollRef.current) return;
 
   scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
 }, [messages, open, sending]);
@@ -1494,12 +1495,19 @@ onClick={() => {
   </div>
 ) : (
   <>
-    <div
+<div
   ref={messagesRef}
   className="sl-assistantMessages"
-onPointerDown={() => {
-  dismissKeyboard();
-}}
+  onScroll={(e) => {
+    const el = e.currentTarget;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  }}
+  onPointerDown={() => {
+    dismissKeyboard();
+  }}
 >
 
 {messages.map((m) => (
