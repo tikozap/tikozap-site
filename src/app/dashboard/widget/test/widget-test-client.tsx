@@ -37,9 +37,11 @@ function createMessageId() {
 export default function WidgetTestClient({
   widgetPublicKey,
   allowedDomains,
+  shopifyConnected,
 }: {
   widgetPublicKey: string;
   allowedDomains: string[];
+  shopifyConnected: boolean;
 }) {
   const [origin, setOrigin] = useState('');
 
@@ -731,7 +733,7 @@ style={{
     answer product questions using your live catalog.
   </p>
 
-  {shopifyConnectedSuccess ? (
+  {shopifyConnected ? (
     <div
       role="status"
       aria-live="polite"
@@ -747,29 +749,31 @@ style={{
         lineHeight: 1.45,
       }}
     >
-      Shopify connected successfully!
+      {shopifyConnectedSuccess
+        ? 'Shopify connected successfully!'
+        : 'Shopify connected'}
       <div
         style={{
           marginTop: 3,
           fontWeight: 400,
         }}
       >
-        Your assistant can now answer questions using
+        Your assistant can answer questions using
         your live Shopify catalog.
       </div>
     </div>
-  ) : null}
-
-  <button
-    type="button"
-    className="db-btn"
-    style={{
-      marginTop: 14,
-    }}
-    onClick={() => setShopifyConnectOpen(true)}
-  >
-    Connect Shopify
-  </button>
+  ) : (
+    <button
+      type="button"
+      className="db-btn"
+      style={{
+        marginTop: 14,
+      }}
+      onClick={() => setShopifyConnectOpen(true)}
+    >
+      Connect Shopify
+    </button>
+  )}
 </section>
 
         <section className="db-card">

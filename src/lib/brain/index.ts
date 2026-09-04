@@ -565,6 +565,87 @@ const extraKeywords = raw
   };
 }
 
+function getCustomerQualifierKeywords(
+  message: string,
+  searchState?: SearchState,
+  normalizedCategory?: string
+) {
+  const raw = String(message || "").trim();
+
+  const category = normalizeCategoryName(
+    normalizedCategory ||
+      detectCategory(lower(raw)) ||
+      searchState?.lastCategory
+  );
+
+  const customerWords = raw
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .filter(
+      (word) =>
+        ![
+          "show",
+          "me",
+          "find",
+          "looking",
+          "for",
+          "some",
+          "any",
+          "please",
+          "how",
+          "about",
+          "do",
+          "you",
+          "have",
+          "i",
+          "need",
+          "want",
+          "am",
+          "im",
+          "i'm",
+          "one",
+          "ones",
+          "actually",
+          "the",
+          "a",
+          "an",
+        ].includes(word)
+    )
+    .filter((word) => !/^\d+$/.test(word));
+
+  const categorySynonyms: Record<string, string[]> = {
+    jackets: ["jacket", "jackets", "coat", "coats"],
+    dresses: ["dress", "dresses", "gown", "gowns"],
+    snowboards: ["snowboard", "snowboards"],
+    bicycles: ["bike", "bikes", "bicycle", "bicycles"],
+    books: ["book", "books", "novel", "novels"],
+    toys: ["toy", "toys"],
+    clothing: ["clothes", "clothing", "apparel"],
+    shirts: ["shirt", "shirts", "tee", "t-shirt"],
+    shoes: ["shoe", "shoes", "sneaker", "sneakers"],
+    headphones: ["headphone", "headphones", "earbud", "earbuds"],
+    laptops: ["laptop", "laptops", "notebook"],
+    phones: ["phone", "phones", "smartphone"],
+    watches: ["watch", "watches"],
+    bags: ["bag", "bags", "backpack", "backpacks"],
+    furniture: ["furniture"],
+    kitchen: ["kitchen"],
+    beauty: ["beauty"],
+    fitness: ["fitness"],
+  };
+
+  const synonyms = new Set(
+    category ? categorySynonyms[category] || [] : []
+  );
+
+  return Array.from(
+    new Set(customerWords.filter((word) => !synonyms.has(word)))
+  );
+}
+
 async function runProductQuery(
   productProvider: ProductProvider,
   query: string,
@@ -706,13 +787,44 @@ const keywordMatchCount = (p: any) => {
   return keywords.filter((k) => searchable.includes(k.toLowerCase())).length;
 };
 
-// Require at least one relevant keyword match.
-// Singular and plural synonyms represent the same category and
-// should not be counted as separate required matches.
-const minimumMatches = 1;
+const customerQualifiers = getCustomerQualifierKeywords(
+  message,
+  searchState,
+  normalizedCategory
+);
+
+const matchesCustomerQualifiers = (p: any) => {
+  if (customerQualifiers.length === 0) {
+    return true;
+  }
+
+  const title = String(p.title || "").toLowerCase();
+  const description = String(p.description || "").toLowerCase();
+  const productType = String(p.productType || "").toLowerCase();
+  const tags = Array.isArray(p.tags)
+    ? p.tags.join(" ").toLowerCase()
+    : "";
+
+  const searchable = [
+    title,
+    description,
+    productType,
+    tags,
+  ].join(" ");
+
+  return customerQualifiers.every((qualifier) =>
+    searchable.includes(qualifier)
+  );
+};
+
+// Keep the existing broad category relevance requirement,
+// but never allow generated category synonyms to substitute
+// for qualifiers the customer actually supplied.
 
 deduped = deduped.filter(
-  (p: any) => keywordMatchCount(p) >= minimumMatches
+  (p: any) =>
+    keywordMatchCount(p) >= 1 &&
+    matchesCustomerQualifiers(p)
 );
 
 if (deduped.length === 0) {

@@ -38,6 +38,19 @@ export default async function WidgetTestPage() {
     redirect("/dashboard");
   }
 
+  const shopifyConnection =
+    await prisma.shopifyConnection.findUnique({
+      where: {
+        tenantId: tenant.id,
+      },
+      select: {
+        status: true,
+      },
+    });
+
+  const shopifyConnected =
+    shopifyConnection?.status === "connected";
+
   const widgetRow = tenant.widget
     ? tenant.widget
     : await prisma.widget.create({
@@ -80,6 +93,7 @@ export default async function WidgetTestPage() {
       <WidgetTestClient
         widgetPublicKey={widgetPublicKey}
         allowedDomains={widgetRow.allowedDomains || []}
+        shopifyConnected={shopifyConnected}
       />
     </div>
   );

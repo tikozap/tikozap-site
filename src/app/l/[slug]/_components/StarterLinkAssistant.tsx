@@ -1588,9 +1588,11 @@ onClick={() => {
                   </div>
                 ) : null}
 
-                <div className="sl-assistantProductStatus">
-                  {p.available ? "In stock" : "Unavailable"}
-                </div>
+{typeof p.available === "boolean" ? (
+  <div className="sl-assistantProductStatus">
+    {p.available ? "In stock" : "Unavailable"}
+  </div>
+) : null}
               </div>
             </div>
           );
