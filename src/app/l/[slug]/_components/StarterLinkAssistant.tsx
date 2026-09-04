@@ -1787,6 +1787,15 @@ onKeyDown={(e) => {
   bottom:0;
 }
 
+@media (max-width: 759px){
+  .sl-assistantLauncher--docked{
+    position:fixed;
+    right:20px;
+    bottom:calc(20px + env(safe-area-inset-bottom));
+    z-index:1000;
+  }
+}
+
 .sl-assistantLauncher:hover{
   transform:translateY(-1px);
   box-shadow:0 12px 30px rgba(15,23,42,.18);
