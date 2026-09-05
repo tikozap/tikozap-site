@@ -66,6 +66,11 @@ export default function WidgetTestClient({
   useState("");
   const [shopifyConnectedSuccess, setShopifyConnectedSuccess] =
   useState(false);
+  const [shopifyDisconnecting, setShopifyDisconnecting] =
+  useState(false);
+
+  const [shopifyDisconnectError, setShopifyDisconnectError] =
+  useState("");
 
   const [testPanelPos, setTestPanelPos] = useState<PanelPosition>({
     x: 24,
@@ -734,34 +739,94 @@ style={{
   </p>
 
   {shopifyConnected ? (
+<div
+  role="status"
+  aria-live="polite"
+  style={{
+    marginTop: 14,
+    padding: '12px 14px',
+    border: '1px solid #bbf7d0',
+    borderRadius: 10,
+    background: '#f0fdf4',
+    color: '#166534',
+    fontSize: 14,
+    fontWeight: 600,
+    lineHeight: 1.45,
+  }}
+>
+  {shopifyConnectedSuccess
+    ? 'Shopify connected successfully!'
+    : 'Shopify connected'}
+
+  <div
+    style={{
+      marginTop: 3,
+      fontWeight: 400,
+    }}
+  >
+    Your assistant can answer questions using
+    your live Shopify catalog.
+  </div>
+
+  <button
+    type="button"
+    className="db-btn db-btnSecondary"
+    style={{ marginTop: 12 }}
+    disabled={shopifyDisconnecting}
+    onClick={async () => {
+      const confirmed = window.confirm(
+        "Disconnect Shopify from this TikoZap store?"
+      );
+
+      if (!confirmed) return;
+
+      setShopifyDisconnecting(true);
+      setShopifyDisconnectError("");
+
+      try {
+        const response = await fetch(
+          "/api/shopify/disconnect",
+          {
+            method: "POST",
+          }
+        );
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            data.error || "Unable to disconnect Shopify."
+          );
+        }
+
+        window.location.reload();
+      } catch (error) {
+        setShopifyDisconnectError(
+          error instanceof Error
+            ? error.message
+            : "Unable to disconnect Shopify."
+        );
+        setShopifyDisconnecting(false);
+      }
+    }}
+  >
+    {shopifyDisconnecting
+      ? "Disconnecting…"
+      : "Disconnect Shopify"}
+  </button>
+
+  {shopifyDisconnectError ? (
     <div
-      role="status"
-      aria-live="polite"
       style={{
-        marginTop: 14,
-        padding: '12px 14px',
-        border: '1px solid #bbf7d0',
-        borderRadius: 10,
-        background: '#f0fdf4',
-        color: '#166534',
-        fontSize: 14,
-        fontWeight: 600,
-        lineHeight: 1.45,
+        marginTop: 8,
+        fontWeight: 400,
+        color: "#b91c1c",
       }}
     >
-      {shopifyConnectedSuccess
-        ? 'Shopify connected successfully!'
-        : 'Shopify connected'}
-      <div
-        style={{
-          marginTop: 3,
-          fontWeight: 400,
-        }}
-      >
-        Your assistant can answer questions using
-        your live Shopify catalog.
-      </div>
+      {shopifyDisconnectError}
     </div>
+  ) : null}
+</div>
   ) : (
     <button
       type="button"
