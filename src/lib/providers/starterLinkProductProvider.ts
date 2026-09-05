@@ -117,11 +117,10 @@ export function createStarterLinkProductProvider(
 
       const queryWords = normalizeWords(query);
 
-      if (queryWords.length === 0) {
-        return [];
-      }
-
-      const matches = products.filter((product) => {
+const matches =
+  queryWords.length === 0
+    ? products
+    : products.filter((product) => {
         const title = product.title?.toLowerCase() || "";
 
         return queryWords.every((word) =>

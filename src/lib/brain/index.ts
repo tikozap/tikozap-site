@@ -136,6 +136,67 @@ function detectCategory(text: string): string | undefined {
   return detectedCategory;
 }
 
+function isCatalogOverviewRequest(text: string) {
+  const t = lower(text);
+
+  return (
+    /\bwhat\s+(other\s+)?products?\b/.test(t) ||
+    /\b(other|all)\s+(products?|items?)\b/.test(t) ||
+    /\bproducts?\s+(in|at)\s+(your|the)\s+store\b/.test(t) ||
+    /\bwhat\s+else\s+do\s+you\s+(have|sell|carry|offer)\b/.test(t) ||
+    /\bwhat\s+do\s+you\s+(sell|carry|offer)\b/.test(t) ||
+    /\b(show|list)\s+(me\s+)?(all\s+)?(your\s+)?products?\b/.test(t)
+  );
+}
+
+function productMatchesCategory(
+  product: ProductSearchResult,
+  category?: string
+) {
+  if (!category) return false;
+
+  const categoryTerms: Record<string, string[]> = {
+    jackets: ["jacket", "jackets", "coat", "coats"],
+    dresses: ["dress", "dresses", "gown", "gowns"],
+    snowboards: ["snowboard", "snowboards"],
+    bicycles: ["bicycle", "bicycles", "bike", "bikes"],
+    books: ["book", "books", "novel", "novels"],
+    toys: ["toy", "toys"],
+    clothing: ["clothes", "clothing", "apparel"],
+    shirts: ["shirt", "shirts", "tee", "t-shirt"],
+    shoes: ["shoe", "shoes", "sneaker", "sneakers"],
+    headphones: ["headphone", "headphones", "earbud", "earbuds"],
+    laptops: ["laptop", "laptops", "notebook"],
+    phones: ["phone", "phones", "smartphone"],
+    watches: ["watch", "watches"],
+    bags: ["bag", "bags", "backpack", "backpacks"],
+    furniture: ["furniture", "chair", "table", "desk"],
+    kitchen: ["kitchen", "cookware", "pan", "pot"],
+    beauty: ["beauty", "skincare", "makeup"],
+    fitness: ["fitness", "dumbbell", "yoga", "exercise"],
+  };
+
+  const searchable = [
+    product.title,
+    (product as any).productType,
+    Array.isArray((product as any).tags)
+      ? (product as any).tags.join(" ")
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const words = searchable
+    .replace(/[^\w-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return (categoryTerms[category] || []).some((term) =>
+    words.includes(term)
+  );
+}
+
 function normalizeCategoryName(category?: string) {
   const c = lower(category || "");
 
@@ -704,6 +765,69 @@ async function searchProducts(
   searchState?: SearchState,
   normalizedCategory?: string
 ): Promise<ProductSearchResult[]> {
+  const messageText = String(message || "").trim().toLowerCase();
+
+  const isCatalogOverview =
+    isCatalogOverviewRequest(messageText);
+
+  if (isCatalogOverview) {
+    try {
+      const catalogProducts = await productProvider.searchProducts("", {
+        limit: 50,
+      });
+
+      const asksForOther =
+        /\b(other|else)\b/.test(messageText);
+
+      const excludedCategory = asksForOther
+        ? normalizeCategoryName(detectCategory(messageText))
+        : undefined;
+
+      const filteredProducts = catalogProducts.filter(
+        (product: any) =>
+          product.available !== false &&
+          !productMatchesCategory(product, excludedCategory)
+      );
+
+      const diverseProducts: ProductSearchResult[] = [];
+      const remainingProducts: ProductSearchResult[] = [];
+      const seenCategories = new Set<string>();
+
+      for (const product of filteredProducts) {
+        const productText = [
+          product.title,
+          (product as any).productType,
+          Array.isArray((product as any).tags)
+            ? (product as any).tags.join(" ")
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const productCategory =
+          normalizeCategoryName(detectCategory(productText));
+
+        if (
+          productCategory &&
+          !seenCategories.has(productCategory)
+        ) {
+          seenCategories.add(productCategory);
+          diverseProducts.push(product);
+        } else {
+          remainingProducts.push(product);
+        }
+      }
+
+      return [
+        ...diverseProducts,
+        ...remainingProducts,
+      ].slice(0, 12);
+    } catch (err) {
+      console.error("BRAIN_CATALOG_OVERVIEW_FAILED", err);
+      return [];
+    }
+  }
+
   const { query, keywords } = buildSearchTerms(
     message,
     searchState,
@@ -812,9 +936,15 @@ const matchesCustomerQualifiers = (p: any) => {
     tags,
   ].join(" ");
 
-  return customerQualifiers.every((qualifier) =>
-    searchable.includes(qualifier)
-  );
+const searchableWords = searchable
+  .replace(/[^\w-]+/g, " ")
+  .split(/\s+/)
+  .map((word) => word.trim())
+  .filter(Boolean);
+
+return customerQualifiers.every((qualifier) =>
+  searchableWords.includes(qualifier)
+);
 };
 
 // Keep the existing broad category relevance requirement,
@@ -1182,6 +1312,12 @@ function buildRuleBasedReply(
   }
 
   if (products.length > 0) {
+    if (isCatalogOverviewRequest(message)) {
+      return /\b(other|else)\b/.test(t)
+        ? "Here are some other products currently in the catalog."
+        : "Here are some products currently in the catalog.";
+    }
+
     if (category === "jackets") return "Here are a few jacket options you might like.";
     if (category === "dresses") return "Here are a few dress options you might like.";
     if (category === "snowboards") return "Here are a few snowboard options you might like.";
@@ -1306,11 +1442,14 @@ function buildSystemPrompt(
     "3. Merchant coaching overrides conflicting store knowledge when the subject is controlled by the merchant.",
     "4. If multiple merchant coaching instructions conflict, follow the newest instruction.",
     "5. Use store knowledge when it does not conflict with merchant coaching.",
-    "6. Use general reasoning only when the provided evidence does not answer the question.",
-    "7. Never replace merchant-specific evidence with a generic industry assumption.",
-    "8. Never combine conflicting evidence. Follow the highest applicable source.",
-    "9. Merchant coaching must not invent or override live product prices, inventory, variants, or availability.",
-    "10. Live product data applies only to product facts. It does not override merchant coaching about service, policy, or how products should be recommended.",
+    "6. Use general reasoning only for explanation, reasoning, or communication that does not create a merchant-specific fact.",
+    "7. General reasoning must never establish what this store sells, carries, stocks, charges, offers, permits, promises, supports, or has available.",
+    "8. Every merchant-specific factual claim must be supported by the merchant evidence provided here. If the evidence does not establish a fact, say that you do not have enough reliable information rather than guessing.",
+    "9. Never infer additional products, product categories, services, policies, inventory, or capabilities merely because they would be common or plausible for a similar business.",
+    "10. Never replace merchant-specific evidence with a generic industry assumption.",
+    "11. Never combine conflicting evidence. Follow the highest applicable source.",
+    "12. Merchant coaching must not invent or override live product prices, inventory, variants, or availability.",
+    "13. Live product data applies only to product facts. It does not override merchant coaching about service, policy, or how products should be recommended.",
 
     "MERCHANT EVIDENCE:",
     evidencePack,
@@ -1336,6 +1475,9 @@ function buildSystemPrompt(
 "Do not mention unrelated live product matches.",
 "If live product matches are provided, never say the store does not have those matching items.",
 "If no live product evidence is provided, do not claim that the store has or does not have a product unless store knowledge or merchant coaching explicitly says so.",
+"When asked what products or categories the store sells, carries, or offers, mention only products or categories directly supported by live product evidence, store knowledge, or merchant coaching.",
+"Never expand a real catalog into additional plausible categories from general knowledge.",
+"If the shopper asks about a category that is not supported by the available evidence, say that you could not find matching products in the catalog information you have rather than inventing examples.",
 "For greetings, respond briefly and naturally.",
 "For support questions, sound capable and reassuring.",
 "If reliable information is unavailable, say so honestly and offer the most useful next step when appropriate.",
@@ -1525,11 +1667,16 @@ const evidencePack = buildBrainEvidencePack(
   input.assistantLearning
 );
 
+const replyCategory =
+  isCatalogOverviewRequest(input.message)
+    ? undefined
+    : category;
+
 const reply = await composeNaturalReply(
   input.message,
   input.history || [],
   products,
-  category,
+  replyCategory,
   evidencePack
 );
 
