@@ -157,7 +157,14 @@ function productMatchesCategory(
 
   const categoryTerms: Record<string, string[]> = {
     jackets: ["jacket", "jackets", "coat", "coats"],
-    dresses: ["dress", "dresses", "gown", "gowns"],
+    dresses: [
+  "dress",
+  "dresses",
+  "gown",
+  "gowns",
+  "sundress",
+  "sundresses",
+],
     snowboards: ["snowboard", "snowboards"],
     bicycles: ["bicycle", "bicycles", "bike", "bikes"],
     books: ["book", "books", "novel", "novels"],
@@ -679,7 +686,14 @@ function getCustomerQualifierKeywords(
 
   const categorySynonyms: Record<string, string[]> = {
     jackets: ["jacket", "jackets", "coat", "coats"],
-    dresses: ["dress", "dresses", "gown", "gowns"],
+    dresses: [
+  "dress",
+  "dresses",
+  "gown",
+  "gowns",
+  "sundress",
+  "sundresses",
+],
     snowboards: ["snowboard", "snowboards"],
     bicycles: ["bike", "bikes", "bicycle", "bicycles"],
     books: ["book", "books", "novel", "novels"],
