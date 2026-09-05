@@ -4,18 +4,22 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql" // ← change from "sqlite" to "postgresql"
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  name                    String?
+  passwordHash            String?
+  emailVerifiedAt         DateTime?
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  createdAt               DateTime                 @default(now())
 
   sessions     Session[]
   memberships  Membership[]
-  ownedTenants Tenant[] @relation("TenantOwner")
+  ownedTenants Tenant[]     @relation("TenantOwner")
 }
 
 model Session {
@@ -32,24 +36,78 @@ model Session {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  storeName String
-  createdAt DateTime @default(now())
+  id                 String  @id @default(cuid())
+  slug               String  @unique
+  storeName          String
+  billingPlan        String  @default("starter")
+  billingInterval    String  @default("monthly")
+  starterLinkSlug    String? @unique
+  starterLinkEnabled Boolean @default(true)
+
+  stripeCustomerId          String?
+  stripeSubscriptionId      String?
+  billingStatus             String?
+  stripeVoiceCustomerId     String?
+  stripeVoiceSubscriptionId String?
+  voiceBillingStatus        String?
+  voiceCancelAtPeriodEnd    Boolean   @default(false)
+  voiceCurrentPeriodEnd     DateTime?
+  stripeCancelAtPeriodEnd   Boolean   @default(false)
+  stripeCurrentPeriodEnd    DateTime?
+
+  voiceEnabled Boolean @default(false)
+
+  voicePack         String?
+  voiceMinutesLimit Int     @default(0)
+  voiceMinutesUsed  Int     @default(0)
+
+  voiceUsagePeriodStart DateTime?
+
+  voiceQuestionsToday Int       @default(0)
+  voiceQuestionsDate  DateTime?
+  voiceQuestionsTotal Int       @default(0)
+
+  websiteUrl            String?
+  settingsJson          String?
+  onboardingCompletedAt DateTime?
+
+  trialStartedAt DateTime?
+  trialEndsAt    DateTime?
+
+  trialReminder7SentAt    DateTime?
+  trialReminder5SentAt    DateTime?
+  trialReminder1SentAt    DateTime?
+  trialExpiredEmailSentAt DateTime?
 
   ownerId String
   owner   User   @relation("TenantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  memberships   Membership[]
-  widget        Widget?
-  knowledgeDocs KnowledgeDoc[]
-  conversations Conversation[]
+  isDeleted  Boolean   @default(false)
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships               Membership[]
+  widget                    Widget?
+  knowledgeDocs             KnowledgeDoc[]
+  conversations             Conversation[]
+  metricEvents              MetricEvent[]
+  starterLinkPage           StarterLinkPage?
+  twilioVoiceEvents         TwilioVoiceEvent[]
+  designPartnerRolloutItems DesignPartnerRolloutItem[]
+  phoneAgentSettings        PhoneAgentSettings?
+  callSessions              CallSession[]
+  answerMachineItems        AnswerMachineItem[]
+  assistantLearnings        AssistantLearning[]
+  shopifyConnection         ShopifyConnection?
 }
 
 model Membership {
-  id        String   @id @default(cuid())
-  role      String   // owner | staff
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  role         String // owner | staff
+  settingsJson String?
+  createdAt    DateTime @default(now())
 
   userId   String
   tenantId String
@@ -60,14 +118,190 @@ model Membership {
   @@index([tenantId])
 }
 
-model Widget {
-  id         String   @id @default(cuid())
-  tenantId   String   @unique
-  publicKey  String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
-  installedAt DateTime?
+model StarterLinkPage {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  logoUrl             String?
+  tagline             String?
+  subheading          String?
+  footerLine          String?
+  contactEmail        String?
+  shippingNote        String?
+  returnNote          String?
+  bestSellerJson      String?
+  productsJson        String?
+  featuredProductType String   @default("bestsellers")
+  showProductsNav     Boolean  @default(true)
+  showContactNav      Boolean  @default(true)
+  showFooterBrand     Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Widget {
+  id          String    @id @default(cuid())
+  tenantId    String    @unique
+  publicKey   String    @unique
+  createdAt   DateTime  @default(now())
+  installedAt DateTime?
+  enabled     Boolean   @default(true)
+
+  assistantName     String?
+  assistantIdentity String? @default("female")
+  greeting          String?
+  brandColor        String?
+
+  allowedDomains String[] @default([])
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model ShopifyConnection {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  shopDomain                String  @unique
+  adminAccessTokenEncrypted String
+  apiVersion                String?
+
+  status         String    @default("connected")
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AssistantLearning {
+  id String @id @default(cuid())
+
+  tenantId       String
+  conversationId String?
+
+  instruction String  @db.Text
+  summary     String? @db.Text
+
+  source String  @default("merchant_correction")
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, active])
+  @@index([tenantId, createdAt])
+}
+
+model TikoLearning {
+  id String @id @default(cuid())
+
+  instruction String  @db.Text
+  summary     String? @db.Text
+
+  source String  @default("admin_coaching")
+  active Boolean @default(true)
+
+  audience String @default("tiko")
+  context  String @default("everywhere")
+  channel  String @default("all")
+
+  appliesText       Boolean @default(true)
+  appliesVoice      Boolean @default(true)
+  appliesTikoWeb    Boolean @default(true)
+  appliesTikoDash   Boolean @default(true)
+  appliesAssistants Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@index([createdAt])
+  @@index([audience, context, channel, active])
+}
+
+model EmmaObservation {
+  id       String @id @default(cuid())
+  tenantId String
+
+  summary    String
+  category   String?
+  confidence Float   @default(0)
+
+  occurrences Int      @default(1)
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @updatedAt
+
+  status String @default("observing")
+  // observing | learning_ready | archived
+
+  evidence Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, summary])
+}
+
+model MentoringThread {
+  id              String             @id @default(cuid())
+  tenantId        String
+  observationId   String?
+  title           String
+  status          String             @default("open")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  messages        MentoringMessage[]
+  confirmedAt     DateTime?
+  appliedCount    Int                @default(0)
+  experienceReady Boolean            @default(false)
+}
+
+model MentoringMessage {
+  id        String          @id @default(cuid())
+  threadId  String
+  role      String
+  // "emma"
+  // "merchant"
+  content   String
+  createdAt DateTime        @default(now())
+  thread    MentoringThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 }
 
 model KnowledgeDoc {
@@ -80,27 +314,30 @@ model KnowledgeDoc {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, title])
   @@index([tenantId, updatedAt])
 }
 
 model Conversation {
-  id            String   @id @default(cuid())
-  tenantId      String
-  channel       String   @default("web")     // web | email | shopify
-  status        String   @default("open")    // open | waiting | closed
-  aiEnabled     Boolean  @default(true)
-
-  customerName  String   @default("Customer")
-  customerEmail String?
-  subject       String   @default("Support")
-  tags          String   @default("")        // CSV
-
-  createdAt     DateTime @default(now())
-  lastMessageAt DateTime @default(now())
-  archivedAt    DateTime?
-
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages Message[]
+  id                 String              @id @default(cuid())
+  tenantId           String
+  channel            String              @default("web")
+  status             String              @default("open")
+  aiEnabled          Boolean             @default(true)
+  customerName       String              @default("Customer")
+  customerEmail      String?
+  subject            String              @default("Support")
+  tags               String              @default("")
+  createdAt          DateTime            @default(now())
+  lastMessageAt      DateTime            @default(now())
+  archivedAt         DateTime?
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages           Message[]
+  callSessions       CallSession[] // ← NEW
+  answerMachineItems AnswerMachineItem[] // ← NEW
+  // --- Inbox UX state ---
+  needsHuman         Boolean             @default(false) // red dot + bubble-to-top
+  lastSeenAt         DateTime            @default(now()) // MVP: single-staff seen timestamp
 
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, archivedAt])
@@ -109,11 +346,152 @@ model Conversation {
 model Message {
   id             String   @id @default(cuid())
   conversationId String
-  role           String   // customer | assistant | staff | note
+  role           String // customer | assistant | staff | note
   content        String
+  productsJson   String?
+  source         String?
   createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+model MetricEvent {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  source    String
+  event     String
+  intent    String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([event, createdAt])
+}
+
+model TwilioVoiceEvent {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  provider      String   @default("twilio")
+  eventType     String
+  verification  String
+  callSid       String?
+  accountSid    String?
+  streamSid     String?
+  mos           Float?
+  jitterMs      Float?
+  packetLossPct Float?
+  roundTripMs   Float?
+  rawPayload    String
+  createdAt     DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([callSid, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model PhoneAgentSettings {
+  id                      String   @id @default(cuid())
+  tenantId                String   @unique
+  inboundNumberE164       String?  @unique
+  enabled                 Boolean  @default(false)
+  voiceName               String?
+  greeting                String?
+  fallbackLine            String?
+  afterHoursLine          String?
+  afterHoursVoicemailOnly Boolean  @default(true)
+  businessHoursJson       String?
+  timeZone                String   @default("America/New_York")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model CallSession {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  provider            String
+  providerCallSid     String?
+  fromNumber          String?
+  toNumber            String?
+  conversationId      String
+  status              String    @default("IN_PROGRESS")
+  fallbackTriggeredAt DateTime?
+  endedAt             DateTime?
+  createdAt           DateTime  @default(now())
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation       Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  answerMachineItems AnswerMachineItem[]
+  callTurns          CallTurn[]
+}
+
+model AnswerMachineItem {
+  id             String              @id @default(cuid())
+  tenantId       String
+  conversationId String
+  callSessionId  String?
+  type           AnswerMachineType
+  fromNumber     String?
+  reason         String
+  callbackNumber String?
+  callbackNotes  String?
+  recordingUrl   String?
+  transcriptText String?
+  status         AnswerMachineStatus @default(NEW)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  callSession  CallSession? @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
+}
+
+model CallTurn {
+  id            String   @id @default(cuid())
+  callSessionId String
+  idx           Int
+  sttText       String?
+  assistantText String?
+  llmMs         Int?
+  createdAt     DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([callSessionId, idx])
+}
+
+enum AnswerMachineType {
+  VOICEMAIL
+  CALLBACK
+}
+
+enum AnswerMachineStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  FAILED
+}
+
+model DesignPartnerRolloutItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  title       String
+  description String?
+  done        Boolean  @default(false)
+  owner       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, done])
 }
