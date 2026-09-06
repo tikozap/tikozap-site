@@ -13,6 +13,7 @@ type ProductKnowledgeRow = {
   id: string;
   product: string;
   notes: string;
+  image: string;
 };
 
 type Props = {
@@ -64,6 +65,69 @@ export default function ProductKnowledgeCard({
           </button>
         </div>
 
+        <div className="pk-intro">
+          <div>
+            <strong>Product details</strong>
+
+          </div>
+
+          <button type="button" className="db-btn" onClick={onAddRow}>
+            + Add product
+          </button>
+        </div>
+
+        <div className="pk-table">
+          <div className="pk-tableHead">
+            <span>Product</span>
+            <span>Notes for AI</span>
+            <span aria-hidden="true" />
+          </div>
+
+          {productRows.map((row) => (
+            <div key={row.id} className="pk-row">
+<div className="pk-productCell">
+  {row.image ? (
+    <img
+      src={row.image}
+      alt={row.product || "Product"}
+      className="pk-thumbnail"
+    />
+  ) : null}
+
+  <input
+    value={row.product}
+    placeholder="Summer Dress"
+    onChange={(e) =>
+      onUpdateRow(row.id, "product", e.target.value)
+    }
+  />
+</div>
+
+              <textarea
+                value={row.notes}
+                placeholder="Runs slightly large. Recommend sizing down when the customer is between sizes."
+                onChange={(e) =>
+                  onUpdateRow(row.id, "notes", e.target.value)
+                }
+              />
+
+              <button
+                type="button"
+                className="pk-remove"
+                aria-label={`Remove ${row.product || "product"}`}
+                onClick={() => onRemoveRow(row.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <p className="pk-hint">
+          Useful notes include fit, common questions, ideal use, comparisons,
+          limitations, and recommendation guidance.
+        </p>
+
         <div className="pk-upload">
           <div>
             <strong>Upload product references</strong>
@@ -91,59 +155,6 @@ export default function ProductKnowledgeCard({
 />
           </label>
         </div>
-
-        <div className="pk-intro">
-          <div>
-            <strong>Product details</strong>
-
-          </div>
-
-          <button type="button" className="db-btn" onClick={onAddRow}>
-            + Add product
-          </button>
-        </div>
-
-        <div className="pk-table">
-          <div className="pk-tableHead">
-            <span>Product</span>
-            <span>Notes for AI</span>
-            <span aria-hidden="true" />
-          </div>
-
-          {productRows.map((row) => (
-            <div key={row.id} className="pk-row">
-              <input
-                value={row.product}
-                placeholder="Summer Dress"
-                onChange={(e) =>
-                  onUpdateRow(row.id, "product", e.target.value)
-                }
-              />
-
-              <textarea
-                value={row.notes}
-                placeholder="Runs slightly large. Recommend sizing down when the customer is between sizes."
-                onChange={(e) =>
-                  onUpdateRow(row.id, "notes", e.target.value)
-                }
-              />
-
-              <button
-                type="button"
-                className="pk-remove"
-                aria-label={`Remove ${row.product || "product"}`}
-                onClick={() => onRemoveRow(row.id)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <p className="pk-hint">
-          Useful notes include fit, common questions, ideal use, comparisons,
-          limitations, and recommendation guidance.
-        </p>
       </div>
 
       <style jsx>{`
@@ -310,6 +321,28 @@ export default function ProductKnowledgeCard({
             grid-row: 1;
           }
         }
+
+        .pk-productCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pk-productCell input {
+  min-width: 0;
+  flex: 1;
+}
+
+.pk-thumbnail {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
       `}</style>
     </section>
   );

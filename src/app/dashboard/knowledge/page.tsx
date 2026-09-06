@@ -17,6 +17,7 @@ type ProductKnowledgeRow = {
   id: string;
   product: string;
   notes: string;
+  image: string;
 };
 
 const PRODUCT_KNOWLEDGE_MARKER = "TIKOZAP_PRODUCT_KNOWLEDGE_V1";
@@ -24,8 +25,9 @@ const PRODUCT_KNOWLEDGE_MARKER = "TIKOZAP_PRODUCT_KNOWLEDGE_V1";
 function createProductKnowledgeRow(): ProductKnowledgeRow {
   return {
     id: `pk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    product: "",
-    notes: "",
+product: "",
+notes: "",
+image: "",
   };
 }
 
@@ -48,8 +50,9 @@ function parseProductKnowledge(content: string): ProductKnowledgeRow[] {
           typeof row?.id === "string" && row.id
             ? row.id
             : createProductKnowledgeRow().id,
-        product: typeof row?.product === "string" ? row.product : "",
-        notes: typeof row?.notes === "string" ? row.notes : "",
+product: typeof row?.product === "string" ? row.product : "",
+notes: typeof row?.notes === "string" ? row.notes : "",
+image: typeof row?.image === "string" ? row.image : "",
       }));
 
       return rows.length > 0 ? rows : [createProductKnowledgeRow()];
@@ -74,8 +77,9 @@ function serializeProductKnowledge(
       type: PRODUCT_KNOWLEDGE_MARKER,
       rows: rows.map((row) => ({
         id: row.id,
-        product: row.product.trim(),
-        notes: row.notes.trim(),
+product: row.product.trim(),
+notes: row.notes.trim(),
+image: row.image,
       })),
     },
     null,
@@ -293,6 +297,29 @@ async function uploadProductKnowledgeFile(file: File) {
       /\.(txt|csv|md)$/i.test(file.name);
 
     let trimmed = "";
+    let image = "";
+
+const isImageFile =
+  file.type === "image/jpeg" ||
+  file.type === "image/png" ||
+  file.type === "image/webp" ||
+  /\.(jpe?g|png|webp)$/i.test(file.name);
+
+if (isImageFile) {
+  if (file.size > 2 * 1024 * 1024) {
+    alert("Product images must be smaller than 2 MB.");
+    return;
+  }
+
+  image = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read product image."));
+
+    reader.readAsDataURL(file);
+  });
+}
 
     if (isTextFile) {
       if (file.size > 2 * 1024 * 1024) {
@@ -312,11 +339,12 @@ async function uploadProductKnowledgeFile(file: File) {
 
     setProductRows((rows) => [
       ...rows,
-      {
-        ...createProductKnowledgeRow(),
-        product: file.name.replace(/\.[^.]+$/, ""),
-        notes: trimmed,
-      },
+{
+  ...createProductKnowledgeRow(),
+  product: file.name.replace(/\.[^.]+$/, ""),
+  notes: trimmed,
+  image,
+},
     ]);
   } catch (error) {
     console.error(
@@ -516,18 +544,13 @@ async function uploadKnowledgeFile(
                     className="db-knowledgeTextarea"
                     value={doc.content}
                     placeholder={
-                      doc.title === "Special Instructions"
-                        ? `Examples:
-
-• We accept Apple Pay, PayPal, Visa, Mastercard, and Amex.
-
-• Never promise same-day shipping.
-
-• If you're unsure, ask for the customer's order number instead of guessing.
-
-• Keep answers concise and professional.
-
-• Recommend gift wrapping during holidays.`
+doc.title === "Special Instructions"
+  ? `Examples:
+We accept Apple Pay, PayPal, Visa, Mastercard, and Amex.
+Never promise same-day shipping.
+If you're unsure, ask for the customer's order number instead of guessing.
+Keep answers concise and professional.
+Recommend gift wrapping during holidays.`
                         : `Add ${doc.title.toLowerCase()} here...`
                     }
                     onChange={(event) => {
@@ -574,15 +597,16 @@ async function uploadKnowledgeFile(
   resize: vertical;
   border: 1px solid #dbe3ea;
   border-radius: 14px;
-  padding: 14px;
+  padding: 10px 14px 14px;
   background:
-    repeating-linear-gradient(
-      to bottom,
-      #ffffff 0,
-      #ffffff 28px,
-      #f8fafc 28px,
-      #f8fafc 56px
-    );
+  repeating-linear-gradient(
+    to bottom,
+    #ffffff 0,
+    #ffffff 21px,
+    #f8fafc 21px,
+    #f8fafc 42px
+  );
+  background-position-y: 10px;
   color: #111827;
   font-size: 14px;
   line-height: 1.5;
