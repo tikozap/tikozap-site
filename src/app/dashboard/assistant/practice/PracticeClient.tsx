@@ -358,25 +358,30 @@ return (
                 'practice-messageBubble',
                 isMerchant ? 'is-merchant' : 'is-assistant',
                 isCoaching ? 'is-coaching' : '',
+                isAnswer ? 'is-coachable' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
+              role={isAnswer ? 'button' : undefined}
+              tabIndex={isAnswer ? 0 : undefined}
+              onClick={() => {
+                if (isAnswer && !busy) {
+                  beginCoaching(message.question || '');
+                }
+              }}
+              onKeyDown={(event) => {
+                if (
+                  isAnswer &&
+                  !busy &&
+                  (event.key === 'Enter' || event.key === ' ')
+                ) {
+                  event.preventDefault();
+                  beginCoaching(message.question || '');
+                }
+              }}
             >
               {message.content}
             </div>
-
-            {isAnswer ? (
-              <button
-                type="button"
-                className="practice-coachButton"
-                disabled={busy}
-                onClick={() =>
-                  beginCoaching(message.question || '')
-                }
-              >
-                Coach {safeAssistantName}
-              </button>
-            ) : null}
           </div>
         </div>
       );
@@ -553,7 +558,7 @@ placeholder={
         }
 
         .practice-card {
-          min-height: 640px;
+          min-height: 0;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -591,7 +596,7 @@ placeholder={
         }
 
         .practice-conversation {
-          height: 430px;
+          height: 230px;
           overflow-y: auto;
           overscroll-behavior: contain;
           padding: 22px;
@@ -694,26 +699,8 @@ placeholder={
           color: #64748b;
         }
 
-        .practice-coachButton {
-          margin-top: 7px;
-          border: none;
-          background: transparent;
-          color: #475569;
-          padding: 2px 0;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 750;
+        .practice-messageBubble.is-coachable {
           cursor: pointer;
-        }
-
-        .practice-coachButton:hover {
-          color: #111827;
-          text-decoration: underline;
-        }
-
-        .practice-coachButton:disabled {
-          opacity: 0.5;
-          cursor: default;
         }
 
         .practice-composer {
