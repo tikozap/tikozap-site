@@ -57,7 +57,8 @@ function ChoiceGroup({
 
 type LauncherAppearance = 'orb' | 'avatar' | 'bubble';
 type AssistantAppearance = 'orb' | 'avatar';
-type AppearanceValue = LauncherAppearance | AssistantAppearance;
+type ChatAppearance = AssistantAppearance | 'name';
+type AppearanceValue = LauncherAppearance | ChatAppearance;
 
 function AppearancePreview({
   kind,
@@ -71,6 +72,19 @@ function AppearancePreview({
   // Launcher and Chat use the same smaller preview.
   // Voice uses the former Launcher size.
   const boxSize = 32;
+
+  if (kind === 'name') {
+    return (
+      <span
+        aria-hidden="true"
+        style={{
+          width: boxSize,
+          height: boxSize,
+          flex: `0 0 ${boxSize}px`,
+        }}
+      />
+    );
+  }
 
   if (kind === 'bubble') {
     return (
@@ -287,7 +301,7 @@ export default function IdentityPage() {
   const [launcherAppearance, setLauncherAppearance] =
     useState<LauncherAppearance>('orb');
   const [chatAppearance, setChatAppearance] =
-    useState<AssistantAppearance>('orb');
+    useState<ChatAppearance>('orb');
   const [voiceAppearance, setVoiceAppearance] =
     useState<AssistantAppearance>('orb');
 
@@ -324,7 +338,10 @@ const hasUnsavedChanges =
             : 'orb'
         );
         setChatAppearance(
-          settings.tz_chat_appearance === 'avatar' ? 'avatar' : 'orb'
+          settings.tz_chat_appearance === 'avatar' ||
+            settings.tz_chat_appearance === 'name'
+            ? settings.tz_chat_appearance
+            : 'orb'
         );
         setVoiceAppearance(
           settings.tz_voice_appearance === 'avatar' ? 'avatar' : 'orb'
@@ -736,12 +753,16 @@ useEffect(() => {
       value: 'avatar',
       title: 'Assistant photo',
     },
+    {
+      value: 'name',
+      title: 'Name',
+    },
   ]}
   avatarUrl={iconDataUrl}
   size="chat"
   assistantName={assistantName}
   onChange={async (value) => {
-  const next = value as AssistantAppearance;
+  const next = value as ChatAppearance;
   const previous = chatAppearance;
 
   setChatAppearance(next);

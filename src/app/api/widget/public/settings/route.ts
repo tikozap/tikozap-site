@@ -95,8 +95,9 @@ try {
             : "orb",
 
         chatAppearance:
-          settings.tz_chat_appearance === "avatar"
-            ? "avatar"
+          settings.tz_chat_appearance === "avatar" ||
+          settings.tz_chat_appearance === "name"
+            ? settings.tz_chat_appearance
             : "orb",
 
         voiceAppearance:

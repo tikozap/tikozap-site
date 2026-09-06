@@ -28,6 +28,7 @@ speakerName?: string;
 
 type LauncherAppearance = "orb" | "avatar" | "bubble";
 type AssistantAppearance = "orb" | "avatar";
+type ChatAppearance = AssistantAppearance | "name";
 
 type Props = {
   publicKey: string;
@@ -130,7 +131,7 @@ const [assistantAvatarUrl, setAssistantAvatarUrl] = useState("");
 const [launcherAppearance, setLauncherAppearance] =
   useState<LauncherAppearance>("orb");
 const [chatAppearance, setChatAppearance] =
-  useState<AssistantAppearance>("orb");
+  useState<ChatAppearance>("orb");
 const [voiceAppearance, setVoiceAppearance] =
   useState<AssistantAppearance>("orb");
 
@@ -248,7 +249,10 @@ useEffect(() => {
           : "orb"
       );
       setChatAppearance(
-        data.widget?.chatAppearance === "avatar" ? "avatar" : "orb"
+        data.widget?.chatAppearance === "avatar" ||
+          data.widget?.chatAppearance === "name"
+          ? data.widget.chatAppearance
+          : "orb"
       );
       setVoiceAppearance(
         data.widget?.voiceAppearance === "avatar" ? "avatar" : "orb"
@@ -1298,7 +1302,7 @@ style={{
           aria-hidden="true"
           className="sl-assistantTitleAvatarMini"
         />
-      ) : (
+      ) : resolvedChatAppearance === "name" ? null : (
         <span className="sl-assistantTitleOrbMini">
           <Orb state={orbState as any} />
         </span>
