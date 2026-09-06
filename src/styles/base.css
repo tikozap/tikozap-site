@@ -2023,6 +2023,19 @@ a.nav__brand .nav__logo-text {
   height: auto;
 }
 
+.tz-orbSvg,
+.tz-orbLargeImg {
+  transform:
+    translate(
+      0,
+      calc(var(--tz-shift-x, 0px) * 2.2)
+    )
+    rotateX(var(--tz-tilt-x, 0deg))
+    rotateY(var(--tz-tilt-y, 0deg));
+  transform-origin: center;
+  transition: transform 1.4s ease-in-out;
+}
+
 .hero-demoPanel-line {
   max-width: 230px;
   margin: 16px 0 0;

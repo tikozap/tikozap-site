@@ -126,6 +126,8 @@ export function OrbLarge({
             height: dimension,
             "--tz-tilt-x": `${driftY}deg`,
             "--tz-tilt-y": `${driftX}deg`,
+            "--tz-shift-x": `${driftX}px`,
+            "--tz-shift-y": `${driftY}px`,
           } as React.CSSProperties
         }
       >

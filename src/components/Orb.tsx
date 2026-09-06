@@ -116,6 +116,8 @@ export function Orb({
         {
           "--tz-tilt-x": `${tiltX + driftY}deg`,
           "--tz-tilt-y": `${tiltY + driftX}deg`,
+          "--tz-shift-x": `${driftX}px`,
+          "--tz-shift-y": `${driftY}px`,
         } as React.CSSProperties
       }
     >
