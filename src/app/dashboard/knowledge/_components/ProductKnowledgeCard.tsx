@@ -66,10 +66,7 @@ export default function ProductKnowledgeCard({
         </div>
 
         <div className="pk-intro">
-          <div>
-            <strong>Product details</strong>
-
-          </div>
+          <div />
 
           <button type="button" className="db-btn" onClick={onAddRow}>
             + Add product
@@ -123,22 +120,18 @@ export default function ProductKnowledgeCard({
           ))}
         </div>
 
-        <p className="pk-hint">
-          Useful notes include fit, common questions, ideal use, comparisons,
-          limitations, and recommendation guidance.
-        </p>
-
         <div className="pk-upload">
           <div>
-            <strong>Upload product references</strong>
+            <strong>Product references</strong>
 <p>
-  Add PDF, JPG, PNG, WebP, text, CSV, or Markdown references such as size charts,
-  care instructions, materials, warranties, or manuals.
+  Add product images, size charts, care instructions, materials, warranties, or manuals.
+  <br />
+  Formats: PDF, JPG, PNG, WebP, TXT, CSV, Markdown.
 </p>
           </div>
 
           <label className="db-btn pk-uploadButton">
-            {extractingFile ? "Reading file..." : "Choose file"}
+            {extractingFile ? "Reading file..." : "Upload"}
 <input
   type="file"
   disabled={extractingFile}
@@ -178,6 +171,7 @@ export default function ProductKnowledgeCard({
         }
 
         .pk-upload {
+          margin-top: 8px;
           align-items: center;
           padding: 12px;
           margin-bottom: 20px;
