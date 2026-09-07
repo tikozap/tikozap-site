@@ -1,49 +1,634 @@
-.cx-grid{ display:grid; grid-template-columns:360px 1fr; gap:12px; align-items:start; }
-.cx-list{ padding:10px; }
+/* =========================
+   Layout
+========================= */
+
+.db-top{
+  flex:0 0 auto;
+}
+
+.cx-split{
+  display:grid;
+  grid-template-columns:minmax(320px, 38%) minmax(0, 1fr);
+  gap:12px;
+  align-items:stretch;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
+
+.cx-list{
+  padding:10px;
+}
+
+.cx-pane{
+  min-width:0;
+}
+
+.cx-pane.is-hidden{
+  display:none;
+}
+
+.cx-listPane{
+  min-width:0;
+  width:auto;
+  max-width:100%;
+  min-height:0;
+  overflow:auto;
+  padding-right:4px;
+}
+
+.cx-threadCol{
+  min-width:0;
+  display:flex;
+  justify-content:flex-start;
+}
+
+.cx-threadPane{
+  min-width:0;
+  width:min(100%, 860px);
+  max-width:860px;
+  min-height:0;
+  height:100%;
+  overflow:hidden;
+  justify-self:start;
+  align-self:stretch;
+  padding:14px;
+  box-sizing:border-box;
+  background:#f8fafc;
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+}
+
+/* =========================
+   Summary cards
+   Kept in case you reuse them later
+========================= */
+
+.cx-summaryBar{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.cx-summaryCard{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:12px 14px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+
+.cx-summaryCard--attention{
+  border-color:#fde68a;
+  background:#fffdf5;
+}
+
+.cx-summaryLabel{
+  font-size:12px;
+  font-weight:600;
+  color:#6b7280;
+  margin-bottom:4px;
+}
+
+.cx-summaryValue{
+  font-size:22px;
+  line-height:1;
+  font-weight:700;
+  color:#111827;
+  letter-spacing:-0.02em;
+}
+
+.cx-summaryHint{
+  margin-top:6px;
+  font-size:12px;
+  line-height:1.35;
+  color:#6b7280;
+}
+
+.cx-summaryBar--sidebar{
+  grid-template-columns:1fr;
+  margin-bottom:10px;
+}
+
+.cx-summaryBar--sidebar .cx-summaryCard{
+  padding:10px 12px;
+}
+
+.cx-summaryBar--sidebar .cx-summaryValue{
+  font-size:20px;
+}
+
+/* =========================
+   Quick links
+========================= */
+
+.cx-quickLinks{
+  margin-top:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.cx-quickLink{
+  text-decoration:none;
+  color:#111827;
+  background:#fff;
+}
+
+.cx-quickLink:hover{
+  background:#f8fafc;
+  text-decoration:none;
+}
+
+/* =========================
+   Conversation list items
+========================= */
+
 .cx-item{
   width:100%;
+  display:block;
   text-align:left;
-  border:1px solid transparent;
-  background:transparent;
-  border-radius:14px;
-  padding:12px;
+  border:1px solid #d1d5db;
+  background:#f3f4f6;
+  border-radius:16px;
+  padding:12px 14px;
   cursor:pointer;
-  color:#111827;           /* IMPORTANT: don’t inherit global button color */
+  color:#111827;
+  margin-bottom:10px;
+  transition:background .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
-.cx-item:hover{ background:#f8fafc; }
-.cx-item.active{ background:#f8fafc; border-color:#d1d5db; }
 
-.cx-row{ display:flex; justify-content:space-between; gap:10px; }
-.cx-customer{ font-weight:800; font-size:13px; }
-.cx-time{ font-size:12px; opacity:.7; }
-.cx-subject{ margin-top:4px; font-size:13px; opacity:.85; }
-.cx-tags{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
-.cx-preview{ margin-top:8px; font-size:12px; opacity:.75; }
+.cx-item:hover{
+  background:#eef2f7;
+  border-color:#c7ced8;
+}
 
-.cx-threadTop{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.cx-threadName{ font-weight:900; font-size:14px; }
-.cx-threadSubject{ margin-top:2px; opacity:.8; font-size:13px; }
+.cx-item.active{
+  background:#eef2ff;
+  border-color:#c7d2fe;
+  box-shadow:0 2px 6px rgba(99,102,241,0.08);
+}
 
-.cx-msgList{ display:grid; gap:10px; }
-.cx-msgMeta{ font-size:12px; opacity:.7; }
+.cx-item.archived{
+  opacity:.92;
+}
+
+.cx-row{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+}
+
+.cx-avatar{
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#f9fafb;
+  border:none;
+  color:#111827;
+  font-size:12px;
+  font-weight:700;
+  line-height:1;
+  flex-shrink:0;
+}
+
+.cx-main{
+  min-width:0;
+}
+
+.cx-top{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:start;
+}
+
+.cx-customer{
+  font-size:15px;
+  font-weight:700;
+  line-height:1.2;
+  color:#111827;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.cx-time{
+  font-size:12px;
+  line-height:1.2;
+  color:#6b7280;
+  white-space:nowrap;
+  text-align:right;
+}
+
+.cx-meta{
+  margin-top:4px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:start;
+}
+
+.cx-subjectLine{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+
+.cx-inlineLabel{
+  font-size:12px;
+  line-height:1;
+  color:#374151;
+  background:#e5e7eb;
+  border:1px solid #d1d5db;
+  border-radius:999px;
+  padding:3px 7px;
+  font-weight:600;
+}
+
+.cx-subjectText{
+  font-size:13px;
+  line-height:1.25;
+  color:#374151;
+  font-weight:600;
+  min-width:0;
+}
+
+.cx-indicators{
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-end;
+  gap:6px;
+  min-width:16px;
+  padding-top:3px;
+}
+
+.cx-dot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  display:inline-block;
+}
+
+.cx-dot.alert{
+  background:#dc2626;
+}
+
+.cx-dot.unread{
+  background:#2563eb;
+}
+
+.cx-preview{
+  margin-top:6px;
+  font-size:14px;
+  line-height:1.35;
+  color:#6b7280;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* old row classes no longer used by new layout */
+.cx-left,
+.cx-leftText,
+.cx-right,
+.cx-metaRight,
+.cx-badges,
+.cx-badge,
+.cx-tags{
+  display:none;
+}
+
+/* =========================
+   Thread
+========================= */
+
+.cx-threadTop{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.cx-threadFrame{
+  flex:1 1 auto;
+  height:100%;
+  min-height:0;
+  min-width:0;
+  overflow:hidden;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+}
+
+.cx-threadHead{
+  display:grid;
+  gap:12px;
+  padding-bottom:10px;
+  border-bottom:1px solid #e5e7eb;
+  min-width:0;
+  flex:0 0 auto;
+  background:#f8fafc;
+  z-index:2;
+}
+
+.cx-threadHeadTop{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:start;
+}
+
+.cx-threadHeadMain{
+  min-width:0;
+}
+
+.cx-threadNameRow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+
+.cx-threadName{
+  font-weight:900;
+  font-size:14px;
+  color:#111827;
+}
+
+.cx-threadSubject{
+  margin-top:4px;
+  opacity:.8;
+  font-size:13px;
+  color:#111827;
+}
+
+.cx-threadActionsGrid{
+  display:grid;
+  grid-template-columns:repeat(3, max-content);
+  gap:8px;
+  justify-content:end;
+  align-content:start;
+}
+
+.cx-threadPane .db-btn{
+  max-width:100%;
+}
+
+.cx-topRow{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+
+.cx-topRow > div:first-child{
+  min-width:0;
+}
+
+.cx-topRow > div:last-child{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  min-width:0;
+  max-width:100%;
+}
+
+.cx-tagRow{
+  margin-top:0;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  min-width:0;
+}
+
+.cx-threadMessages{
+  min-height:0;
+  min-width:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding:12px 0;
+  -webkit-overflow-scrolling:touch;
+}
+
+.cx-msgList{
+  display:grid;
+  gap:10px;
+}
+
+.cx-msgMeta{
+  font-size:12px;
+  opacity:.7;
+  color:#111827;
+}
+
 .cx-bubble{
   border:1px solid #e5e7eb;
   background:#fff;
   color:#111827;
   border-radius:14px;
-  padding:12px;
-  font-size:13px;
+  padding:14px 18px;
+  font-size:16px;
   line-height:1.45;
+  font-weight:400;
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:break-word;
 }
-.cx-bubble.agent{
-  background:#111827;
-  border-color:#111827;
+
+.cx-bubble.assistant {
+  background: #eef2ff;
+  color: #1e293b;
+  border-color: #e0e7ff;
+}
+
+.cx-bubble.agent {
+  background:#374151;
+  border-color:#374151;
   color:#fff;
 }
 
-.cx-replyBox{ margin-top:14px; border-top:1px solid #eef2f7; padding-top:12px; }
+.cx-bubble.note{
+  background:#f8fafc;
+  border-color:#e5e7eb;
+  color:#111827;
+}
+
+.cx-composerWrap{
+  position:relative;
+}
+
+.cx-sendFab{
+  position:absolute;
+  right:8px;
+  bottom:10px;
+
+  width:30px;
+  height:30px;
+  min-width:32px;
+  min-height:32px;
+
+  border-radius:50%;
+  border:1px solid #111827;
+  background:#111827;
+  color:#fff;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+
+  padding:0;           /* important */
+  flex:0 0 32px;       /* prevents flex stretch */
+}
+
+.cx-sendFab:hover{
+  opacity:.92;
+}
+
+/* =========================
+   Product cards inside thread
+========================= */
+
+.cx-productList{
+  margin-top:8px;
+  display:grid;
+  gap:8px;
+}
+
+.cx-productRow{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#fff;
+  text-align:left;
+}
+
+.cx-productRow--clickable{
+  cursor:pointer;
+}
+
+.cx-productRow--clickable:hover{
+  background:#f8fafc;
+}
+
+.cx-productLeft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.cx-productRight{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex:0 0 auto;
+}
+
+.cx-productThumb{
+  width:52px;
+  height:52px;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#f3f4f6;
+  flex:0 0 52px;
+}
+
+.cx-productThumb--placeholder{
+  background:#f3f4f6;
+}
+
+.cx-productMeta{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+
+.cx-productTitle{
+  font-size:13px;
+  font-weight:600;
+  color:#111827;
+  line-height:1.3;
+}
+
+.cx-productStock{
+  font-size:12px;
+  color:#6b7280;
+}
+
+.cx-productPrice{
+  font-size:12px;
+  font-weight:700;
+  color:#111827;
+  white-space:nowrap;
+}
+
+/* =========================
+   Reply dock
+========================= */
+
+.cx-replyModeBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+  font-size:12px;
+  color:#6b7280;
+  flex-wrap:wrap;
+}
+
+.cx-replyModeHint{
+  font-weight:700;
+  color:#111827;
+}
+
+.cx-replyDock{
+  background:#f8fafc;
+  border-top:1px solid #e5e7eb;
+  padding-top:8px;
+  padding-bottom:8px;
+  z-index:2;
+  flex:0 0 auto;
+}
+
+.cx-replyQuickActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-left:auto;
+}
+
 .cx-textarea{
   width:100%;
+  min-width:0;
+  box-sizing:border-box;
   border-radius:14px;
   border:1px solid #d1d5db;
   padding:12px;
@@ -53,20 +638,24 @@
   background:#fff;
 }
 
-@media (max-width:1000px){ .cx-grid{ grid-template-columns:1fr; } }
+/* =========================
+   Tags / chips
+========================= */
 
-.cx-tagRow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .cx-chip{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  padding:4px 10px;
-  border-radius:999px;
+  height:34px;
+  padding:0 12px;
+  border-radius:14px;
   border:1px solid #e5e7eb;
   background:#fff;
   font-size:12px;
   color:#111827;
+  box-sizing:border-box;
 }
+
 .cx-chip button{
   border:none;
   background:transparent;
@@ -76,35 +665,26 @@
   opacity:.7;
   color:inherit;
 }
-.cx-chip button:hover{ opacity:1; }
+
+.cx-chip button:hover{
+  opacity:1;
+}
 
 .cx-tagInput{
+  height:34px;
   border:1px solid #d1d5db;
-  border-radius:999px;
-  padding:6px 10px;
+  border-radius:14px;
+  padding:0 12px;
   font-size:12px;
   color:#111827;
   background:#fff;
-  min-width: 160px;
+  min-width:120px;
+  box-sizing:border-box;
 }
 
-.cx-bubble.note{
-  background:#f8fafc;
-  border-color:#e5e7eb;
-  color:#111827;
-}
-
-/* Mobile pane switching */
-.cx-pane { min-width: 0; }
-.cx-pane.is-hidden { display: none; }
-
-.cx-topRow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
+/* =========================
+   Back button / canned replies
+========================= */
 
 .cx-backBtn{
   display:inline-flex;
@@ -112,7 +692,6 @@
   gap:6px;
 }
 
-/* Canned replies row */
 .cx-cannedRow{
   margin-top:10px;
   display:flex;
@@ -129,9 +708,2440 @@
   font-size:13px;
   background:#fff;
   color:#111827;
-  min-width: 240px;
+  min-width:240px;
 }
 
-@media (max-width: 1000px){
-  .cx-cannedSelect{ min-width: 100%; }
+/* =========================
+   Product preview modal
+========================= */
+
+.cx-modalOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+}
+
+.cx-modal{
+  background:#fff;
+  border-radius:16px;
+  padding:16px;
+  width:320px;
+  max-width:90%;
+  box-shadow:0 10px 30px rgba(0,0,0,0.2);
+  position:relative;
+  display:grid;
+  gap:12px;
+}
+
+.cx-modalClose{
+  position:absolute;
+  top:8px;
+  right:10px;
+  border:none;
+  background:transparent;
+  font-size:18px;
+  cursor:pointer;
+}
+
+.cx-modalImage{
+  width:100%;
+  height:180px;
+  object-fit:cover;
+  border-radius:12px;
+}
+
+.cx-modalTitle{
+  font-size:16px;
+  font-weight:700;
+  color:#111827;
+}
+
+.cx-modalMeta{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  color:#6b7280;
+}
+
+.cx-modalPrice{
+  font-weight:700;
+  color:#111827;
+}
+
+.cx-modalBtn{
+  display:block;
+  text-align:center;
+  padding:10px;
+  border-radius:12px;
+  background:#111827;
+  color:#fff;
+  text-decoration:none;
+  font-size:13px;
+}
+
+/* =========================
+   Mobile top bars
+========================= */
+
+.cx-mobileScreen{
+  display:grid;
+  gap:12px;
+}
+
+.cx-mobileInboxTop,
+.cx-mobileThreadTop{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:#f8fafc;
+  border-bottom:1px solid #e5e7eb;
+  padding:8px 0;
+}
+
+.cx-mobileInboxTop{
+  display:grid;
+  grid-template-columns:40px 1fr 40px;
+  align-items:center;
+  gap:10px;
+}
+
+.cx-mobileThreadTop{
+  display:grid;
+  grid-template-columns:104px 1fr 56px;
+  align-items:center;
+  gap:6px;
+  margin-bottom:8px;
+}
+
+.cx-mobileThreadLeft{
+  display:flex;
+  align-items:center;
+  gap:0;
+}
+
+.cx-mobileInboxTitle{
+  text-align:center;
+  font-size:18px;
+  font-weight:800;
+  color:#111827;
+}
+
+.cx-mobileThreadIdentity{
+  min-width:0;
+  text-align:center;
+}
+
+.cx-mobileThreadName{
+  font-size:16px;
+  font-weight:800;
+  color:#111827;
+}
+
+.cx-mobileThreadMeta{
+  margin-top:2px;
+  font-size:12px;
+  color:#6b7280;
+}
+
+.cx-mobileBackWrap{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  margin-left:-2px;
+}
+
+.cx-mobileNeedsHumanDot{
+  position:absolute;
+  top:50%;
+  right:-6px;
+  transform:translateY(-50%);
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:#dc2626;
+  box-shadow:0 0 0 2px #f8fafc;
+  animation:cx-mobile-needs-human-blink 0.6s ease-in-out 3;
+}
+
+.cx-mobileThreadTop .cx-mobileTopBtn{
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #111827 !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  padding: 0 !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cx-mobileThreadTop .cx-mobileTopBtn:hover{
+  background:#f8fafc !important;
+}
+
+.cx-mobileThreadTop .db-btn[aria-label="More"]{
+  font-size: 22px;
+}
+
+.cx-mobileThreadTop .cx-backBtn svg{
+  color:#111827;
+  display:block;
+}
+
+.cx-backBtn{
+  padding:0 !important;
+}
+
+.cx-backChevron{
+  display:block;
+  color:#111827;
+}
+
+@keyframes cx-needs-human-blink{
+  0%, 100%{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  50%{
+    opacity:.15;
+    transform:scale(0.8);
+  }
+}
+
+@keyframes cx-mobile-needs-human-blink{
+  0%, 100%{
+    opacity:1;
+    transform:translateY(-50%) scale(1);
+  }
+
+  50%{
+    opacity:.15;
+    transform:translateY(-50%) scale(0.8);
+  }
+}
+/* =========================
+   Mobile layered inbox/thread
+========================= */
+
+.cx-mobileRoot{
+   touch-action:pan-y;
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.cx-mobileStage{
+  position:relative;
+  min-height:100svh;
+  overflow:hidden;
+  background:#f8fafc;
+}
+
+.cx-mobileScreen{
+  height:100svh;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.cx-mobileList{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+
+.cx-mobileInboxLayer,
+.cx-mobileThreadLayer{
+  width:100%;
+}
+
+.cx-mobileInboxLayer.is-active{
+  position:relative;
+  z-index:1;
+}
+
+.cx-mobileInboxLayer.is-under-thread{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  opacity:1;
+  overflow:hidden;
+}
+
+.cx-mobileThreadLayer.is-active{
+  position:fixed;
+  inset:0;
+  z-index:2;
+  overflow:hidden;
+}
+
+.cx-mobileThreadScreen{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100svh;
+  min-height:100svh;
+  max-height:100svh;
+  touch-action:pan-y;
+  will-change:transform;
+  transition:transform .22s ease, opacity .18s ease;
+  background:#f8fafc;
+  overflow:hidden;
+}
+
+.cx-mobileThreadScreen.is-opening{
+  transition:transform .22s ease;
+}
+
+.cx-mobileThreadScreen.is-closing{
+  transition:transform .18s ease;
+}
+
+.cx-mobileThreadCard{
+  position:absolute;
+  inset:0;
+  height:100%;
+  min-height:0;
+  border:none;
+  border-radius:0;
+  box-shadow:none;
+  background:#f8fafc;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* =========================
+   Bottom sheet
+========================= */
+
+.cx-sheetOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.25);
+  z-index:1100;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+
+.cx-sheet{
+  width:min(680px, 100%);
+  max-height:85vh;
+  background:#fff;
+  box-shadow:0 -8px 24px rgba(15,23,42,.12);
+  padding:14px;
+  display:grid;
+  gap:14px;
+  overflow:auto;
+  border-radius:16px 16px 0 0;
+}
+
+.cx-sheetTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  position:sticky;
+  top:0;
+  background:#fff;
+  z-index:1;
+  padding-bottom:8px;
+  border-bottom:1px solid #e5e7eb;
+}
+
+.cx-sheetTitle{
+  font-size:15px;
+  font-weight:800;
+  color:#111827;
+}
+
+.cx-sheetSub{
+  margin-top:3px;
+  font-size:12px;
+  color:#6b7280;
+}
+
+.cx-sheetClose{
+  border:none;
+  background:transparent;
+  font-size:18px;
+  cursor:pointer;
+  color:#111827;
+}
+
+.cx-sheetActions{
+  display:grid;
+  gap:10px;
+}
+
+.cx-sheetTags{
+  display:grid;
+  gap:10px;
+}
+
+.cx-sheetSectionLabel{
+  font-size:12px;
+  font-weight:800;
+  color:#6b7280;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.cx-sheetTagAdd{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+/* =========================
+   Desktop / tablet / mobile
+========================= */
+
+@media (max-width: 900px){
+   .cx-split{
+    display:block;
+    height:auto;
+    overflow:visible;
+  }
+
+  .cx-listPane{
+    min-width:0;
+    width:100%;
+    max-width:100%;
+    overflow:visible;
+    padding-right:0;
+  }
+
+  .cx-threadCol{
+    display:block;
+    overflow:visible;
+  }
+
+  .cx-threadPane{
+    width:100%;
+    max-width:100%;
+    height:100%;
+    min-height:0;
+    padding:14px;
+  }
+
+  .cx-list{
+    padding:0;
+  }
+
+  .cx-summaryBar{
+    grid-template-columns:1fr;
+  }
+
+  .cx-summaryBar--sidebar{
+    grid-template-columns:1fr;
+  }
+
+  .cx-summaryBar--sidebar .cx-summaryCard:not(.cx-summaryCard--attention){
+    display:none;
+  }
+
+  .cx-cannedSelect{
+    min-width:100%;
+  }
+
+  .db-card.cx-threadCardMobile{
+    border:none;
+    box-shadow:none;
+    background:transparent;
+    padding:0;
+  }
+
+  .cx-tagRow{
+    display:none;
+  }
+
+  .cx-threadFrame{
+    height:100%;
+    min-height:0;
+  }
+
+  .cx-threadMessages{
+    padding-top:10px;
+    padding-bottom:10px;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .cx-threadHead{
+    background:#f8fafc;
+    z-index:2;
+  }
+
+  .cx-replyDock{
+    background:#f8fafc;
+    z-index:2;
+    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .cx-threadMessages,
+  .cx-threadHead,
+  .cx-replyDock{
+    min-width:0;
+  }
+
+.cx-composerWrap{
+  position:relative;
+}
+
+.cx-textarea--composer{
+  outline:none;
+  box-shadow:none;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  border-radius:14px;
+  border:1px solid #d1d5db;
+  padding:10px 44px 10px 12px;
+  font-size:13px;
+  color:#111827;
+  background:#fff;
+  min-height:44px;
+  max-height:160px;
+  height:44px;
+  line-height:1.35;
+  resize:none;
+  overflow-y:auto;
+}
+
+.cx-textarea--composer:focus,
+.cx-textarea--composer:focus-visible{
+  outline:none;
+  box-shadow:none;
+  border-color:#d1d5db;
+}
+
+.cx-threadMessages,
+.cx-threadHead,
+.cx-replyDock{
+  min-width:0;
+}
+}
+
+/* =========================
+   Final desktop size unifier
+   Put at very end of file
+========================= */
+
+@media (min-width: 1201px){
+  .db-actions .db-btn,
+  .cx-threadActionsGrid .db-btn,
+  .cx-replyQuickActions .db-btn{
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+  }
+
+  .cx-chip{
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+  }
+
+  .cx-tagInput{
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+    box-sizing: border-box !important;
+    line-height: 34px !important;
+  }
+
+  .db-top{
+    margin-bottom: 16px !important;
+  }
+}
+
+/* =========================
+   Final mobile inbox top-button override
+   Put at very end of file
+========================= */
+
+.cx-mobileTopBtn{
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #111827 !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  padding: 0 !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font: inherit !important;
+}
+
+.cx-mobileTopBtn:hover,
+.cx-mobileTopBtn:focus,
+.cx-mobileTopBtn:focus-visible,
+.cx-mobileTopBtn:active{
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cx-selectedProducts{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.cx-selectedProductChip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  font-size:12px;
+  color:#111827;
+}
+
+.cx-selectedProductChip button{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+  color:#6b7280;
+}
+
+@media (min-width: 901px){
+  .cx-split{
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .cx-listPane,
+  .cx-threadCol,
+  .cx-threadPane{
+    min-height: 0;
+  }
+
+  .cx-threadCol{
+    min-width: 0;
+    display: flex;
+  }
+
+  .cx-threadPane{
+    background:#fafbfc;
+    height: calc(100vh - 100px);
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cx-threadFrame{
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .cx-threadMessages{
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+.cx-textarea,
+.cx-textarea:focus,
+.cx-textarea:focus-visible,
+.cx-textarea--composer,
+.cx-textarea--composer:focus,
+.cx-textarea--composer:focus-visible{
+  outline:none !important;
+  box-shadow:none !important;
+}
+
+/* ===== Compact action buttons ===== */
+
+.db-top .db-btn,
+.db-top select.db-btn,
+.db-top input.db-btn,
+.cx-threadActionsGrid .db-btn,
+.cx-replyQuickActions .db-btn,
+.cx-sheetActions .db-btn{
+  height: 30px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+}
+
+.db-top select.db-btn{
+  padding-right: 28px !important;
+}
+
+.db-top input.db-btn{
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  line-height: 32px !important;
+}
+
+.cx-replyDock{
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.cx-replyModeBar{
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+.cx-replyQuickActions{
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+  margin-left: 0 !important;
+}
+
+.cx-replyQuickActions .db-btn{
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+}
+
+.cx-replyModeHint{
+  font-weight: 700;
+  color: #111827;
+}
+
+.cx-replyModeBar > div:first-child{
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Tighter thread spacing ===== */
+
+.cx-msgList{
+  gap: 5px !important;
+}
+
+.cx-msgMeta{
+  font-size: 10px !important;
+  line-height: 0.8 !important;
+  margin-bottom: 0px !important;
+  color: #6b7280 !important;
+}
+
+.cx-msgMeta strong{
+  font-weight: 600 !important;
+  color: #4b5563 !important;
+}
+
+.cx-bubble{
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+
+.cx-bubble.agent{
+  padding: 10px 12px !important;
+}
+
+.cx-productList{
+  margin-top: 6px !important;
+  gap: 6px !important;
+}
+
+.cx-inlineLabel--web{
+  background:#e0f2fe;
+  color:#0369a1;
+  border:none;
+}
+
+.cx-inlineLabel--link{
+  background:#ede9fe;
+  color:#5b21b6;
+  border:none;
+}
+
+.cx-inlineLabel--email{
+  background:#dcfce7;
+  color:#166534;
+  border:none;
+}
+
+.cx-inlineLabel--shopify{
+  background:#fef3c7;
+  color:#92400e;
+  border:none;
+}
+}
+
+/* =========================
+   TikoZap color polish v2
+========================= */
+
+/* 1) Selected inbox item: warm light yellow */
+.cx-item.active{
+  background:#fffdf5 !important;
+  border-color:#fcd34d !important;
+  box-shadow:0 1px 4px rgba(146,64,14,.06) !important;
+}
+
+/* 3) Staff Kevin bubble: softer, less strong */
+.cx-bubble.agent{
+  background:#334155 !important;
+  border-color:#334155 !important;
+  color:#ffffff !important;
+}
+
+/* Keep assistant bubble soft blue, but separate from selected yellow */
+.cx-bubble.assistant{
+  background:#e8f1ff !important;
+  border-color:#d6e6ff !important;
+  color:#1e293b !important;
+}
+
+/* 4) Channel labels back to original quiet gray */
+.cx-inlineLabel,
+.cx-inlineLabel--web,
+.cx-inlineLabel--link,
+.cx-inlineLabel--email,
+.cx-inlineLabel--shopify,
+.cx-inlineLabel--phone{
+  font-size:12px !important;
+  line-height:1 !important;
+  color:#374151 !important;
+  background:#e5e7eb !important;
+  border:1px solid #d1d5db !important;
+  border-radius:999px !important;
+  padding:3px 7px !important;
+  font-weight:600 !important;
+}
+
+.cx-bubble{
+  padding:13px 14px;  /* was 12px */
+}
+
+.cx-dot.unread{
+  background:#3b82f6;
+}
+
+/* =========================
+   Abstract human avatar
+========================= */
+
+.cx-avatar{
+  position:relative;
+  overflow:hidden;
+  margin-top:2px;
+}
+
+/* head */
+.cx-avatarIcon::before{
+  content:"";
+  position:absolute;
+  top:7px;
+  left:50%;
+  transform:translateX(-50%);
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  background:currentColor;
+  opacity:0.3;
+}
+
+/* shoulders */
+.cx-avatarIcon::after{
+  content:"";
+  position:absolute;
+  bottom:6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:18px;
+  height:10px;
+  border-radius:10px 10px 6px 6px;
+  background:currentColor;
+  opacity:0.3;
+}
+
+/* =========================
+   TikoZap button + staff polish
+========================= */
+
+/* Softer Staff Kevin bubble */
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+/* Make dashboard buttons feel more button-like */
+.db-btn{
+  background:#ffffff !important;
+  border:1px solid #cbd5e1 !important;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.08),
+    0 1px 1px rgba(15,23,42,.04) !important;
+  font-weight:700 !important;
+  transition:
+    background .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    transform .16s ease !important;
+}
+
+.db-btn:hover{
+  background:#f8fafc !important;
+  border-color:#94a3b8 !important;
+  box-shadow:
+    0 3px 8px rgba(15,23,42,.10),
+    0 1px 2px rgba(15,23,42,.06) !important;
+  transform:translateY(-1px);
+}
+
+.db-btn:active{
+  transform:translateY(0);
+  box-shadow:0 1px 2px rgba(15,23,42,.08) !important;
+}
+
+/* Keep primary buttons visually stronger */
+.db-btn.primary{
+  background:#111827 !important;
+  border-color:#111827 !important;
+  color:#ffffff !important;
+}
+
+.db-btn.primary:hover{
+  background:#1f2937 !important;
+  border-color:#1f2937 !important;
+}
+
+/* =========================
+   Add tag combo control
+========================= */
+
+.cx-addTagCombo{
+  justify-self:end;
+  width:240px;
+  max-width:100%;
+  height:34px;
+  display:flex;
+  align-items:center;
+  background:#fff;
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.08),
+    0 1px 1px rgba(15,23,42,.04);
+  overflow:hidden;
+}
+
+.cx-addTagInput{
+  flex:1 1 auto;
+  min-width:0;
+  height:100%;
+  border:none;
+  outline:none;
+  background:transparent;
+  padding:0 10px;
+  font-size:12px;
+  color:#111827;
+}
+
+.cx-addTagButton{
+  width:34px;
+  height:34px;
+  border:none;
+  border-left:1px solid #e5e7eb;
+  background:#fff;
+  color:#111827;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.cx-addTagButton:hover{
+  background:#f8fafc;
+}
+
+/* =========================
+   Dashboard balance polish
+   Move warmth from Inbox to customer messages
+========================= */
+
+/* Inbox active row: calmer darker grey */
+.cx-item.active{
+  background:#e5e7eb !important;
+  border-color:#cbd5e1 !important;
+  box-shadow:0 1px 4px rgba(15,23,42,.08) !important;
+}
+
+/* Customer bubbles: warm light yellow */
+.cx-bubble{
+  background:#fff8e6 !important;
+  border-color:#fff8e6 !important;
+  color:#111827 !important;
+}
+
+/* Assistant bubbles stay soft blue */
+.cx-bubble.assistant{
+  background:#e8f1ff !important;
+  border-color:#d6e6ff !important;
+  color:#1e293b !important;
+}
+
+/* Staff Kevin stays medium slate */
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+/* Internal notes stay neutral */
+.cx-bubble.note{
+  background:#f8fafc !important;
+  border-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+
+/* =========================
+   Mobile thread header polish
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileThreadTop{
+    background:#eef1f5 !important;
+    border-bottom:1px solid #d7dde6 !important;
+    grid-template-columns:96px 1fr 96px !important;
+    padding:10px 0 !important;
+  }
+
+  .cx-mobileThreadLeft{
+    min-width:96px !important;
+  }
+
+  .cx-mobileThreadIdentity{
+    text-align:center !important;
+  }
+
+  .cx-mobileThreadName{
+    font-size:18px !important;
+    font-weight:900 !important;
+  }
+
+  .cx-mobileThreadMeta{
+    font-size:13px !important;
+  }
+
+  .cx-mobileTopBtn{
+    width:52px !important;
+    height:52px !important;
+    min-width:52px !important;
+    min-height:52px !important;
+  }
+
+  .cx-mobileTopBtn svg{
+    width:24px !important;
+    height:24px !important;
+  }
+
+  .cx-mobileThreadTop .db-btn[aria-label="More"]{
+    font-size:30px !important;
+    font-weight:800 !important;
+  }
+}
+
+/* =========================
+   Mobile top-right menu alignment
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileThreadTop{
+    grid-template-columns:104px 1fr 104px !important;
+  }
+
+  .cx-mobileThreadTop > .cx-mobileTopBtn,
+  .cx-mobileInboxTop > .cx-mobileTopBtn:last-child{
+    justify-self:end !important;
+    margin-right:4px !important;
+    font-size:26px !important;
+    font-weight:600 !important;
+    color:#1f2937 !important;
+  }
+
+  .cx-mobileThreadTop .db-btn[aria-label="More"]{
+    justify-self:end !important;
+    margin-right:4px !important;
+    font-size:26px !important;
+    font-weight:600 !important;
+    color:#1f2937 !important;
+  }
+
+  .cx-mobileInboxTop{
+    grid-template-columns:104px 1fr 104px !important;
+  }
+}
+
+/* =========================
+   Mobile inbox + reply action polish
+========================= */
+
+@media (max-width: 900px){
+  /* Inbox screen/card should match thread screen height/background */
+  .cx-mobileStage,
+  .cx-mobileScreen,
+  .cx-mobileInboxLayer,
+  .cx-mobileThreadLayer,
+  .cx-mobileThreadScreen{
+    background:#f8fafc !important;
+    min-height:100svh !important;
+  }
+
+  .cx-mobileList{
+    padding-bottom:120px !important;
+  }
+
+  /* Prevent last inbox card from being visually cut off */
+  .cx-mobileList .cx-item:last-child{
+    margin-bottom:120px !important;
+  }
+
+  /* Keep reply label + buttons in one row */
+  .cx-replyModeBar{
+    display:grid !important;
+    grid-template-columns:auto 1fr !important;
+    align-items:center !important;
+    gap:8px !important;
+  }
+
+  .cx-replyModeBar > div:first-child{
+    white-space:nowrap !important;
+    font-size:13px !important;
+  }
+
+  .cx-replyQuickActions{
+    display:flex !important;
+    justify-content:flex-end !important;
+    gap:6px !important;
+    flex-wrap:nowrap !important;
+    min-width:0 !important;
+  }
+
+  .cx-replyQuickActions .db-btn{
+    height:38px !important;
+    min-height:38px !important;
+    padding:0 10px !important;
+    font-size:12px !important;
+    border-radius:14px !important;
+    white-space:nowrap !important;
+  }
+}
+
+/* Mobile search full width */
+@media (max-width: 900px){
+  .cx-mobileSearchWrap{
+    padding:12px 12px 10px !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileSearch{
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
+    justify-content:flex-start !important;
+  }
+}
+
+/* =========================
+   Intercom-style neutral avatar
+========================= */
+
+.cx-avatar{
+  width:36px !important;
+  height:36px !important;
+  background:#f1f5f9 !important;
+  color:#64748b !important;
+  border:1px solid #e2e8f0 !important;
+  box-shadow:none !important;
+  margin-top:0 !important;
+}
+
+.cx-avatarIcon::before{
+  opacity:.38 !important;
+}
+
+.cx-avatarIcon::after{
+  opacity:.28 !important;
+}
+
+.cx-item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  padding: 12px 12px;
+}
+
+.cx-subject {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.cx-time {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* =========================
+   Thread calmer bubble system
+========================= */
+
+.cx-bubble{
+  background:#ffffff !important;
+  border-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+
+.cx-bubble.assistant{
+  background:#eef5ff !important;
+  border-color:#dbeafe !important;
+  color:#1f2937 !important;
+}
+
+.cx-bubble.agent{
+  background:#64748b !important;
+  border-color:#64748b !important;
+  color:#ffffff !important;
+}
+
+.cx-bubble.note{
+  background:#f8fafc !important;
+  border-color:#e5e7eb !important;
+  color:#374151 !important;
+}
+
+/* =========================
+   Intercom-style neutral buttons
+========================= */
+
+.db-btn,
+.db-btn.primary{
+  background:#f8fafc !important;
+  border:1px solid #e2e8f0 !important;
+  color:#374151 !important;
+  box-shadow:none !important;
+  font-weight:600 !important;
+}
+
+.db-btn:hover,
+.db-btn.primary:hover{
+  background:#f1f5f9 !important;
+  border-color:#cbd5e1 !important;
+  color:#111827 !important;
+}
+
+.db-btn:active,
+.db-btn.primary:active{
+  background:#e2e8f0 !important;
+}
+
+/* More breathing room between messages */
+.cx-message{
+  margin-bottom:12px !important;
+}
+
+/* Make labels lighter */
+.cx-meta{
+  font-size:12px !important;
+  color:#9ca3af !important;
+}
+
+.cx-bubble.assistant{
+  background:#f1f5f9 !important;
+  border-color:#e2e8f0 !important;
+}
+
+/* =========================
+   Dashboard corner radius reset
+   Less pill-like, more premium SaaS
+========================= */
+
+.cx-item,
+.cx-thread,
+.cx-threadPane,
+.cx-bubble,
+.cx-textarea,
+.cx-tagInput,
+.cx-addTagCombo,
+.cx-productCard,
+.cx-productList,
+.db-btn,
+select,
+input,
+textarea{
+  border-radius:10px !important;
+}
+
+.cx-avatar,
+.cx-dot,
+.cx-sendFab{
+  border-radius:999px !important;
+}
+
+/* Smaller buttons should not look like pills */
+.db-btn{
+  border-radius:8px !important;
+}
+
+/* Chat bubbles: soft but not overly round */
+.cx-bubble{
+  border-radius:10px !important;
+}
+
+/* Composer still slightly softer */
+.cx-composerWrap,
+.cx-textarea--composer{
+  border-radius:12px !important;
+}
+
+/* =========================
+   Desktop inbox top controls
+========================= */
+
+.db-topSplit{
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+
+.db-topLeft{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.db-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.db-search{
+  width:100%;
+  height:34px;
+  padding:0 10px;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  font-size:13px;
+  color:#111827;
+  background:#fff;
+  box-sizing:border-box;
+}
+
+.db-search:focus{
+  outline:none;
+  border-color:#cbd5e1;
+}
+
+/* Align desktop thread with inbox list */
+@media (min-width: 901px){
+  .db-topSplit{
+    grid-template-columns:320px 1fr !important;
+    align-items:start !important;
+  }
+
+  .cx-split{
+    margin-top:0 !important;
+    grid-template-columns:320px 1fr !important;
+    align-items:start !important;
+  }
+
+  .cx-threadCol,
+  .cx-threadPane{
+    margin-top:0 !important;
+  }
+}
+
+/* Pull desktop thread upward into empty top-right space */
+@media (min-width: 901px){
+  .cx-threadCol{
+    margin-top:-35px !important;
+  }
+
+  .cx-threadPane{
+    min-height:calc(100vh - 32px) !important;
+  }
+}
+
+/* =========================
+   Desktop: top-aligned thread header
+========================= */
+
+@media (min-width: 901px){
+  .db-topSplit{
+    grid-template-columns:320px 1fr !important;
+    gap:24px !important;
+    align-items:start !important;
+  }
+
+  .cx-split{
+    grid-template-columns:320px 1fr !important;
+    gap:24px !important;
+  }
+
+  .db-topRight{
+    display:block !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+    align-items:start;
+    padding-top:2px;
+    padding-bottom:8px;
+    border-bottom:1px solid #e5e7eb;
+  }
+
+  .cx-topThreadMain{
+    min-width:0;
+  }
+
+  .cx-topThreadActions{
+    display:grid;
+    grid-template-columns:160px 72px 104px;
+    gap:8px;
+    align-items:center;
+    justify-content:end;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    grid-column:1 / -1;
+    justify-self:end;
+    width:260px;
+  }
+
+  .cx-threadMessages{
+  padding-top:24px !important;
+}
+}
+
+/* Align desktop thread header with Inbox title */
+@media (min-width: 901px){
+  .cx-topThreadHead{
+    padding-top:24px !important;
+  }
+}
+
+/* Desktop scroll fixes */
+@media (min-width: 901px){
+.cx-listPane{
+  overflow-y:auto !important;
+  height:calc(100vh - 150px) !important;
+  max-height:none !important;
+  min-height:0 !important;
+  scroll-padding-top:0 !important;
+}
+
+  .cx-threadPane,
+  .cx-threadFrame{
+    overflow:hidden !important;
+    min-height:0 !important;
+  }
+
+  .cx-threadMessages{
+    overflow-y:auto !important;
+    padding-right:18px !important;
+    scrollbar-gutter:stable !important;
+  }
+
+  .cx-msgList{
+    padding-right:4px !important;
+  }
+}
+
+/* Keep desktop composer visible */
+@media (min-width: 901px){
+  .cx-threadPane{
+    height:calc(100vh - 32px) !important;
+  }
+
+  .cx-threadFrame{
+    height:100% !important;
+    display:flex !important;
+    flex-direction:column !important;
+  }
+
+  .cx-threadMessages{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+  }
+
+  .cx-replyDock{
+    flex:0 0 auto !important;
+    background:#fff !important;
+    border-top:1px solid #e5e7eb !important;
+  }
+}
+
+/* Desktop composer breathing room */
+@media (min-width: 901px){
+  .cx-replyDock{
+    padding-bottom:14px !important;
+  }
+
+  .cx-composerWrap{
+    margin-bottom:4px !important;
+  }
+}
+
+/* =========================
+   Desktop dashboard width + button polish
+========================= */
+
+@media (min-width: 901px){
+  /* Let Inbox grow/shrink with screen */
+  .db-topSplit,
+  .cx-split{
+    grid-template-columns: clamp(360px, 30vw, 460px) 1fr !important;
+    gap: 28px !important;
+  }
+
+  /* Make thread header and message body use same width */
+  .db-topRight,
+  .cx-threadCol,
+  .cx-threadPane,
+  .cx-threadFrame{
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .cx-topThreadHead{
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cx-threadMessages,
+  .cx-replyDock{
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Unify top button/select height */
+  .db-row .db-btn,
+  .db-row select.db-btn{
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .db-row select.db-btn{
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+  }
+}
+
+/* Desktop top controls: equal button width */
+@media (min-width: 901px){
+  .db-row .db-btn,
+  .db-row select.db-btn,
+  .cx-topThreadActions > .db-btn{
+    width: 108px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .cx-topThreadActions{
+    grid-template-columns: 108px 108px 108px !important;
+  }
+
+  .db-topSplit{
+    align-items:start !important;
+  }
+
+  .db-topRight{
+    padding-top:5px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-chip{
+    min-height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    gap: 6px !important;
+  }
+
+  .cx-addTagCombo{
+    width: 150px !important;
+  }
+
+  .cx-addTagInput{
+    height: 30px !important;
+    font-size: 11px !important;
+    padding: 0 8px !important;
+  }
+
+  .cx-addTagButton{
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 30px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadMain{
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .cx-topThreadHead{
+    grid-template-columns: 1fr auto !important;
+  }
+
+  .cx-tagRow{
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:6px !important;
+    max-width: 360px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap:16px !important;
+    align-items:start !important;
+  }
+
+  .cx-topThreadMain{
+    width:auto !important;
+    max-width:none !important;
+    min-width:0 !important;
+  }
+
+  .cx-tagRow{
+    width:auto !important;
+    max-width:100% !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:6px !important;
+  }
+
+  .cx-chip{
+    flex:0 0 auto !important;
+  }
+
+  .cx-topThreadActions{
+    flex:0 0 auto !important;
+    justify-self:end !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-topThreadActions > .db-btn{
+    width:86px !important;
+    height:34px !important;
+    min-height:34px !important;
+    padding:0 8px !important;
+    font-size:12px !important;
+  }
+
+.cx-topThreadActions{
+  grid-template-columns:86px 86px 96px !important;
+  gap:6px !important;
+  padding-top:5px !important;
+}
+
+  .cx-chip{
+    min-height:24px !important;
+    padding:0 7px !important;
+    font-size:11px !important;
+    gap:5px !important;
+  }
+
+  .cx-chip button{
+    width:14px !important;
+    height:14px !important;
+    font-size:12px !important;
+  }
+
+  .cx-addTagCombo{
+    width:130px !important;
+  }
+
+  .cx-addTagInput{
+    height:28px !important;
+    font-size:11px !important;
+    padding:0 7px !important;
+  }
+
+  .cx-addTagButton{
+    width:28px !important;
+    min-width:28px !important;
+    height:28px !important;
+  }
+}
+
+.cx-bubble.note{
+  background:#fffbeb !important;
+  border-color:#fde68a !important;
+  color:#78350f !important;
+  box-shadow:none !important;
+}
+
+.cx-bubble.note::before{
+  content:none !important;
+}
+
+.cx-threadFrame{
+  padding-bottom:8px !important;
+}
+
+.cx-dot.alert{
+  animation:cx-needs-human-blink 0.6s ease-in-out 3;
+}
+
+.cx-mobileRoot.cx-noBlink .cx-dot.alert,
+.cx-mobileRoot.cx-noBlink .cx-mobileNeedsHumanDot{
+  animation:none !important;
+}
+
+@media (min-width: 901px){
+  .cx-replyDock{
+    padding-bottom:68px !important;
+  }
+}
+
+
+@media (max-width: 900px){
+  .cx-replyDock{
+    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+
+  .cx-mobileThreadCard{
+    padding-bottom:0 !important;
+  }
+}
+
+/* ===== Fix thread scrolling / composer push ===== */
+
+.cx-threadPane{
+  min-height:0 !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.cx-threadFrame{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.cx-threadMessages{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+}
+
+.cx-msgList{
+  padding-bottom:12px !important;
+}
+
+@media (min-width: 901px){
+  .cx-split{
+    align-items:start !important;
+  }
+
+  .cx-listPane{
+    align-self:start !important;
+    padding-top:0 !important;
+    margin-top:0 !important;
+    transform:none !important;
+  }
+
+  .cx-listPane > .cx-item:first-child{
+    margin-top:0 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-listPane{
+    scroll-behavior:auto !important;
+  }
+}
+
+/* ===== Desktop fixed inbox/thread layout reset ===== */
+@media (min-width: 901px){
+  .db-topSplit{
+    position:relative !important;
+    min-height:104px !important;
+    margin-bottom:12px !important;
+    align-items:start !important;
+  }
+
+  .db-topRight{
+    position:absolute !important;
+    top:0 !important;
+    left:calc(clamp(360px, 30vw, 460px) + 28px) !important;
+    right:0 !important;
+  }
+
+  .cx-split{
+    height:calc(100vh - 80px) !important;
+    min-height:0 !important;
+    align-items:stretch !important;
+    margin-top:0 !important;
+  }
+
+  .cx-listPane{
+    height:100% !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    padding-top:0 !important;
+    margin-top:0 !important;
+  }
+
+  .cx-threadCol,
+.cx-threadPane{
+  height:calc(100% + 14px) !important;
+  min-height:0 !important;
+  margin-top:0 !important;
+}
+  .cx-threadFrame{
+    height:100% !important;
+    min-height:0 !important;
+  }
+
+  .cx-threadMessages{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+  }
+
+  .cx-replyDock{
+    flex:0 0 auto !important;
+    padding-bottom:0px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    overflow:visible !important;
+    z-index:5 !important;
+  }
+
+  .cx-topThreadHead{
+    overflow:visible !important;
+    z-index:6 !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    overflow:visible !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns:minmax(0, 1fr) 300px !important;
+    align-items:start !important;
+    overflow:visible !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    grid-template-columns:86px 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    z-index:20 !important;
+  }
+
+  .cx-topThreadActions .db-btn{
+    display:inline-flex !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    display:flex !important;
+    grid-column:1 / -1 !important;
+    justify-self:end !important;
+    width:130px !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topSplit{
+    position:relative !important;
+    z-index:50 !important;
+  }
+
+  .db-topRight{
+    position:absolute !important;
+    top:0 !important;
+    right:0 !important;
+    left:calc(clamp(360px, 30vw, 460px) + 28px) !important;
+    z-index:60 !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadHead{
+    position:relative !important;
+    z-index:70 !important;
+    display:grid !important;
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    overflow:visible !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadActions{
+    position:relative !important;
+    z-index:80 !important;
+    display:grid !important;
+    grid-template-columns:86px 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  .cx-topThreadActions > .db-btn{
+    display:inline-flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    grid-column:1 / -1 !important;
+    justify-self:end !important;
+    width:130px !important;
+  }
+
+  .cx-split{
+    position:relative !important;
+    z-index:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .db-topRight{
+    position:static !important;
+    display:block !important;
+    overflow:visible !important;
+    z-index:auto !important;
+  }
+
+  .cx-topThreadHead{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    overflow:visible !important;
+  }
+
+  .cx-topThreadActions{
+    display:grid !important;
+    grid-template-columns:max-content 86px 96px !important;
+    gap:6px !important;
+    justify-self:end !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+}
+
+@media (min-width: 901px){
+  .cx-threadPane .cx-threadFrame > .cx-threadHead{
+    display:none !important;
+  }
+}
+
+/* =========================
+   Final mobile safety + Inbox header alignment
+   Keep this at the very end of conversations.css
+========================= */
+
+@media (max-width: 900px){
+  html,
+  body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+    touch-action:pan-y;
+  }
+
+  input,
+  textarea,
+  select,
+  button{
+    font-size:16px !important;
+  }
+
+  .cx-mobileRoot,
+  .cx-mobileStage,
+  .cx-mobileInboxLayer,
+  .cx-mobileThreadLayer,
+  .cx-mobileScreen,
+  .cx-mobileThreadScreen{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+    box-sizing:border-box;
+  }
+
+  .cx-mobileScreen{
+    padding-left:6px !important;
+    padding-right:6px !important;
+    padding-top:env(safe-area-inset-top) !important;
+  }
+
+  .cx-mobileInboxTop{
+    height:68px !important;
+    min-height:68px !important;
+    padding:12px 14px 18px !important;
+    display:grid !important;
+    grid-template-columns:44px 1fr 44px !important;
+    align-items:center !important;
+    background:#f8fafc !important;
+    border-bottom:1px solid #e5e7eb !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileInboxTitle{
+    line-height:1 !important;
+    margin:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    transform:translateY(2px);
+    font-size:16px !important;
+    font-weight:800 !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn{
+    align-self:center !important;
+    justify-self:center !important;
+    transform:translateY(2px);
+    width:44px !important;
+    height:44px !important;
+    min-width:44px !important;
+    min-height:44px !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn svg{
+    width:22px !important;
+    height:22px !important;
+  }
+
+  .cx-mobileSearchWrap,
+  .cx-mobileList{
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+
+  .cx-mobileList,
+  .cx-threadMessages{
+    overflow-x:hidden;
+  }
+
+  .cx-item,
+  .cx-threadFrame,
+  .cx-mobileThreadCard,
+  .cx-replyDock,
+  .cx-composerWrap{
+    max-width:100%;
+    overflow-x:hidden;
+    box-sizing:border-box;
+  }
+
+  .cx-preview,
+  .cx-subjectText,
+  .cx-bubble{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+}
+
+@media (max-width: 900px){
+  .cx-rightDrawerOverlay{
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    background:rgba(15,23,42,.28);
+    display:flex;
+    justify-content:flex-end;
+  }
+
+  .cx-rightDrawer{
+    width:min(320px, 86vw);
+    height:100dvh;
+    min-height:100dvh;
+    background:#fff;
+    border-left:1px solid #e5e7eb;
+    box-shadow:-8px 0 24px rgba(15,23,42,.14);
+    padding:16px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .cx-rightDrawer .cx-sheetTop{
+    align-items:flex-start;
+    padding-bottom:12px;
+    border-bottom:1px solid #e5e7eb;
+  }
+
+  .cx-rightDrawer .cx-sheetActions{
+    display:grid;
+    gap:8px;
+  }
+
+  .cx-rightDrawer .db-btn{
+    width:100%;
+    justify-content:flex-start !important;
+    text-align:left !important;
+    height:42px !important;
+    padding:0 14px !important;
+    border-radius:12px !important;
+  }
+
+  .cx-rightDrawer .cx-sheetTags{
+    margin-top:8px;
+  }
+}
+
+.cx-filterMenuItem{
+  width:100%;
+  height:42px;
+  border:none;
+  background:transparent;
+  color:#111827;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  padding:0 12px;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:700;
+}
+
+.cx-filterMenuItem:hover,
+.cx-filterMenuItem.active{
+  background:#f1f5f9;
+}
+
+.cx-rightDrawer .cx-tagRow{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  margin-top:8px !important;
+}
+
+.cx-rightDrawer .cx-sheetTagAdd{
+  display:grid !important;
+  grid-template-columns:1fr 88px !important;
+  gap:8px !important;
+  align-items:center !important;
+}
+
+.cx-rightDrawer .cx-tagInput{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.cx-rightDrawer .cx-tagAddBtn{
+  width:88px !important;
+  justify-content:center !important;
+}
+
+/* =========================
+   Final mobile Inbox width match
+========================= */
+
+@media (max-width: 900px){
+.cx-mobileRoot,
+.cx-mobileStage,
+.cx-mobileInboxLayer,
+.cx-mobileScreen{
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+
+  .cx-mobileScreen{
+    padding-left:0 !important;
+    padding-right:0 !important;
+  }
+
+  .cx-mobileInboxTop{
+    grid-template-columns:48px 1fr 48px !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+
+  .cx-mobileInboxTop .cx-mobileTopBtn{
+    width:48px !important;
+    height:48px !important;
+    min-width:48px !important;
+    min-height:48px !important;
+  }
+
+.cx-mobileSearchWrap{
+  padding-left:6px !important;
+  padding-right:6px !important;
+}
+
+.cx-mobileList{
+  padding-left:6px !important;
+  padding-right:6px !important;
+}
+}
+
+@media (max-width: 900px){
+  .cx-mobileScreen .cx-mobileSearchWrap{
+    padding-left:0px !important;
+    padding-right:0px !important;
+  }
+
+  .cx-mobileScreen .cx-mobileList{
+    padding-left:0px !important;
+    padding-right:0px !important;
+  }
+
+  .cx-mobileScreen .cx-item{
+    width:100% !important;
+    max-width:100% !important;
+  }
+}
+
+/* =========================
+   Final mobile Inbox wider shell
+========================= */
+
+@media (max-width: 900px){
+  .cx-mobileRoot{
+    margin-left:-18px !important;
+    margin-right:-18px !important;
+    width:calc(100% + 36px) !important;
+    max-width:calc(100% + 36px) !important;
+  }
+
+  .cx-mobileScreen{
+    padding-left:0 !important;
+    padding-right:0 !important;
+  }
+
+  .cx-mobileSearchWrap,
+  .cx-mobileList{
+    padding-left:10px !important;
+    padding-right:10px !important;
+  }
+}
+
+.cx-noteSub {
+  margin: 4px 0 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.cx-notePrivacy {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.cx-noteTextarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.cx-teachEmmaCheck {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #111827;
+  font-size: 13px;
+}
+
+.cx-teachEmmaCheck small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.cx-noteActions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cx-noteToast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10000;
+  background: #111827;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+}
+
+.cx-bubble.note.emmaNoted {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e3a8a !important;
+}
+
+@media (max-width: 900px) {
+  .cx-noteToast {
+    left: 16px;
+    right: 16px;
+    bottom: 18px;
+    text-align: center;
+  }
+}
+
+.cx-coachBtn {
+  width: auto;
+  min-width: max-content;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cx-msgMeta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.cx-msgMetaLeft{
+  min-width:0;
+}
+
+.cx-msgVoice{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+
+  color:#2563eb;
+  font-size:12px;
+  font-weight:700;
+
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+.cx-msgVoice svg{
+  width:13px;
+  height:13px;
+}
+
+/* Final Inbox action alignment after removing Close */
+@media (min-width: 901px) {
+  .cx-threadActionsGrid,
+  .cx-topThreadActions {
+    grid-template-columns: max-content max-content !important;
+    justify-content: end !important;
+    justify-self: end !important;
+    gap: 6px !important;
+  }
+
+  .cx-threadActionsGrid > .db-btn,
+  .cx-topThreadActions > .db-btn {
+    width: auto !important;
+    min-width: 86px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .cx-topThreadActions .cx-addTagCombo {
+    grid-column: 1 / -1 !important;
+    justify-self: end !important;
+  }
 }

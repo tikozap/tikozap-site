@@ -35,7 +35,7 @@ export const DEMO_CONVERSATIONS: Conversation[] = [
     subject: 'Where is my order?',
     status: 'open',
     channel: 'Email',
-    tags: ['order-status'],
+    tags: [],
     updatedAt: now - 1000 * 60 * 90,
     messages: [
       { id: 'm1', role: 'customer', text: 'Where is my order? I placed it last week.', ts: now - 1000 * 60 * 90 },
