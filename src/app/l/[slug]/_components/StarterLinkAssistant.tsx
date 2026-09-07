@@ -145,11 +145,6 @@ const resolvedChatAppearance =
 const resolvedVoiceAppearance =
   voiceAppearance === "avatar" && !canUseAvatar ? "orb" : voiceAppearance;
 
-const hasOrbTranscript =
-  !!liveTranscript.trim() ||
-  !!assistantVoiceTranscript.trim() ||
-  voiceState === "error";
-
 const messagesRef = useRef<HTMLDivElement | null>(null);
 const shouldAutoScrollRef = useRef(true);
 const endRef = useRef<HTMLDivElement | null>(null);
@@ -1370,7 +1365,7 @@ onClick={() => {
 ) : null}
 
 {orbOpen ? (
-  <div className={`sl-orbMode ${hasOrbTranscript ? "has-transcript" : "is-ready"}`}>
+  <div className="sl-orbMode is-ready">
     <button
       type="button"
       className="sl-orbModeOrbBtn"
@@ -1411,33 +1406,6 @@ onClick={() => {
     {voiceQuotaNotice}
   </div>
 ) : null}
-<div className="sl-orbModeBody">
-  {(liveTranscript && liveTranscript.trim()) ? (
-    <div className="sl-orbModeTranscriptBlock">
-      <div className="sl-orbModeTranscriptLabel">You</div>
-      <div className="sl-orbModeTranscript">
-        {liveTranscript}
-      </div>
-    </div>
-  ) : null}
-
-  {(assistantVoiceTranscript && assistantVoiceTranscript.trim()) ||
-  voiceState === "error" ? (
-    <div className="sl-orbModeTranscriptBlock">
-      <div className="sl-orbModeTranscriptLabel">
-  {assistantName}
-</div>
-      <div className="sl-orbModeTranscript sl-orbModeTranscript--assistant">
-        {assistantVoiceTranscript?.trim() ? (
-          assistantVoiceTranscript
-
-        ) : voiceState === "thinking" ? (
-          <span className="sl-orbModePlaceholder">Thinking...</span>
-        ) : null}
-      </div>
-    </div>
-  ) : null}
-</div>
 
     <div className="sl-orbModeFooter">
       <div className="sl-orbModeControls">
@@ -2537,49 +2505,6 @@ color:var(--sl-brand-text, #fff);
   overflow: visible;
 }
 
-.sl-orbModeBody{
-  width:100%;
-  max-width:320px;
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:16px;
-  padding:18px 0 12px;
-}
-
-.sl-orbModeTranscriptBlock{
-  display:grid;
-  gap:6px;
-}
-
-.sl-orbModeTranscriptLabel{
-  font-size:11px;
-  font-weight:700;
-  color:#6b7280;
-  padding:0 2px;
-}
-
-.sl-orbModeTranscript{
-  width:100%;
-  border:0;
-  border-radius:10px;
-  background:#efefef;
-  color:#111827;
-  padding:14px 14px;
-  font-size:14px;
-  line-height:1.45;
-  white-space:pre-wrap;
-  word-break:break-word;
-}
-
-.sl-orbModeTranscript--assistant{
-}
-
-.sl-orbModePlaceholder{
-  color:#6b7280;
-}
-
 .sl-orbModeFooter{
   width:100%;
   display:flex;
@@ -2607,17 +2532,8 @@ color:var(--sl-brand-text, #fff);
   justify-content:center;
 }
 
-.sl-orbMode.is-ready .sl-orbModeBody{
-  flex:0 0 auto;
-  padding:14px 0 10px;
-}
-
 .sl-orbMode.is-ready .sl-orbModeFooter{
   margin-top:6px;
-}
-
-.sl-orbMode.has-transcript{
-  justify-content:flex-start;
 }
 
 .sl-orbMiniBtn{
@@ -2664,15 +2580,6 @@ color:var(--sl-brand-text, #fff);
   width: 190px;
   height: 190px;
 }
-
-  .sl-orbModeBody{
-    max-width:100%;
-    gap:18px;
-  }
-
-  .sl-orbModeTranscript{
-    border-radius:14px;
-  }
 
   .sl-orbMiniBtn{
     width:40px;
