@@ -27,6 +27,13 @@ export function OrbLarge({
 
   const [driftX, setDriftX] = useState(0);
   const [driftY, setDriftY] = useState(0);
+  const [listeningSide, setListeningSide] = useState<-1 | 1>(1);
+
+  useEffect(() => {
+    if (state !== "listening") return;
+
+    setListeningSide((current) => (current === 1 ? -1 : 1));
+  }, [state]);
 
   useEffect(() => {
     if (state === "sad") return;
@@ -128,6 +135,7 @@ export function OrbLarge({
             "--tz-tilt-y": `${driftX}deg`,
             "--tz-shift-x": `${driftX}px`,
             "--tz-shift-y": `${driftY}px`,
+            "--tz-listening-rotate": `${listeningSide * 1.5}deg`,
           } as React.CSSProperties
         }
       >

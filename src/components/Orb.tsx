@@ -29,8 +29,15 @@ export function Orb({
   const [autoBlink, setAutoBlink] = useState(false);
   const [driftX, setDriftX] = useState(0);
   const [driftY, setDriftY] = useState(0);
+  const [listeningSide, setListeningSide] = useState<-1 | 1>(1);
 
   const shouldAnimate = state !== "sad";
+
+  useEffect(() => {
+    if (state !== "listening") return;
+
+    setListeningSide((current) => (current === 1 ? -1 : 1));
+  }, [state]);
 
   useEffect(() => {
     if (!shouldAnimate) return;
@@ -118,6 +125,7 @@ export function Orb({
           "--tz-tilt-y": `${tiltY + driftX}deg`,
           "--tz-shift-x": `${driftX}px`,
           "--tz-shift-y": `${driftY}px`,
+          "--tz-listening-rotate": `${listeningSide * 1.5}deg`,
         } as React.CSSProperties
       }
     >
