@@ -114,11 +114,11 @@ export async function connectRealtime(
         callbacks.onUserTranscript?.(data.transcript);
       }
 
-      if (type === "response.created") {
+      if (type === "output_audio_buffer.started") {
         callbacks.onAssistantSpeechStart?.();
       }
 
-      if (type === "response.done") {
+      if (type === "output_audio_buffer.stopped") {
         callbacks.onAssistantSpeechStop?.();
       }
 

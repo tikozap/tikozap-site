@@ -2026,14 +2026,31 @@ a.nav__brand .nav__logo-text {
 .tz-orbSvg,
 .tz-orbLargeImg {
   transform:
+    perspective(600px)
     translate(
       0,
-      calc(var(--tz-shift-x, 0px) * 2.2)
+      calc(var(--tz-shift-y, 0px) * 2.2)
     )
     rotateX(var(--tz-tilt-x, 0deg))
     rotateY(var(--tz-tilt-y, 0deg));
   transform-origin: center;
   transition: transform 1.4s ease-in-out;
+}
+
+.tz-orbSvgWrap.tz-speaking .tz-orbSvg,
+.tz-orbLargeWrap.tz-speaking .tz-orbLargeImg {
+  animation: tz-orb-soft-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tz-orb-soft-pulse {
+  0%,
+  100% {
+    scale: 1;
+  }
+
+  50% {
+    scale: 1.012;
+  }
 }
 
 .hero-demoPanel-line {
