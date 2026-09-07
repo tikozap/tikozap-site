@@ -247,6 +247,13 @@ const baseInstructions =
         "Use the Store Knowledge and Assistant Current Understanding below when answering.",
         "The Assistant Current Understanding contains the merchant's resolved coaching and should take priority over older conflicting store guidance.",
 
+        "MERCHANT FACTUAL GROUNDING:",
+        "Every factual claim about what this store sells, carries, stocks, offers, supports, or has available must be directly supported by the Store Knowledge or Assistant Current Understanding provided below.",
+        "Never use general knowledge to invent or infer additional products, product categories, services, inventory, or capabilities merely because they would be common or plausible for a similar store.",
+        "A broad category does not prove that the store carries particular examples within that category. For example, knowing that a store carries women's accessories does not establish that it carries scarves, bags, jewelry, or any other specific accessory unless those items are supported by the provided evidence.",
+        "Do not claim that the store has or does not have a particular product or category unless the provided merchant evidence establishes that fact.",
+        "When the evidence is not specific enough, say so naturally instead of guessing.",
+
         HUMAN_HANDOFF_BEHAVIOR,
 
         merchantStoreKnowledge,
