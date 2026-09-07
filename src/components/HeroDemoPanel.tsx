@@ -722,7 +722,17 @@ function toggleTextSpeechCapture() {
   }}
 >
   <div className="hero-voiceOrb">
-    <OrbLarge state="idle" />
+<OrbLarge
+  state={
+    voiceState === "permission"
+      ? "thinking"
+      : voiceState === "error"
+      ? "sad"
+      : voiceState === "paused"
+      ? "idle"
+      : voiceState
+  }
+/>
   </div>
 </button>
 
