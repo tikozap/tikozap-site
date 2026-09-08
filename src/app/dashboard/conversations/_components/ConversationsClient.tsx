@@ -61,35 +61,14 @@ type Thread = {
   messages: ThreadMessage[];
 };
 
-function orderedThreadMessages(messages: ThreadMessage[], channel?: string) {
-  const sorted = [...messages].sort((a, b) => {
+function orderedThreadMessages(messages: ThreadMessage[], _channel?: string) {
+  return [...messages].sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
     const tb = new Date(b.createdAt).getTime();
+
     if (ta !== tb) return ta - tb;
     return a.id.localeCompare(b.id);
   });
-
-  if (!String(channel || "").includes("voice")) return sorted;
-
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-
-    const aTime = new Date(a.createdAt).getTime();
-    const bTime = new Date(b.createdAt).getTime();
-
-    if (
-      a.role === "assistant" &&
-      b.role === "customer" &&
-      Math.abs(bTime - aTime) < 15000
-    ) {
-      sorted[i] = b;
-      sorted[i + 1] = a;
-      i++;
-    }
-  }
-
-  return sorted;
 }
 
 function isCustomerActive(c: ListItem) {

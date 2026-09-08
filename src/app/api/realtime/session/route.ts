@@ -5,6 +5,7 @@ import { HUMAN_HANDOFF_BEHAVIOR } from "@/lib/assistantBehavior";
 import { buildTikoMarketingInstructions } from "@/lib/buildTikoMarketingInstructions";
 import { getTikoLearning } from '@/lib/tikoLearningContext';
 import { prisma } from "@/lib/prisma";
+import { resolveProductProvider } from "@/lib/resolveProductProvider";
 import { getTenantVoiceUsage } from "@/lib/voiceUsage";
 import { requireSameOrigin } from "@/lib/security/requireSameOrigin";
 import {
@@ -204,8 +205,12 @@ return NextResponse.json(
           : "marin";
 
 let merchantAssistantName = "";
+
 let merchantStoreKnowledge = "";
+
 let merchantLearning = "";
+
+let merchantLiveCatalog = "";
 
 if (mode === "merchant" && merchantTenantId) {
   const assistantIdentityData =
@@ -214,16 +219,50 @@ if (mode === "merchant" && merchantTenantId) {
   merchantAssistantName =
     assistantIdentityData.name;
 
-  [
-    merchantStoreKnowledge,
-    merchantLearning,
+  const [
+    storeKnowledge,
+    assistantLearning,
+    productProvider,
   ] = await Promise.all([
     getStoreKnowledge(
       merchantTenantId,
       assistantIdentityData.name
     ),
     getAssistantLearning(merchantTenantId),
+    resolveProductProvider(merchantTenantId),
   ]);
+
+  merchantStoreKnowledge = storeKnowledge;
+  merchantLearning = assistantLearning;
+
+  if (productProvider) {
+    try {
+      const catalogProducts =
+        await productProvider.searchProducts("", {
+          limit: 50,
+        });
+
+      const availableProducts =
+        catalogProducts.filter(
+          (product) => product.available !== false
+        );
+
+      if (availableProducts.length > 0) {
+        merchantLiveCatalog = [
+          "LIVE PRODUCT CATALOG:",
+          ...availableProducts.map(
+            (product) =>
+              `- ${product.title || "Unnamed product"}`
+          ),
+        ].join("\n");
+      }
+    } catch (error) {
+      console.error(
+        "[realtime-session] Failed to load Voice product catalog:",
+        error
+      );
+    }
+  }
 }
 
 const tikoLearning =
@@ -244,25 +283,26 @@ const baseInstructions =
         "Do not introduce yourself as Tiko unless the merchant explicitly chose that name.",
         "Your role is to welcome, guide, recommend, answer store questions, and help shoppers think through choices.",
 
-        "Use the Store Knowledge and Assistant Current Understanding below when answering.",
-        "The Assistant Current Understanding contains the merchant's resolved coaching and should take priority over older conflicting store guidance.",
-
-        "MERCHANT FACTUAL GROUNDING:",
-        "Every factual claim about what this store sells, carries, stocks, offers, supports, or has available must be directly supported by the Store Knowledge or Assistant Current Understanding provided below.",
+"Use the Live Product Catalog, Store Knowledge, and Assistant Current Understanding below when answering.",
+"The Assistant Current Understanding contains the merchant's resolved coaching and should take priority over older conflicting store guidance.",
+"Live Product Catalog facts are authoritative for current product existence and availability when they conflict with older merchant learning or store knowledge.",
+"MERCHANT FACTUAL GROUNDING:",
+"Every factual claim about what this store sells, carries, stocks, offers, supports, or has available must be directly supported by the Live Product Catalog, Store Knowledge, or Assistant Current Understanding provided below.",
         "Never use general knowledge to invent or infer additional products, product categories, services, inventory, or capabilities merely because they would be common or plausible for a similar store.",
         "A broad category does not prove that the store carries particular examples within that category. For example, knowing that a store carries women's accessories does not establish that it carries scarves, bags, jewelry, or any other specific accessory unless those items are supported by the provided evidence.",
-        "Do not claim that the store has or does not have a particular product or category unless the provided merchant evidence establishes that fact.",
-        "When the evidence is not specific enough, say so naturally instead of guessing.",
+"If a product appears in the Live Product Catalog, you may confidently say that the store has or carries it.",
+"If a product does not appear in the Live Product Catalog, do not treat that absence alone as proof that the store does not carry it, because the Voice catalog snapshot may be incomplete.",
+"Only say that the store does not carry a product when Store Knowledge or Assistant Current Understanding explicitly establishes that fact.",
+"When the evidence is not specific enough, say so naturally instead of guessing.",
+HUMAN_HANDOFF_BEHAVIOR,
+merchantLiveCatalog,
+merchantStoreKnowledge,
+merchantLearning,
 
-        HUMAN_HANDOFF_BEHAVIOR,
-
-        merchantStoreKnowledge,
-
-        merchantLearning,
-
-        "VOICE PRODUCT HANDOFF:",
-        "Do not perform live product search, inventory lookup, exact catalog price lookup, or filtered product retrieval yourself.",
-        "Do not pretend that you are searching products or checking live inventory.",
+"VOICE PRODUCT HANDOFF:",
+"Use the Live Product Catalog only as factual grounding for what products the store currently carries.",
+"Do not perform interactive product search, inventory lookup, exact catalog price lookup, filtered product retrieval, product comparison, or product-card presentation yourself.",
+"Do not pretend that you are searching products or checking live inventory during the conversation.",
         "When the shopper wants exact products, current prices, availability, pictures, product cards, comparisons, or filtered recommendations, smoothly suggest continuing in text chat because text can show the actual product cards and visual details more clearly.",
         "Present this as a helpful transition, not as a limitation.",
         "For example: I can show you the actual product cards in chat so they're easier to compare. Let's continue there.",

@@ -7,34 +7,13 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 function orderMessages(messages: any[]) {
-  const sorted = [...messages].sort((a, b) => {
+  return [...messages].sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
     const tb = new Date(b.createdAt).getTime();
 
     if (ta !== tb) return ta - tb;
     return String(a.id).localeCompare(String(b.id));
   });
-
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-
-    const aTime = new Date(a.createdAt).getTime();
-    const bTime = new Date(b.createdAt).getTime();
-
-    if (
-      a.role === "assistant" &&
-      b.role === "customer" &&
-      bTime >= aTime &&
-      bTime - aTime <= 8000
-    ) {
-      sorted[i] = b;
-      sorted[i + 1] = a;
-      i++;
-    }
-  }
-
-  return sorted;
 }
 
 function parseProductsJson(input: string | null | undefined) {

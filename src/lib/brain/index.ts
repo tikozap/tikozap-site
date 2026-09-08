@@ -968,6 +968,8 @@ return customerQualifiers.every((qualifier) =>
 deduped = deduped.filter(
   (p: any) =>
     keywordMatchCount(p) >= 1 &&
+    (!normalizedCategory ||
+      productMatchesCategory(p, normalizedCategory)) &&
     matchesCustomerQualifiers(p)
 );
 

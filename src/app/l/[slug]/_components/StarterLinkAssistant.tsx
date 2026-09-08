@@ -165,7 +165,7 @@ const voiceConversationIdRef = useRef<string | null>(null);
 
 const realtimeConnRef = useRef<RealtimeConnection | null>(null);
 const assistantTranscriptBufferRef = useRef("");
-const lastSavedUserVoiceRef = useRef("");
+const completedUserVoiceQueueRef = useRef<string[]>([]);
 const lastSavedAssistantVoiceRef = useRef("");
 
 const voiceTextHandoffPendingRef = useRef(false);
@@ -640,6 +640,8 @@ function stopRealtimeVoiceSession(options?: { preserveAssistantText?: boolean })
 
   setVoiceState("idle");
   setLiveTranscript("");
+  transcriptRef.current = "";
+  completedUserVoiceQueueRef.current = [];
 
   if (!preserveAssistantText) {
     assistantTranscriptBufferRef.current = "";
@@ -749,9 +751,9 @@ function assistantOfferedTextHandoff(text: string) {
 function userApprovedTextHandoff(text: string) {
   const value = text.trim().toLowerCase();
 
-  return /^(yes|yes please|yeah|yep|sure|okay|ok|please do|go ahead|sounds good)[.!]?$/i.test(
-    value
-  );
+return /^(yes(?:,\s*|\s+)please|yes|yeah|yep|sure|okay|ok|please do|go ahead|sounds good)[.!]?$/i.test(
+  value
+);
 }
 
 function userDeclinedTextHandoff(text: string) {
@@ -864,6 +866,24 @@ if (!voiceCountedThisSessionRef.current) {
 }
 },
 
+onUserTranscriptCompleted: (text) => {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  completedUserVoiceQueueRef.current.push(trimmed);
+
+  setLiveTranscript(trimmed);
+  transcriptRef.current = trimmed;
+
+  if (voiceTextHandoffPendingRef.current) {
+    if (userApprovedTextHandoff(trimmed)) {
+      voiceTextHandoffApprovedRef.current = true;
+    } else if (userDeclinedTextHandoff(trimmed)) {
+      voiceTextHandoffPendingRef.current = false;
+      voiceTextHandoffApprovedRef.current = false;
+    }
+  }
+},
 
       onAssistantTranscript: (text) => {
         const trimmed = text.trim();
@@ -890,7 +910,6 @@ onUserSpeechStart: () => {
   voiceCountedThisSessionRef.current = false;
   lastUserVoiceSavePromiseRef.current = null;
   lastUserVoiceMessageIdRef.current = null;
-  lastSavedUserVoiceRef.current = "";
 
   transcriptRef.current = "";
   setLiveTranscript("");
@@ -899,23 +918,6 @@ onUserSpeechStart: () => {
 },
 
 onUserSpeechStop: () => {
-  const finalText =
-    transcriptRef.current.trim() ||
-    liveTranscript.trim();
-
-  if (finalText) {
-    lastSavedUserVoiceRef.current = finalText;
-
-    if (voiceTextHandoffPendingRef.current) {
-      if (userApprovedTextHandoff(finalText)) {
-        voiceTextHandoffApprovedRef.current = true;
-      } else if (userDeclinedTextHandoff(finalText)) {
-        voiceTextHandoffPendingRef.current = false;
-        voiceTextHandoffApprovedRef.current = false;
-      }
-    }
-  }
-
   setVoiceState("thinking");
 },
 
@@ -932,8 +934,7 @@ onAssistantSpeechStop: async () => {
     assistantTranscriptBufferRef.current.trim();
 
   const userText =
-    transcriptRef.current.trim() ||
-    liveTranscript.trim();
+    completedUserVoiceQueueRef.current.shift() || "";
 
   if (
     userText &&

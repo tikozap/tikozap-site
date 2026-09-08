@@ -2,6 +2,7 @@
 
 export type RealtimeCallbacks = {
   onUserTranscript?: (text: string) => void;
+  onUserTranscriptCompleted?: (text: string) => void;
   onAssistantTranscript?: (text: string) => void;
   onUserSpeechStart?: () => void;
   onUserSpeechStop?: () => void;
@@ -111,7 +112,7 @@ export async function connectRealtime(
         type === "conversation.item.input_audio_transcription.completed" &&
         typeof data?.transcript === "string"
       ) {
-        callbacks.onUserTranscript?.(data.transcript);
+        callbacks.onUserTranscriptCompleted?.(data.transcript);
       }
 
       if (type === "output_audio_buffer.started") {
