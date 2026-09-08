@@ -813,7 +813,7 @@ messages.map((message, index) => {
           setNoteTikoWeb(e.target.checked)
         }
       />
-      Tiko (W)
+      Tiko (Homepage)
     </label>
 
     <label>
@@ -824,7 +824,7 @@ messages.map((message, index) => {
           setNoteTikoDash(e.target.checked)
         }
       />
-      Tiko (D)
+      Tiko (Dashboard)
     </label>
 
     <label>
@@ -949,8 +949,8 @@ messages.map((message, index) => {
 <div className="tikoNoteMeta">
   <span>
     {[
-      item.appliesTikoWeb ? 'Tiko (W)' : '',
-      item.appliesTikoDash ? 'Tiko (D)' : '',
+      item.appliesTikoWeb ? 'Tiko (Homepage)' : '',
+      item.appliesTikoDash ? 'Tiko (Dashboard)' : '',
       item.appliesAssistants ? 'Assistants' : '',
     ]
       .filter(Boolean)
