@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { sendPaymentFailedCancellationEmail } from '@/lib/email/paymentFailedCancellationEmail';
 
 export const runtime = 'nodejs';
 
@@ -262,14 +263,48 @@ if (isVoicePrice(priceId)) {
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as Stripe.Subscription;
 
-      await prisma.tenant.updateMany({
+      const regularTenant = await prisma.tenant.findFirst({
         where: { stripeSubscriptionId: subscription.id },
-        data: {
-          billingStatus: 'canceled',
-          stripeCancelAtPeriodEnd: false,
-          stripeCurrentPeriodEnd: null,
+        select: {
+          id: true,
+          storeName: true,
+          owner: {
+            select: {
+              email: true,
+              name: true,
+            },
+          },
+          widget: {
+            select: {
+              assistantName: true,
+            },
+          },
         },
       });
+
+      if (regularTenant) {
+        await prisma.tenant.update({
+          where: { id: regularTenant.id },
+          data: {
+            billingStatus: 'canceled',
+            stripeCancelAtPeriodEnd: false,
+            stripeCurrentPeriodEnd: null,
+          },
+        });
+
+        if (
+          subscription.cancellation_details?.reason === 'payment_failed'
+        ) {
+          await sendPaymentFailedCancellationEmail({
+            to: regularTenant.owner.email,
+            merchantName: regularTenant.owner.name,
+            storeName: regularTenant.storeName,
+            assistantName:
+              regularTenant.widget?.assistantName || null,
+            stripeSubscriptionId: subscription.id,
+          });
+        }
+      }
 
       await prisma.tenant.updateMany({
         where: { stripeVoiceSubscriptionId: subscription.id },

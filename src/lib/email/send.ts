@@ -10,6 +10,7 @@ type SendEmailOptions = {
   to: string | string[];
   subject: string;
   react: ReactNode;
+  idempotencyKey?: string;
 };
 
 const from =
@@ -20,15 +21,21 @@ export async function sendEmail({
   to,
   subject,
   react,
+  idempotencyKey,
 }: SendEmailOptions) {
   const resend = getResend();
 
-  const { data, error } = await resend.emails.send({
-    from,
-    to,
-    subject,
-    react,
-  });
+  const { data, error } = await resend.emails.send(
+    {
+      from,
+      to,
+      subject,
+      react,
+    },
+    idempotencyKey
+      ? { idempotencyKey }
+      : undefined
+  );
 
   if (error) {
     throw new Error(`Email delivery failed: ${error.message}`);

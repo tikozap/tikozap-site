@@ -198,7 +198,8 @@ export async function GET(req: Request) {
       Boolean(tenant.stripeSubscriptionId) &&
       (
         tenant.billingStatus === 'active' ||
-        tenant.billingStatus === 'trialing'
+        tenant.billingStatus === 'trialing' ||
+        tenant.billingStatus === 'past_due'
       );
 
     if (hasPaidAccess) {
