@@ -50,7 +50,8 @@ export async function getTenantEntitlement(
   const hasPaidAccess =
     Boolean(tenant.stripeSubscriptionId) &&
     (tenant.billingStatus === 'active' ||
-      tenant.billingStatus === 'trialing');
+      tenant.billingStatus === 'trialing' ||
+      tenant.billingStatus === 'past_due');
 
   if (hasPaidAccess) {
     return {

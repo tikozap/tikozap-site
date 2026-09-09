@@ -352,6 +352,42 @@ const hasPaidPlan =
   </p>
 ) : null}
 
+{usage.billingStatus === 'past_due' ? (
+  <div
+    style={{
+      marginTop: 10,
+      padding: '10px 12px',
+      borderRadius: 8,
+      background: '#fffbeb',
+      border: '1px solid #fde68a',
+    }}
+  >
+    <p
+      className="db-cardText"
+      style={{
+        margin: 0,
+        color: '#92400e',
+        fontWeight: 800,
+      }}
+    >
+      Payment needs attention
+    </p>
+    <p
+      className="db-cardText"
+      style={{
+        marginTop: 4,
+        marginBottom: 0,
+        color: '#92400e',
+        fontSize: 13,
+      }}
+    >
+      We couldn&apos;t process your latest payment. Your TikoZap service
+      remains active while payment is retried. Please update your payment
+      method to avoid interruption.
+    </p>
+  </div>
+) : null}
+
               <div
                 style={{
                   marginTop: 10,
