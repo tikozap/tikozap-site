@@ -4,7 +4,11 @@ import Pricing from '@/components/Pricing';
 import PricingFAQ from '@/components/PricingFAQ';
 import PricingCompare from '@/components/PricingCompare';
 
-export const metadata = { title: 'Pricing — TikoZap' };
+export const metadata = {
+  title: 'Pricing — TikoZap',
+  description:
+    'Compare TikoZap plans for AI customer service, including 24/7 customer support, store knowledge, team collaboration, and optional voice.',
+};
 
 export default function PricingPage() {
   return (
