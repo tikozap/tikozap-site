@@ -13,6 +13,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: baseUrl + "/how-it-works" },
     { url: baseUrl + "/pricing" },
     { url: baseUrl + "/use-cases" },
+    { url: baseUrl + "/guides" },
+    { url: baseUrl + "/guides/ai-chatbot-vs-ai-customer-service" },
     { url: baseUrl + "/docs" },
     { url: baseUrl + "/docs/privacy" },
     { url: baseUrl + "/docs/terms" },
