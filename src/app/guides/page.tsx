@@ -15,6 +15,12 @@ const guides = [
       "See what AI customer service can handle well, where human judgment still matters, and how AI can work alongside a small business team.",
     href: "/guides/can-ai-handle-customer-service-for-small-business",
   },
+  {
+    title: "Is AI Customer Service Safe for a Small Business?",
+    description:
+      "Learn what small businesses should look for in AI customer service security, privacy, data access, permissions, and human control.",
+    href: "/guides/is-ai-customer-service-safe-for-small-business",
+  },
 ];
 
 export default function GuidesPage() {
@@ -28,8 +34,7 @@ export default function GuidesPage() {
 
           <p className="guides-intro">
             Clear, useful guidance for small business owners exploring AI
-            customer service, AI assistants, and the future of customer
-            support.
+            customer service, AI assistants, and the future of customer support.
           </p>
         </div>
       </section>

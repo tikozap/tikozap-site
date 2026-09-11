@@ -17,8 +17,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: baseUrl + "/guides/ai-chatbot-vs-ai-customer-service" },
     {
       url:
-        baseUrl +
-        "/guides/can-ai-handle-customer-service-for-small-business",
+        baseUrl + "/guides/can-ai-handle-customer-service-for-small-business",
+    },
+    {
+      url: baseUrl + "/guides/is-ai-customer-service-safe-for-small-business",
     },
     { url: baseUrl + "/docs" },
     { url: baseUrl + "/docs/privacy" },
