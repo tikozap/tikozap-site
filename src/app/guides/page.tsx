@@ -9,6 +9,12 @@ const guides = [
       "Understand the difference between a traditional AI chatbot and broader AI customer service—and what each means for a small business.",
     href: "/guides/ai-chatbot-vs-ai-customer-service",
   },
+  {
+    title: "Can AI Really Handle Customer Service for a Small Business?",
+    description:
+      "See what AI customer service can handle well, where human judgment still matters, and how AI can work alongside a small business team.",
+    href: "/guides/can-ai-handle-customer-service-for-small-business",
+  },
 ];
 
 export default function GuidesPage() {
