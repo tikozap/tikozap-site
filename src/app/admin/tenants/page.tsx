@@ -373,22 +373,40 @@ const lifecycle = getTenantLifecycle(tenant);
 </td>
 
 {/* Website */}
+
 <td>
   {tenant.websiteUrl ? (
     <>
       <div className="adminUrl">
         {tenant.websiteUrl}
       </div>
-
       <div className="muted">
-        {shopifyConnected
-          ? "Shopify"
-          : "Website"}
+        Website
       </div>
     </>
-  ) : (
+  ) : null}
+
+  {shopifyConnected &&
+  tenant.shopifyConnection?.shopDomain ? (
+    <>
+      <div
+        className="adminUrl"
+        style={{
+          marginTop: tenant.websiteUrl ? 8 : 0,
+        }}
+      >
+        {tenant.shopifyConnection.shopDomain}
+      </div>
+      <div className="muted">
+        Shopify
+      </div>
+    </>
+  ) : null}
+
+  {!tenant.websiteUrl &&
+  !shopifyConnected ? (
     <span className="muted">—</span>
-  )}
+  ) : null}
 </td>
 
 {/* Plan */}
