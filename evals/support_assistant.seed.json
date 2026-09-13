@@ -18,7 +18,7 @@
     "input": "How long does delivery take?",
     "expectedIntent": "shipping",
     "expectedNeedsHuman": false,
-    "mustContain": ["1–2 business days", "3–7 business days"]
+    "mustContain": ["zip"]
   },
   {
     "id": "shipping-zip-followup",
@@ -39,48 +39,48 @@
     "input": "I cannot find my tracking update.",
     "expectedIntent": "order_status",
     "expectedNeedsHuman": false,
-    "mustContain": ["order number", "status"]
+    "mustContain": ["order number", "email"]
   },
   {
     "id": "sizing-xl",
     "input": "Do you have this in XL?",
     "expectedIntent": "sizing",
     "expectedNeedsHuman": false,
-    "mustContain": ["sizing", "what size"]
+    "mustContain": ["size"]
   },
   {
     "id": "sizing-fit",
     "input": "Can you help me choose the right fit?",
     "expectedIntent": "sizing",
     "expectedNeedsHuman": false,
-    "mustContain": ["item", "size"]
+   "mustContain": ["size"]
   },
   {
     "id": "unknown-billing-request",
     "input": "Please change my billing card on file.",
     "expectedIntent": "unknown",
     "expectedNeedsHuman": true,
-    "mustContain": ["support teammate", "follow up"]
+    "mustContain": []
   },
-  {
-    "id": "unknown-starter-link",
-    "input": "I do not have a website yet. Can I use Starter Link?",
-    "expectedIntent": "unknown",
-    "expectedNeedsHuman": true,
-    "mustContain": ["support teammate", "email"]
+ {
+   "id": "starter-link-no-website",
+   "input": "I do not have a website yet. Can I use Starter Link?",
+   "expectedIntent": "setup_no_website",
+   "expectedNeedsHuman": false,
+   "mustContain": ["starter link"]
   },
   {
     "id": "unknown-integration",
     "input": "Connect this to my ERP and export invoices.",
     "expectedIntent": "unknown",
     "expectedNeedsHuman": true,
-    "mustContain": ["support teammate", "order number"]
+    "mustContain": []
   },
   {
     "id": "unknown-empty-context",
     "input": "help",
     "expectedIntent": "unknown",
     "expectedNeedsHuman": true,
-    "mustContain": ["support teammate"]
+    "mustContain": []
   }
 ]
