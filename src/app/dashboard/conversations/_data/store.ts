@@ -39,24 +39,24 @@ export function resetConversations(): Conversation[] {
 
 export function updateConversationStatus(convos: Conversation[], id: string, status: ConversationStatus) {
   const now = Date.now();
-  return convos.map((c) => (c.id === id ? { ...c, status, updatedAt: now } : c));
+  return convos.map((c: any) => (c.id === id ? { ...c, status, updatedAt: now } : c));
 }
 
 export function setConversationTags(convos: Conversation[], id: string, tags: string[]) {
   const now = Date.now();
-  const normalized = Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)));
-  return convos.map((c) => (c.id === id ? { ...c, tags: normalized, updatedAt: now } : c));
+  const normalized = Array.from(new Set(tags.map((t: any) => t.trim()).filter(Boolean)));
+  return convos.map((c: any) => (c.id === id ? { ...c, tags: normalized, updatedAt: now } : c));
 }
 
 export function setConversationAi(convos: Conversation[], id: string, aiEnabled: boolean) {
   const now = Date.now();
-  return convos.map((c) => (c.id === id ? { ...c, aiEnabled, updatedAt: now } : c));
+  return convos.map((c: any) => (c.id === id ? { ...c, aiEnabled, updatedAt: now } : c));
 }
 
 // Optional (not used yet): return this chat to “follow global”
 export function clearConversationAiOverride(convos: Conversation[], id: string) {
   const now = Date.now();
-  return convos.map((c) => {
+  return convos.map((c: any) => {
     if (c.id !== id) return c;
     const copy: Conversation = { ...c, updatedAt: now };
     delete copy.aiEnabled;
@@ -66,7 +66,7 @@ export function clearConversationAiOverride(convos: Conversation[], id: string) 
 
 export function addMessage(convos: Conversation[], id: string, role: MessageRole, text: string) {
   const now = Date.now();
-  return convos.map((c) => {
+  return convos.map((c: any) => {
     if (c.id !== id) return c;
     return {
       ...c,
@@ -77,5 +77,5 @@ export function addMessage(convos: Conversation[], id: string, role: MessageRole
 }
 
 export function createConversation(convos: Conversation[], convo: Conversation) {
-  return [convo, ...convos].sort((a, b) => b.updatedAt - a.updatedAt);
+  return [convo, ...convos].sort((a: any, b: any) => b.updatedAt - a.updatedAt);
 }

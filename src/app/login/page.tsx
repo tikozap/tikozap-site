@@ -1,13 +1,43 @@
+// src/app/login/page.tsx
+
 'use client';
 
 import Link from 'next/link';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 export default function LoginPage() {
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    // TODO: wire up to real login later
-  };
+const [error, setError] = useState('');
+const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+
+  const form = new FormData(e.currentTarget);
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: form.get('email'),
+        password: form.get('password'),
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Login failed.');
+    }
+
+    window.location.href = data.redirectTo || '/dashboard/conversations';
+  } catch (err: any) {
+    setError(err?.message || 'Login failed.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <main id="main" className="auth-main">
@@ -17,8 +47,7 @@ export default function LoginPage() {
           <p className="eyebrow">Welcome back</p>
           <h1>Log in to TikoZap</h1>
           <p className="sub">
-            Use the email and password you used to create your account to access your dashboard and
-            conversations.
+            Use the email and password you used to create your account.
           </p>
         </div>
       </section>
@@ -53,11 +82,19 @@ export default function LoginPage() {
               </div>
 
               <button type="submit" className="button auth-primary">
-                Log in
+                {loading ? 'Logging in…' : 'Log in'}
               </button>
 
+{error ? (
+  <p className="small auth-footnote" style={{ color: '#b91c1c' }}>
+    {error}
+  </p>
+) : null}
+
               <p className="small auth-footnote">
-                Forgot your password? We&apos;ll add reset links once authentication is connected.
+                <Link href="/forgot-password">
+                  Forgot your password?
+                </Link>
               </p>
             </form>
 

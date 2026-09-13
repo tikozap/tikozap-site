@@ -1,3 +1,5 @@
+// src/app/onboarding/_components/OnboardingNav.tsx
+
 import Link from 'next/link';
 
 export default function OnboardingNav({

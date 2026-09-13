@@ -42,7 +42,7 @@ export default function TikoZapPricingSection() {
 
       {/* Plans */}
       <div className="grid gap-6 md:grid-cols-3">
-        {plans.map((p) => (
+        {plans.map((p: any) => (
           <div
             key={p.name}
             className={`rounded-2xl border p-6 ${
