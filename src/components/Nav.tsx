@@ -151,21 +151,22 @@ const hideGlobalNav =
       )}
 
       <style jsx>{`
-        .nav-shell {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 40;
-          background: var(--bg-gray, #f9fafb); /* full-width gray band */
-          border-bottom: none;
-          box-shadow: none;
-        }
+.nav-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: border-box;
+  background: var(--bg-gray, #f9fafb);
+  border-bottom: none;
+  box-shadow: none;
+}
 
-        /* Keep content from hiding behind fixed nav */
-        :global(main) {
-          padding-top: 4.5rem; /* space for taller nav */
-        }
+:global(main) {
+  padding-top: calc(4.5rem + env(safe-area-inset-top));
+}
 
         /* Remove bottom border line */
         .nav {
@@ -245,9 +246,9 @@ const hideGlobalNav =
         }
 
         /* Mobile dropdown */
-        .nav__overlay {
-          position: absolute;
-          top: 4.5rem;
+.nav__overlay {
+  position: absolute;
+  top: calc(4.5rem + env(safe-area-inset-top));
           right: 0;
           left: 2;
           z-index: 60;
@@ -280,6 +281,14 @@ const hideGlobalNav =
 
         /* Desktop breakpoint */
         @media (min-width: 768px) {
+        .nav-shell {
+  padding-top: 0;
+}
+
+:global(main) {
+  padding-top: 4.5rem;
+}
+  
           .nav__inner {
             height: 4.25rem;
           }
