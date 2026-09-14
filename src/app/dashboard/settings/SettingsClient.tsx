@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import UnsavedChangesGuard from "../_components/UnsavedChangesGuard";
+import { useNativeIOS } from "@/hooks/useNativeIOS";
 
 type SectionKey =
   | "general"
@@ -241,6 +242,7 @@ export default function SettingsClient({
   role: "owner" | "staff";
 }) {
   const isOwner = role === "owner";
+  const isNativeIOS = useNativeIOS();
   const [active, setActive] = useState<SectionKey>("general");
   const [notificationStatus, setNotificationStatus] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -1263,7 +1265,7 @@ const toggleMemberNotifications = async (member: TeamMember) => {
                 <Toggle label="Show orb in assistant header" />
               </section>
             </div>
-          {!hasVoiceSubscription ? (
+          {!isNativeIOS && !hasVoiceSubscription ? (
   <div className="st-upgradeBox">
     <strong>Voice & Orb is a premium add-on</strong>
 

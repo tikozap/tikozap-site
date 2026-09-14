@@ -80,6 +80,9 @@ function pickHumanFollowupReply() {
 
 export async function POST(req: Request) {
   try {
+    const isNativeIOS =
+  req.headers.get("cookie")?.includes("tikozap-native-platform=ios") ?? false;
+
     const rl = checkRateLimit(req, {
       namespace: "public-chat",
       limit: 20,
@@ -167,7 +170,7 @@ const tikoLearning = await getTikoLearning({
     input: [
       {
         role: "system",
-        content: buildTikoMarketingInstructions(tikoLearning),
+        content: buildTikoMarketingInstructions(tikoLearning, isNativeIOS),
       },
       {
         role: "user",

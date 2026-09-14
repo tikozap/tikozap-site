@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import MobilePageHeader from '../_components/MobilePageHeader';
 import { PRICING_PLANS } from '@/lib/pricingPlans';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 type BillingPlan = 'starter' | 'pro' | 'business';
 
@@ -109,6 +110,7 @@ function dateLabel(iso?: string | null): string {
 }
 
 export default function BillingPage() {
+  const isNativeIOS = useNativeIOS();
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [error, setError] = useState('');
   const [savingPlan, setSavingPlan] = useState<string | null>(null);
@@ -263,11 +265,13 @@ const hasPaidPlan =
 
       <div className="db-pageStack">
         <h1 className="db-title">Billing</h1>
-        <p className="db-sub">
-          Usage limits are enforced monthly by plan. Manage your subscription and usage here.
-        </p>
+<p className="db-sub">
+  {isNativeIOS
+    ? 'Usage limits are enforced monthly by plan. View your current plan and usage here.'
+    : 'Usage limits are enforced monthly by plan. Manage your subscription and usage here.'}
+</p>
 
-{banner ? (
+{!isNativeIOS && banner ? (
   <div className="db-card">
     <p
       className="db-cardText"
@@ -308,7 +312,9 @@ const hasPaidPlan =
         color: '#b45309',
       }}
     >
-      Your 14-day Pro trial has ended. Choose a plan below to continue.
+      {isNativeIOS
+  ? 'Your 14-day Pro trial has ended.'
+  : 'Your 14-day Pro trial has ended. Choose a plan below to continue.'}
     </p>
   </>
 ) : (
@@ -381,9 +387,18 @@ const hasPaidPlan =
         fontSize: 13,
       }}
     >
-      We couldn&apos;t process your latest payment. Your TikoZap service
-      remains active while payment is retried. Please update your payment
-      method to avoid interruption.
+{isNativeIOS ? (
+  <>
+    We couldn&apos;t process your latest payment. Your TikoZap service
+    remains active while payment is retried.
+  </>
+) : (
+  <>
+    We couldn&apos;t process your latest payment. Your TikoZap service
+    remains active while payment is retried. Please update your payment
+    method to avoid interruption.
+  </>
+)}
     </p>
   </div>
 ) : null}
@@ -410,15 +425,19 @@ const hasPaidPlan =
                 />
               </div>
 
-              {usage.isOverLimit ? (
-                <p className="db-cardText" style={{ color: '#b91c1c' }}>
-                  Limit reached. Upgrade plan to allow new conversations this month.
-                </p>
-              ) : usage.isNearLimit ? (
-                <p className="db-cardText" style={{ color: '#b45309' }}>
-                  Near monthly limit. Consider upgrading to avoid interruptions.
-                </p>
-              ) : (
+{usage.isOverLimit ? (
+  <p className="db-cardText" style={{ color: '#b91c1c' }}>
+    {isNativeIOS
+      ? 'Monthly conversation limit reached.'
+      : 'Limit reached. Upgrade plan to allow new conversations this month.'}
+  </p>
+) : usage.isNearLimit ? (
+  <p className="db-cardText" style={{ color: '#b45309' }}>
+    {isNativeIOS
+      ? 'You are near your monthly conversation limit.'
+      : 'Near monthly limit. Consider upgrading to avoid interruptions.'}
+  </p>
+) : (
                 <p className="db-cardText" style={{ color: '#065f46' }}>
                   Remaining this month: {usage.remainingConversations} conversations.
                 </p>
@@ -428,6 +447,7 @@ const hasPaidPlan =
         </div>
 
         {/* Change plan */}
+        {!isNativeIOS ? (
         <div className="db-card">
           <div className="db-cardTitle">Change plan</div>
           <p className="db-cardText">
@@ -578,6 +598,7 @@ const active =
             </p>
           ) : null}
         </div>
+      ) : null}
 
 {/* Realtime Voice Concierge */}
 <div className="db-card">
@@ -657,9 +678,11 @@ const active =
       fontWeight: 700,
     }}
   >
-    {usage.voice.enabled
-      ? 'Daily free Voice questions used. Paid Voice minutes are now being used.'
-      : 'Daily free Voice limit reached. Upgrade to a Voice plan or continue tomorrow.'}
+{usage.voice.enabled
+  ? 'Daily free Voice questions used. Voice minutes are now being used.'
+  : isNativeIOS
+  ? 'Daily free Voice limit reached. You can continue tomorrow.'
+  : 'Daily free Voice limit reached. Upgrade to a Voice plan or continue tomorrow.'}
   </p>
 ) : (
   <p
@@ -725,84 +748,85 @@ usage.voice.currentPeriodEnd ? (
             />
           </div>
 
-          <p
-            className="db-cardText"
-            style={{
-              marginTop: 8,
-              color: usage.voice.remainingMinutes <= 0 ? '#b91c1c' : '#065f46',
-            }}
-          >
-            Remaining this billing cycle: {usage.voice.remainingMinutes} minutes
-          </p>
+<p
+  className="db-cardText"
+  style={{
+    marginTop: 8,
+    color: usage.voice.remainingMinutes <= 0 ? '#b91c1c' : '#065f46',
+  }}
+>
+  Remaining this billing cycle: {usage.voice.remainingMinutes} minutes
+</p>
         </>
-      ) : (
+      ) : !isNativeIOS ? (
         <p className="db-cardText" style={{ fontSize: 13, color: '#6b7280' }}>
           Need more voice? Upgrade anytime for monthly Voice minutes.
         </p>
-      )}
+      ) : null}
 
-      <div
-        style={{
-          marginTop: 12,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
+      {!isNativeIOS ? (
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('starter')}
+            style={{
+              background: usage.voice.pack === 'starter' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'starter' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'starter' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'starter'
+              ? 'Voice Starter (Current) · 100 min · $9'
+              : 'Voice Starter · 100 min · $9'}
+          </button>
 
-<button
-  type="button"
-  className="db-btn"
-  onClick={() => startVoiceCheckout('starter')}
-  style={{
-    background: usage.voice.pack === 'starter' ? '#e5e7eb' : '#fff',
-    borderColor: usage.voice.pack === 'starter' ? '#cbd5e1' : '#d1d5db',
-    fontWeight: usage.voice.pack === 'starter' ? 800 : 600,
-  }}
->
-  {usage.voice.pack === 'starter'
-    ? 'Voice Starter (Current) · 100 min · $9'
-    : 'Voice Starter · 100 min · $9'}
-</button>
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('pro')}
+            style={{
+              background: usage.voice.pack === 'pro' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'pro' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'pro' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'pro'
+              ? 'Voice Pro (Current) · 350 min · $29'
+              : 'Voice Pro · 350 min · $29'}
+          </button>
 
-<button
-    type="button"
-    className="db-btn"
-    onClick={() => startVoiceCheckout('pro')}
-    style={{
-    background: usage.voice.pack === 'pro' ? '#e5e7eb' : '#fff',
-    borderColor: usage.voice.pack === 'pro' ? '#cbd5e1' : '#d1d5db',
-    fontWeight: usage.voice.pack === 'pro' ? 800 : 600,
-  }}
->
-  {usage.voice.pack === 'pro'
-    ? 'Voice Pro (Current) · 350 min · $29'
-    : 'Voice Pro · 350 min · $29'}
-</button>
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('business')}
+            style={{
+              background: usage.voice.pack === 'business' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'business' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'business' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'business'
+              ? 'Voice Business (Current) · 1100 min · $99'
+              : 'Voice Business · 1100 min · $99'}
+          </button>
 
-<button
-    type="button"
-    className="db-btn"
-    onClick={() => startVoiceCheckout('business')}
-    style={{
-    background: usage.voice.pack === 'business' ? '#e5e7eb' : '#fff',
-    borderColor: usage.voice.pack === 'business' ? '#cbd5e1' : '#d1d5db',
-    fontWeight: usage.voice.pack === 'business' ? 800 : 600,
-  }}
->
-  {usage.voice.pack === 'business'
-    ? 'Voice Business (Current) · 1100 min · $99'
-    : 'Voice Business · 1100 min · $99'}
-</button>
-
-<button
-  type="button"
-  className="db-btn"
-  onClick={openCustomerPortal}
->
-  Manage Voice subscription
-</button>
-      </div>
+          <button
+            type="button"
+            className="db-btn"
+            onClick={openCustomerPortal}
+          >
+            Manage Voice subscription
+          </button>
+        </div>
+      ) : null}
     </>
   )}
 </div>

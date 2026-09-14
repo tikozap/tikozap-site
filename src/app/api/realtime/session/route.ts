@@ -33,6 +33,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const isNativeIOS =
+  req.headers.get("cookie")?.includes("tikozap-native-platform=ios") ?? false;
+
   const rate = checkRateLimit(req, {
     namespace: "realtime-session",
     limit: 12,
@@ -274,7 +277,7 @@ const tikoLearning =
     : '';
 const baseInstructions =
   mode === "marketing"
-    ? buildTikoMarketingInstructions(tikoLearning)
+    ? buildTikoMarketingInstructions(tikoLearning, isNativeIOS)
     : [
         `You are ${merchantAssistantName || "the store assistant"}, the AI customer support employee for this online store.`,
 

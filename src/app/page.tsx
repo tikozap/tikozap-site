@@ -6,8 +6,11 @@ import SafetyShields from "@/components/SafetyShields";
 import Image from "next/image";
 import HeroDemoPanel from "@/components/HeroDemoPanel";
 import StarterLinkShowcase from "@/components/StarterLinkShowcase";
+import { useNativeIOS } from "@/hooks/useNativeIOS";
 
 export default function Page() {
+  const isNativeIOS = useNativeIOS();
+
   return (
     <main id="main" className="has-sticky">
       <section className="section-band-gray hero-new">
@@ -87,6 +90,7 @@ export default function Page() {
   </div>
 </section>
 
+      {!isNativeIOS ? (
       <section
         className="section-band-white home-cta-band"
         aria-labelledby="home-pricing-cta"
@@ -106,7 +110,7 @@ export default function Page() {
         </div>
 
       </section>
-
+      ) : null}
 
       <style jsx>{`
         .hero-paths {

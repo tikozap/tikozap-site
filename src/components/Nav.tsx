@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 const LINKS = [
 { href: '/features', label: 'Product' },
@@ -15,6 +16,12 @@ const LINKS = [
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const isNativeIOS = useNativeIOS();
+
+const visibleLinks = isNativeIOS
+  ? LINKS.filter((item) => item.href !== '/pricing')
+  : LINKS;
+
 const [host, setHost] = useState('');
 
 useEffect(() => {
@@ -66,7 +73,7 @@ const hideGlobalNav =
 
           {/* Desktop links */}
           <div className="nav__links">
-            {LINKS.map((item: any) => {
+            {visibleLinks.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link
@@ -126,7 +133,7 @@ const hideGlobalNav =
       {open && (
         <div className="nav__overlay" aria-label="Mobile navigation">
           <div className="nav__menu">
-            {LINKS.map((item: any) => {
+            {visibleLinks.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link

@@ -1,5 +1,8 @@
 // src/app/pricing/page.tsx
 
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
 import Pricing from '@/components/Pricing';
 import PricingFAQ from '@/components/PricingFAQ';
 import PricingCompare from '@/components/PricingCompare';
@@ -10,7 +13,14 @@ export const metadata = {
     'Compare TikoZap plans for AI customer service, including 24/7 customer support, store knowledge, team collaboration, and optional voice.',
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const cookieStore = await cookies();
+  const nativePlatform = cookieStore.get('tikozap-native-platform')?.value;
+
+  if (nativePlatform === 'ios') {
+    redirect('/dashboard');
+  }
+
   return (
     <main id="main">
       <section

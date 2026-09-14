@@ -1502,13 +1502,23 @@ function toggleTextSpeechCapture() {
     flex-direction:column;
   }
 
-  .hero-starterChat-head{
-    flex:0 0 54px;
-    height:54px;
-    border-radius:0;
-    position:relative;
-    z-index:30;
-  }
+.hero-starterChat-head{
+  flex:0 0 calc(54px + env(safe-area-inset-top));
+  height:calc(54px + env(safe-area-inset-top));
+  padding-top:env(safe-area-inset-top);
+  box-sizing:border-box;
+  border-radius:0;
+  position:relative;
+  z-index:30;
+}
+
+.hero-starterChat-close{
+  position:relative;
+  z-index:40;
+  min-width:44px;
+  min-height:44px;
+  touch-action:manipulation;
+}
 
   .hero-starterChat-body{
     flex:1 1 auto;

@@ -8,6 +8,7 @@ import {
   demoDetectBucket,
   type DemoBucketName,
 } from "@/config/demoAssistant";
+import { useNativeIOS } from "@/hooks/useNativeIOS";
 
 type Role = "assistant" | "user";
 type ReplySource = "rule" | "model" | "canned";
@@ -48,6 +49,7 @@ function sourceLabel(source?: ReplySource) {
 }
 
 export default function DemoChat() {
+  const isNativeIOS = useNativeIOS();
   const [messages, setMessages] = useState<DemoMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -433,7 +435,7 @@ export default function DemoChat() {
               </div>
             )}
 
-            {showLeadCta && (
+            {showLeadCta && !isNativeIOS && (
               <div className="demo-lead-cta" aria-label="Demo conversion CTA">
                 <p className="demo-lead-cta-kicker">
                   See how this turns into real revenue:

@@ -122,6 +122,9 @@ Want me to refine these further — like style, price, or occasion?`;
 
 export async function POST(req: Request) {
   try {
+    const isNativeIOS =
+      req.headers.get("cookie")?.includes("tikozap-native-platform=ios") ?? false;
+
     const rl = checkRateLimit(req, {
       namespace: "demo-assistant",
       limit: 20,
@@ -284,7 +287,7 @@ const tikoLearning = await getTikoLearning({
     input: [
       {
         role: "system",
-        content: buildTikoMarketingInstructions(tikoLearning),
+        content: buildTikoMarketingInstructions(tikoLearning, isNativeIOS),
       },
       ...history,
       {

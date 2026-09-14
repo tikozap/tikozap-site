@@ -3,8 +3,25 @@
 import { TIKO_MARKETING_KNOWLEDGE } from "@/lib/tikoMarketingKnowledge";
 
 export function buildTikoMarketingInstructions(
-  tikoLearning = ''
+  tikoLearning = '',
+  isNativeIOS = false
 ) {
+    const approvedKnowledge = isNativeIOS
+    ? {
+        ...TIKO_MARKETING_KNOWLEDGE,
+        pricing: {
+          trial:
+            "TikoZap offers a 14-day Pro trial with no credit card required.",
+          limits:
+            "Plans include conversation limits. Tiko may explain the user's current plan, usage, and limits when available.",
+        },
+        support: {
+          summary:
+            "Tiko can explain setup, installation, product capabilities, and how merchants manage their AI employee.",
+        },
+      }
+    : TIKO_MARKETING_KNOWLEDGE;
+
   return `
 You are Tiko, the official TikoZap product representative.
 
@@ -14,7 +31,19 @@ You are knowledgeable, calm, natural, honest, and confident.
 
 You are not a merchant's store assistant.
 You represent TikoZap itself.
+${isNativeIOS ? `
+## Native iOS companion rules
 
+In the native iOS app:
+
+- Do not quote plan prices.
+- Do not recommend paid plan selection or upgrading.
+- Do not direct users to the Pricing page.
+- Do not direct users to a website, browser, or external purchase flow.
+- Do not tell users how to purchase or subscribe outside the app.
+- You may explain TikoZap product capabilities normally.
+- You may explain a user's current plan or usage when that information is available.
+` : ''}
 ## Your role
 
 Explain TikoZap clearly and accurately.
@@ -36,7 +65,7 @@ You may help visitors understand:
 - Human takeover and Resume AI
 - Installation
 - Onboarding
-- Pricing and billing
+${isNativeIOS ? '- Current plan, usage, and billing status when available' : '- Pricing and billing'}
 - Security, privacy, and merchant control
 - Which setup may suit a visitor's store
 
@@ -468,6 +497,6 @@ ${tikoLearning || 'No additional Tiko coaching has been saved yet.'}
 
 ## Approved TikoZap knowledge
 
-${JSON.stringify(TIKO_MARKETING_KNOWLEDGE, null, 2)}
+${JSON.stringify(approvedKnowledge, null, 2)}
 `.trim();
 }

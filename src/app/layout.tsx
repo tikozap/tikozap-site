@@ -3,6 +3,7 @@
 import '@/styles/base.css';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
+import NativeAppMarker from '@/components/NativeAppMarker';
 
 export const metadata = {
   metadataBase: new URL("https://" + "tikozap.com"),
@@ -19,12 +20,14 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
+      <NativeAppMarker />
         <Nav />
         {children}
         <Footer />

@@ -6,9 +6,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 export default function Footer() {
   const pathname = usePathname();
+  const isNativeIOS = useNativeIOS();
   const [host, setHost] = useState('');
 
   useEffect(() => {
@@ -63,9 +65,11 @@ export default function Footer() {
                 <Link href="/features">Product</Link>
               </li>
 
+              {!isNativeIOS ? (
               <li>
                 <Link href="/pricing">Pricing</Link>
               </li>
+              ) : null}
 
               <li>
                 <Link href="/docs">Help Center</Link>

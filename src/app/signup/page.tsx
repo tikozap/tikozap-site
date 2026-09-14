@@ -4,8 +4,10 @@
 
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 export default function SignupPage() {
+  const isNativeIOS = useNativeIOS();
   const [submitted, setSubmitted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -88,11 +90,11 @@ export default function SignupPage() {
 
           <h1>Create your TikoZap account</h1>
 
-          <p className="sub">
-            You&apos;ll start with a 14-day free Pro
-            trial. No credit card required, and you can
-            change plans or cancel anytime.
-          </p>
+<p className="sub">
+  {isNativeIOS
+    ? "You'll start with a 14-day free Pro trial. No credit card required."
+    : "You'll start with a 14-day free Pro trial. No credit card required, and you can change plans or cancel anytime."}
+</p>
         </div>
       </section>
 
