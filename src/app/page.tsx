@@ -12,7 +12,7 @@ export default function Page() {
   const isNativeIOS = useNativeIOS();
 
   return (
-    <main id="main" className="has-sticky">
+    <main id="main">
       <section className="section-band-gray hero-new">
         <div className="container-xl hero-grid">
           <div className="hero-left">
