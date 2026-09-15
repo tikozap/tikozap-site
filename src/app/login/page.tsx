@@ -106,10 +106,10 @@ const [loading, setLoading] = useState(false);
       </section>
 
       <style jsx>{`
-        .auth-main {
-          padding-top: 4.5rem; /* fixed nav offset */
-          padding-bottom: 3rem;
-        }
+.auth-main {
+  padding-top: calc(4.5rem + env(safe-area-inset-top));
+  padding-bottom: 3rem;
+}
 
         .auth-hero {
           padding: 1.75rem 0 1.25rem;
