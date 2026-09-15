@@ -197,11 +197,8 @@ export default function DashboardShell({
 
   const signOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-
-    router.replace('/login');
-    router.refresh();
+    window.location.href = '/login';
   };
-
   return (
     <div
       className={[
