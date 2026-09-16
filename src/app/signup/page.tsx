@@ -356,7 +356,6 @@ export default function SignupPage() {
 
       <style jsx>{`
         .auth-main {
-          padding-top: 4.5rem;
           padding-bottom: 3rem;
         }
 
