@@ -107,7 +107,6 @@ const [loading, setLoading] = useState(false);
 
       <style jsx>{`
 .auth-main {
-  padding-top: calc(4.5rem + env(safe-area-inset-top));
   padding-bottom: 3rem;
 }
 
