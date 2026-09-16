@@ -68,7 +68,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     background:#f8fafc;
     border-bottom:1px solid #e5e7eb;
     box-shadow:0 1px 0 rgba(15,23,42,.03);
-    padding:8px 0 12px;
+    padding:
+  calc(8px + env(safe-area-inset-top))
+  0
+  12px;
     margin-bottom:12px;
   }
 
