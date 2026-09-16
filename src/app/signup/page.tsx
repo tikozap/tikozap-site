@@ -360,7 +360,7 @@ export default function SignupPage() {
         }
 
         .auth-hero {
-          padding: 1.75rem 0 1.25rem;
+          padding: 2.75rem 0 1.25rem;
         }
 
         .auth-hero-inner {
