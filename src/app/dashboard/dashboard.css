@@ -1010,4 +1010,9 @@ html, body{
   .db-main {
     padding-top: 0 !important;
   }
+
+  .db-container {
+    height: auto !important;
+    min-height: max-content !important;
+  }
 }
