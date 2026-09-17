@@ -1004,3 +1004,10 @@ html, body{
     margin-top: 18px;
   }
 }
+
+/* Mobile dashboard: header starts at top of scroll viewport */
+@media (max-width: 900px) {
+  .db-main {
+    padding-top: 0 !important;
+  }
+}
