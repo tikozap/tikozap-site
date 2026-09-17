@@ -122,8 +122,8 @@ export default function MobilePageHeader({
             border-bottom: 1px solid #e5e7eb;
             box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 
-            padding:
-  calc(8px + env(safe-area-inset-top))
+padding:
+  8px
   16px
   12px;
             margin-bottom: 12px;
