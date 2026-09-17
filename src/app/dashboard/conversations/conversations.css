@@ -3078,6 +3078,13 @@ textarea{
 }
 
 @media (max-width: 900px) {
+  .cx-threadHead{
+    position:sticky !important;
+    top:0 !important;
+    z-index:20 !important;
+    background:#f8fafc !important;
+  }
+
   .cx-noteToast {
     left: 16px;
     right: 16px;
