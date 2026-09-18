@@ -22,6 +22,7 @@ type AskTikoMessage = {
 export default function DashboardAskTiko() {
   const pathname = usePathname();
   const isNativeIOS = useNativeIOS();
+  const isInbox = pathname === '/dashboard/conversations';
 
   const hideMobileLauncher =
     pathname === '/dashboard/assistant/identity' ||
@@ -132,6 +133,7 @@ className={[
   'db-askTikoButton',
   hideMobileLauncher ? 'db-askTikoButton--hideMobile' : '',
   isNativeIOS ? 'db-askTikoButton--nativeIOS' : '',
+  isInbox ? 'db-askTikoButton--inbox' : '',
 ]
   .filter(Boolean)
   .join(' ')}
@@ -524,6 +526,10 @@ className={[
 
   .db-askTikoButton--nativeIOS {
     top: 72px;
+  }
+
+  .db-askTikoButton--inbox {
+    right: 76px;
   }
 
   .db-askTikoLabel {
