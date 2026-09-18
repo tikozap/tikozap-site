@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 const exampleQuestions = [
   'What should I do first?',
@@ -20,6 +21,7 @@ type AskTikoMessage = {
 
 export default function DashboardAskTiko() {
   const pathname = usePathname();
+  const isNativeIOS = useNativeIOS();
 
   const hideMobileLauncher =
     pathname === '/dashboard/assistant/identity' ||
@@ -126,9 +128,13 @@ export default function DashboardAskTiko() {
 {!open ? (
   <button
     type="button"
-    className={`db-askTikoButton ${
-  hideMobileLauncher ? 'db-askTikoButton--hideMobile' : ''
-}`}
+className={[
+  'db-askTikoButton',
+  hideMobileLauncher ? 'db-askTikoButton--hideMobile' : '',
+  isNativeIOS ? 'db-askTikoButton--nativeIOS' : '',
+]
+  .filter(Boolean)
+  .join(' ')}
     onClick={() => setOpen(true)}
     aria-label="Ask Tiko"
   >
@@ -514,6 +520,10 @@ export default function DashboardAskTiko() {
     background: transparent;
     box-shadow: none;
     font-size: 13px;
+  }
+
+  .db-askTikoButton--nativeIOS {
+    top: 72px;
   }
 
   .db-askTikoLabel {
