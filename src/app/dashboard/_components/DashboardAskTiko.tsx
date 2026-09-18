@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const exampleQuestions = [
   'What should I do first?',
@@ -18,6 +19,12 @@ type AskTikoMessage = {
 };
 
 export default function DashboardAskTiko() {
+  const pathname = usePathname();
+
+  const hideMobileLauncher =
+    pathname === '/dashboard/assistant/identity' ||
+    pathname === '/dashboard/assistant/test-coach' ||
+    pathname === '/dashboard/assistant/memory';
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] =
@@ -119,7 +126,9 @@ export default function DashboardAskTiko() {
 {!open ? (
   <button
     type="button"
-    className="db-askTikoButton"
+    className={`db-askTikoButton ${
+  hideMobileLauncher ? 'db-askTikoButton--hideMobile' : ''
+}`}
     onClick={() => setOpen(true)}
     aria-label="Ask Tiko"
   >
@@ -489,6 +498,9 @@ export default function DashboardAskTiko() {
 }
 
 @media (max-width: 1000px) {
+.db-askTikoButton--hideMobile {
+  display: none !important;
+}
   .db-askTikoButton {
     top: 8px;
     right: 16px;
