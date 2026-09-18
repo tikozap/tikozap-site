@@ -249,12 +249,6 @@ const desktopListRef = useRef<HTMLDivElement | null>(null);
 const mobileListRef = useRef<HTMLDivElement | null>(null);
 const lastTopTimestampRef = useRef<number>(0);
 
-const swipeRef = useRef<HTMLDivElement | null>(null);
-const startXRef = useRef(0);
-const startYRef = useRef(0);
-const deltaXRef = useRef(0);
-const deltaYRef = useRef(0);
-
 const takeoverKey = (id: string) => `tz_takeover_started_${id}`;
 
 const autoTakeoverTriggeredRef = useRef(false);
@@ -281,7 +275,6 @@ const [pane, setPane] = useState<'list' | 'thread'>('list');
 const [threadMenuOpen, setThreadMenuOpen] = useState(false);
 const [desktopThreadMenuOpen, setDesktopThreadMenuOpen] = useState(false);
 const [dragX, setDragX] = useState(0);
-const [isClosingThread, setIsClosingThread] = useState(false);
 const revealPct = Math.max(0, Math.min(dragX / 320, 1));
 const [isOpeningThread, setIsOpeningThread] = useState(false);
 const [mobileInboxMenuOpen, setMobileInboxMenuOpen] = useState(false);
@@ -552,7 +545,6 @@ useEffect(() => {
 const returnToInboxList = () => {
   setPane('list');
   setDragX(0);
-  setIsClosingThread(false);
   setIsOpeningThread(false);
 };
 
@@ -1304,62 +1296,6 @@ const generateDraft = async () => {
   const threadHidden = isMobile && pane === 'list';
   const currentChannel = thread ? channelLabel(normalizeChannel(thread.channel)) : '';
   const currentModeLabel = thread ? (thread.aiEnabled ? 'AI active' : 'Staff replying') : '';
-
-const onTouchStart = (e: React.TouchEvent) => {
-  if (!isMobile) return;
-  startXRef.current = e.touches[0].clientX;
-  startYRef.current = e.touches[0].clientY;
-  deltaXRef.current = 0;
-  deltaYRef.current = 0;
-  setIsClosingThread(false);
-};
-
-const onTouchMove = (e: React.TouchEvent) => {
-  if (!isMobile) return;
-
-  deltaXRef.current = e.touches[0].clientX - startXRef.current;
-  deltaYRef.current = e.touches[0].clientY - startYRef.current;
-
-  const dx = deltaXRef.current;
-  const dy = deltaYRef.current;
-  const absX = Math.abs(dx);
-  const absY = Math.abs(dy);
-
-  // only react when horizontal gesture clearly wins
-  if (absX < 10 || absX <= absY * 1.2) return;
-
-  // thread -> inbox drag preview
-  if (pane === 'thread' && dx > 0) {
-    setDragX(Math.min(dx, 320));
-  }
-};
-
-const onTouchEnd = () => {
-  if (!isMobile) return;
-
-  const dx = deltaXRef.current;
-  const dy = deltaYRef.current;
-  const absX = Math.abs(dx);
-  const absY = Math.abs(dy);
-
-  if (absX < 60 || absX <= absY * 1.2) {
-    setDragX(0);
-    return;
-  }
-
-  if (pane === 'thread' && dx > 60) {
-    setIsClosingThread(true);
-    setDragX(window.innerWidth);
-
-window.setTimeout(() => {
-  returnToInboxList();
-}, 180);
-
-    return;
-  }
-
-  setDragX(0);
-};
 
 const renderProductPicker = () => {
   if (!productPickerOpen) return null;
@@ -2481,15 +2417,10 @@ const renderDesktopLayout = () => (
 
 const renderMobileThreadScreen = () => (
   <div
-    ref={swipeRef}
     className={[
       'cx-mobileThreadScreen',
-      isClosingThread ? 'is-closing' : '',
       isOpeningThread ? 'is-opening' : '',
     ].filter(Boolean).join(' ')}
-    onTouchStart={onTouchStart}
-    onTouchMove={onTouchMove}
-    onTouchEnd={onTouchEnd}
     style={{
       transform: `translateX(${dragX}px)`,
       opacity: 1,
