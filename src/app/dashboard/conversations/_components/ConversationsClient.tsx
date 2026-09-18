@@ -1352,7 +1352,9 @@ const onTouchEnd = () => {
     setDragX(window.innerWidth);
 
 window.setTimeout(() => {
-  returnToInboxList();
+  window.requestAnimationFrame(() => {
+    returnToInboxList();
+  });
 }, 180);
 
     return;
