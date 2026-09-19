@@ -2764,6 +2764,10 @@ textarea{
     padding-top:env(safe-area-inset-top) !important;
   }
 
+  .cx-mobileThreadScreen{
+    padding-top:env(safe-area-inset-top) !important;
+  }
+
   .cx-mobileInboxTop{
     height:68px !important;
     min-height:68px !important;

@@ -761,17 +761,6 @@ if (!isQuietHoursNow()) {
 }, [list, playEscalationSound, vibrateOnEscalation, quietHoursEnabled]);
 
 useEffect(() => {
-  if (!isMobile) return;
-  if (pane !== 'thread') return;
-
-  const t = window.setTimeout(() => {
-    replyRef.current?.focus();
-  }, 120);
-
-  return () => window.clearTimeout(t);
-}, [isMobile, pane, selectedId]);
-
-useEffect(() => {
   autoResizeComposer();
 }, [draft, isMobile, pane, selectedId]);
 
