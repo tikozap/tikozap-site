@@ -1,1 +1,16 @@
-{"projectId":"prj_hG8VJCnczJD9vsSzEemsOHCzYDn4","orgId":"team_5yPU1UIzTOnlPh3FXNV2lH1Q","projectName":"tikozap-site"}
+{
+  "projectId": "prj_hG8VJCnczJD9vsSzEemsOHCzYDn4",
+  "orgId": "team_5yPU1UIzTOnlPh3FXNV2lH1Q",
+  "projectName": "tikozap-site",
+  "settings": {
+    "createdAt": 1761175491433,
+    "framework": "nextjs",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "22.x"
+  }
+}
