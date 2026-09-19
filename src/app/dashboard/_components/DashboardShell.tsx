@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import DashboardAskTiko from './DashboardAskTiko';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 function NavItem({
   href,
@@ -135,7 +136,7 @@ export default function DashboardShell({
 }) {
   const router = useRouter();
   const pathname = usePathname() || '';
-
+  const isNativeIOS = useNativeIOS();
   const isOwner = role === 'owner';
 
   const planLabel =
@@ -216,7 +217,14 @@ export default function DashboardShell({
       />
 
       <div className="db-body">
-        <aside className="db-sidebar">
+        <aside
+          className={[
+            'db-sidebar',
+            isNativeIOS ? 'db-sidebar--nativeIOS' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="db-brand">
             <div className="db-ws">{tenantName}</div>
 
@@ -533,6 +541,11 @@ export default function DashboardShell({
             display: flex;
             flex-direction: column;
             gap: 14px;
+          }
+
+          .db-sidebar.db-sidebar--nativeIOS {
+            top: env(safe-area-inset-top);
+            bottom: env(safe-area-inset-bottom);
           }
 
           .db-shell.is-navOpen .db-sidebar {
