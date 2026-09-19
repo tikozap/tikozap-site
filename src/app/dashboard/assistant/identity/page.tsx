@@ -556,10 +556,7 @@ useEffect(() => {
 
   return (
     <div className="db-container">
-      <MobilePageHeader
-  title="Identity"
-  rightAction={<AssistantSectionMenu />}
-/>
+      <MobilePageHeader title="Identity" />
 
       <div className="db-pageStack id-page">
 <div className="id-pageHeader">

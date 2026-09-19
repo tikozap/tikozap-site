@@ -232,10 +232,7 @@ const showingMoreThanDefault =
 
   return (
     <div className="db-container">
-      <MobilePageHeader
-        title="Memory"
-        rightAction={<AssistantSectionMenu />}
-      />
+      <MobilePageHeader title="Memory" />
 
       <div className="db-pageStack mem-page">
 <div className="assistant-sectionPageHeader">
