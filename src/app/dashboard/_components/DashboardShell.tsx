@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import DashboardAskTiko from './DashboardAskTiko';
 import { useNativeIOS } from '@/hooks/useNativeIOS';
+import { useNativeSafeArea } from '@/hooks/useNativeSafeArea';
 
 function NavItem({
   href,
@@ -134,6 +135,8 @@ export default function DashboardShell({
   entitlementState: 'paid' | 'trial' | 'trial_expired';
   role: 'owner' | 'staff';
 }) {
+  useNativeSafeArea();
+
   const router = useRouter();
   const pathname = usePathname() || '';
   const isNativeIOS = useNativeIOS();
