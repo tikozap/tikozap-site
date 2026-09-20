@@ -153,7 +153,12 @@ className={[
           />
 
           <aside
-            className="db-askTikoPanel"
+            className={[
+              'db-askTikoPanel',
+              isNativeIOS ? 'db-askTikoPanel--nativeIOS' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             aria-label="Ask Tiko"
           >
             <div className="db-askTikoHead">
@@ -533,6 +538,10 @@ className={[
 
   .db-askTikoPanel {
     width: min(390px, 100vw);
+  }
+
+  .db-askTikoPanel.db-askTikoPanel--nativeIOS {
+   width: 100vw;
   }
 
   .db-askTikoClose {
