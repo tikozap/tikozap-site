@@ -6,6 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 import MobilePageHeader from '../_components/MobilePageHeader';
 import { PRICING_PLANS } from '@/lib/pricingPlans';
 import { useNativeIOS } from '@/hooks/useNativeIOS';
+import {
+  getNativeStoreKitProducts,
+  type NativeStoreKitProduct,
+} from '@/lib/nativeStoreKit';
 
 type BillingPlan = 'starter' | 'pro' | 'business';
 
@@ -117,6 +121,9 @@ export default function BillingPage() {
   const [notice, setNotice] = useState('');
   const [banner, setBanner] = useState('');
   const [billingMode, setBillingMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [appleProducts, setAppleProducts] = useState<NativeStoreKitProduct[]>([]);
+  const [appleProductsLoading, setAppleProductsLoading] = useState(false);
+  const [appleProductsError, setAppleProductsError] = useState('');
 
   const openCustomerPortal = async () => {
   setNotice('');
@@ -163,6 +170,43 @@ useEffect(() => {
   useEffect(() => {
     void loadUsage();
   }, []);
+
+  useEffect(() => {
+  if (!isNativeIOS) return;
+
+  let cancelled = false;
+
+  const loadAppleProducts = async () => {
+    setAppleProductsLoading(true);
+    setAppleProductsError('');
+
+    try {
+      const products = await getNativeStoreKitProducts();
+
+      if (!cancelled) {
+        setAppleProducts(products);
+      }
+    } catch (error) {
+      console.error('[TikoZap StoreKit products]', error);
+
+      if (!cancelled) {
+        setAppleProductsError(
+          'App Store subscriptions are unavailable right now.'
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setAppleProductsLoading(false);
+      }
+    }
+  };
+
+  void loadAppleProducts();
+
+  return () => {
+    cancelled = true;
+  };
+}, [isNativeIOS]);
 
   useEffect(() => {
   const params = new URLSearchParams(window.location.search);
@@ -445,6 +489,56 @@ const hasPaidPlan =
             </>
           )}
         </div>
+
+        {/* Apple In-App Purchase plans */}
+{isNativeIOS ? (
+  <div className="db-card">
+    <div className="db-cardTitle">Plans</div>
+
+    <p className="db-cardText">
+      Choose a monthly plan through the App Store.
+    </p>
+
+    {appleProductsLoading ? (
+      <p className="db-cardText">Loading App Store plans…</p>
+    ) : appleProductsError ? (
+      <p className="db-cardText" style={{ color: '#b91c1c' }}>
+        {appleProductsError}
+      </p>
+    ) : appleProducts.length === 0 ? (
+      <p className="db-cardText">
+        App Store subscriptions are currently unavailable.
+      </p>
+    ) : (
+      <div
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        {appleProducts.map((product) => (
+          <div
+            key={product.id}
+            className="db-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'default',
+            }}
+          >
+            <span>{product.displayName}</span>
+            <span style={{ opacity: 0.8, fontSize: 12 }}>
+              {product.displayPrice}/month
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+) : null}
 
         {/* Change plan */}
         {!isNativeIOS ? (
