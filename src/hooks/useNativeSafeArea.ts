@@ -31,8 +31,8 @@ export function useNativeSafeArea() {
           '--tz-native-safe-bottom',
           `${bottom}px`
         );
-      } catch {
-        // Non-native web browsers do not provide this native plugin.
+      } catch (error) {
+        console.error('[TikoZap native safe area]', error);
       }
     };
 
