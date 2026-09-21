@@ -1,7 +1,10 @@
+// src/hooks/useNativeSafeArea.ts
+
 'use client';
 
 import { useEffect } from 'react';
-import { registerPlugin } from '@capacitor/core';
+
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 type SafeAreaInsets = {
   top: number;
@@ -17,6 +20,10 @@ const TikoZapNavigation =
 
 export function useNativeSafeArea() {
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+
     const applySafeArea = async () => {
       try {
         const { top, bottom } =
