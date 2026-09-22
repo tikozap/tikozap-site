@@ -547,8 +547,10 @@ export default function DashboardShell({
           }
 
           .db-sidebar.db-sidebar--nativeIOS {
-            top: env(safe-area-inset-top);
-            bottom: env(safe-area-inset-bottom);
+            top: 0;
+            bottom: 0;
+            padding-top: calc(14px + var(--tz-native-safe-top, env(safe-area-inset-top)));
+            padding-bottom: calc(14px + var(--tz-native-safe-bottom, env(safe-area-inset-bottom)));
           }
 
           .db-shell.is-navOpen .db-sidebar {
