@@ -29,6 +29,11 @@ export function useNativeSafeArea() {
         const { top, bottom } =
           await TikoZapNavigation.getSafeAreaInsets();
 
+          console.log('[TikoZap native safe area values]', {
+  top,
+  bottom,
+});
+
         document.documentElement.style.setProperty(
           '--tz-native-safe-top',
           `${top}px`
