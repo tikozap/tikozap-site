@@ -911,7 +911,12 @@ html, body{
     border-right:1px solid #e5e7eb !important;
     box-shadow:8px 0 24px rgba(15,23,42,.14) !important;
 
-    padding:16px !important;
+    padding:
+      calc(16px + var(--tz-native-safe-top, 0px))
+      16px
+      calc(16px + var(--tz-native-safe-bottom, 0px))
+      16px !important;
+
     overflow-y:auto !important;
     box-sizing:border-box !important;
   }
