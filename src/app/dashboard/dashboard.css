@@ -1040,5 +1040,8 @@ html, body{
   .db-main {
     height: 100%;
     min-height: 0;
+    padding-bottom: calc(
+      28px + var(--tz-native-safe-bottom, env(safe-area-inset-bottom))
+    ) !important;
   }
 }
