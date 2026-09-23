@@ -1016,3 +1016,29 @@ html, body{
     min-height: max-content !important;
   }
 }
+
+/* Mobile dashboard viewport: one viewport owner */
+@media (max-width: 900px) {
+  .db-wrap {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .db-shell {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .db-body {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .db-main {
+    height: 100%;
+    min-height: 0;
+  }
+}
