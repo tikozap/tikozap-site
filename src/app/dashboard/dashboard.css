@@ -1046,7 +1046,7 @@ html, body{
     height: 100%;
     min-height: 0;
     padding-bottom: calc(
-      28px + var(--tz-native-safe-bottom, env(safe-area-inset-bottom))
+      48px + var(--tz-native-safe-bottom, env(safe-area-inset-bottom))
     ) !important;
   }
 }
