@@ -246,6 +246,7 @@ className={[
 
             <div className="db-askTikoComposer">
 <textarea
+  onPointerDown={() => console.log('[Ask Tiko textarea] pointer down')}
   value={draft}
   onChange={(event) =>
     setDraft(event.target.value)
