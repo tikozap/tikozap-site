@@ -2765,8 +2765,10 @@ textarea{
   }
 
   .cx-mobileThreadCard{
-    top:env(safe-area-inset-top) !important;
-    height:calc(100% - env(safe-area-inset-top)) !important;
+    top:var(--tz-native-safe-top, env(safe-area-inset-top)) !important;
+    height:calc(
+      100% - var(--tz-native-safe-top, env(safe-area-inset-top))
+    ) !important;
   }
 
   .cx-mobileInboxTop{
