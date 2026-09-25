@@ -32,6 +32,8 @@ export async function getTenantEntitlement(
     select: {
       billingStatus: true,
       stripeSubscriptionId: true,
+      appleOriginalTransactionId: true,
+      appleCurrentPeriodEnd: true,
       trialEndsAt: true,
     },
   });
@@ -47,11 +49,18 @@ export async function getTenantEntitlement(
    * until Stripe sends customer.subscription.deleted,
    * so merchants keep access through their paid period.
    */
-  const hasPaidAccess =
+  const hasStripePaidAccess =
     Boolean(tenant.stripeSubscriptionId) &&
     (tenant.billingStatus === 'active' ||
       tenant.billingStatus === 'trialing' ||
       tenant.billingStatus === 'past_due');
+
+  const hasApplePaidAccess =
+    Boolean(tenant.appleOriginalTransactionId) &&
+    Boolean(tenant.appleCurrentPeriodEnd) &&
+    tenant.appleCurrentPeriodEnd!.getTime() > now.getTime();
+
+  const hasPaidAccess = hasStripePaidAccess || hasApplePaidAccess;
 
   if (hasPaidAccess) {
     return {

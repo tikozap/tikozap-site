@@ -44,16 +44,23 @@ model Tenant {
   starterLinkSlug    String? @unique
   starterLinkEnabled Boolean @default(true)
 
-  stripeCustomerId          String?
-  stripeSubscriptionId      String?
-  billingStatus             String?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  billingStatus        String?
+
   stripeVoiceCustomerId     String?
   stripeVoiceSubscriptionId String?
   voiceBillingStatus        String?
   voiceCancelAtPeriodEnd    Boolean   @default(false)
   voiceCurrentPeriodEnd     DateTime?
-  stripeCancelAtPeriodEnd   Boolean   @default(false)
-  stripeCurrentPeriodEnd    DateTime?
+
+  stripeCancelAtPeriodEnd Boolean   @default(false)
+  stripeCurrentPeriodEnd  DateTime?
+
+  billingProvider            String?
+  appleProductId             String?
+  appleOriginalTransactionId String?   @unique
+  appleCurrentPeriodEnd      DateTime?
 
   voiceEnabled Boolean @default(false)
 
