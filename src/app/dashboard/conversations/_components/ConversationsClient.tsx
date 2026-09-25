@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAssistantIdentity } from '../../assistant/_components/useAssistantIdentity';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 const KEY_SELECTED = 'tz_db_conversations_selected';
 const KEY_AI_DEFAULT = 'tz_ai_default_newchats'; // "1" or "0"
@@ -198,6 +199,7 @@ export default function ConversationsClient({
   staffName: string;
 }) {
   const { assistantName } = useAssistantIdentity();
+  const isNativeIOS = useNativeIOS();
 
   const fullAssistantName = assistantName?.trim() || 'Emma';
 
@@ -310,6 +312,32 @@ useEffect(() => {
       else mq.removeListener(onChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isNativeIOS || !isMobile || pane !== 'thread') return;
+
+    const viewport = window.visualViewport;
+
+    const logViewport = (event: string) => {
+      console.log('[Thread native viewport]', {
+        event,
+        innerHeight: window.innerHeight,
+        visualHeight: viewport?.height ?? null,
+        visualOffsetTop: viewport?.offsetTop ?? null,
+        activeElement: document.activeElement?.tagName ?? null,
+      });
+    };
+
+    logViewport('mounted');
+
+    const onResize = () => logViewport('resize');
+
+    viewport?.addEventListener('resize', onResize);
+
+    return () => {
+      viewport?.removeEventListener('resize', onResize);
+    };
+  }, [isNativeIOS, isMobile, pane]);
 
   const refreshList = useCallback(async () => {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
@@ -2409,6 +2437,7 @@ const renderMobileThreadScreen = () => (
   <div
     className={[
       'cx-mobileThreadScreen',
+      isNativeIOS ? 'cx-mobileThreadScreen--nativeIOS' : '',
       isOpeningThread ? 'is-opening' : '',
     ].filter(Boolean).join(' ')}
     style={{
