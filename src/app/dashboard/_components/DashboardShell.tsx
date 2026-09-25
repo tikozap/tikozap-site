@@ -424,7 +424,6 @@ export default function DashboardShell({
           padding: 10px 0 10px 12px;
           color: inherit !important;
           text-decoration: none !important;
-          font-size: 13px;
           font-weight: 500;
         }
 
