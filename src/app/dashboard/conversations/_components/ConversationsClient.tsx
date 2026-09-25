@@ -2160,6 +2160,7 @@ className={[
   </div>
 )}
 <textarea
+  onPointerDown={() => console.log('[Thread textarea] pointer down')}
   ref={replyRef}
   value={draft}
   onChange={async (e) => {
