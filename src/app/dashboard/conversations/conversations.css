@@ -2474,8 +2474,10 @@ textarea{
 
 @media (max-width: 900px){
   .cx-replyDock{
-    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
-  }
+    padding-bottom:calc(
+      var(--tz-native-safe-bottom, env(safe-area-inset-bottom, 0px)) + 12px
+  ) !important;
+}
 
   .cx-mobileThreadCard{
     padding-bottom:0 !important;
