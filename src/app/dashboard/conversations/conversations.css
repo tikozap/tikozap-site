@@ -3161,3 +3161,14 @@ textarea{
     justify-self: end !important;
   }
 }
+
+/* Native iOS: keep Thread inside the visible viewport when keyboard opens */
+@media (max-width: 900px) {
+  .cx-mobileThreadScreen.cx-mobileThreadScreen--nativeIOS {
+    top: var(--tz-thread-viewport-top, 0px) !important;
+    bottom: auto !important;
+    height: var(--tz-thread-viewport-height, 100svh) !important;
+    min-height: var(--tz-thread-viewport-height, 100svh) !important;
+    max-height: var(--tz-thread-viewport-height, 100svh) !important;
+  }
+}

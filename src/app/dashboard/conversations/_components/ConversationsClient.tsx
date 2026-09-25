@@ -318,26 +318,41 @@ useEffect(() => {
 
     const viewport = window.visualViewport;
 
-    const logViewport = (event: string) => {
-      console.log('[Thread native viewport]', {
-        event,
-        innerHeight: window.innerHeight,
-        visualHeight: viewport?.height ?? null,
-        visualOffsetTop: viewport?.offsetTop ?? null,
-        activeElement: document.activeElement?.tagName ?? null,
-      });
-    };
+  const logViewport = (event: string) => {
+    const height = viewport?.height ?? window.innerHeight;
+    const offsetTop = viewport?.offsetTop ?? 0;
 
-    logViewport('mounted');
+    document.documentElement.style.setProperty(
+      '--tz-thread-viewport-height',
+      `${height}px`
+    );
 
-    const onResize = () => logViewport('resize');
+    document.documentElement.style.setProperty(
+      '--tz-thread-viewport-top',
+      `${offsetTop}px`
+    );
 
-    viewport?.addEventListener('resize', onResize);
+    console.log('[Thread native viewport]', {
+      event,
+      innerHeight: window.innerHeight,
+      visualHeight: height,
+      visualOffsetTop: offsetTop,
+      activeElement: document.activeElement?.tagName ?? null,
+    });
+  };
 
-    return () => {
-      viewport?.removeEventListener('resize', onResize);
-    };
-  }, [isNativeIOS, isMobile, pane]);
+  logViewport('mounted');
+
+  const onViewportChange = () => logViewport('viewport-change');
+
+  viewport?.addEventListener('resize', onViewportChange);
+  viewport?.addEventListener('scroll', onViewportChange);
+
+  return () => {
+    viewport?.removeEventListener('resize', onViewportChange);
+    viewport?.removeEventListener('scroll', onViewportChange);
+  };
+}, [isNativeIOS, isMobile, pane]);
 
   const refreshList = useCallback(async () => {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
