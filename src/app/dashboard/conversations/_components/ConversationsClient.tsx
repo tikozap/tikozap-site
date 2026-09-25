@@ -318,41 +318,31 @@ useEffect(() => {
 
     const viewport = window.visualViewport;
 
-  const logViewport = (event: string) => {
-    const height = viewport?.height ?? window.innerHeight;
-    const offsetTop = viewport?.offsetTop ?? 0;
+    const applyViewport = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      const offsetTop = viewport?.offsetTop ?? 0;
 
-    document.documentElement.style.setProperty(
-      '--tz-thread-viewport-height',
-      `${height}px`
-    );
+      document.documentElement.style.setProperty(
+        '--tz-thread-viewport-height',
+        `${height}px`
+      );
 
-    document.documentElement.style.setProperty(
-      '--tz-thread-viewport-top',
-      `${offsetTop}px`
-    );
+      document.documentElement.style.setProperty(
+        '--tz-thread-viewport-top',
+        `${offsetTop}px`
+      );
+    };
 
-    console.log('[Thread native viewport]', {
-      event,
-      innerHeight: window.innerHeight,
-      visualHeight: height,
-      visualOffsetTop: offsetTop,
-      activeElement: document.activeElement?.tagName ?? null,
-    });
-  };
+    applyViewport();
 
-  logViewport('mounted');
+    viewport?.addEventListener('resize', applyViewport);
+    viewport?.addEventListener('scroll', applyViewport);
 
-  const onViewportChange = () => logViewport('viewport-change');
-
-  viewport?.addEventListener('resize', onViewportChange);
-  viewport?.addEventListener('scroll', onViewportChange);
-
-  return () => {
-    viewport?.removeEventListener('resize', onViewportChange);
-    viewport?.removeEventListener('scroll', onViewportChange);
-  };
-}, [isNativeIOS, isMobile, pane]);
+    return () => {
+      viewport?.removeEventListener('resize', applyViewport);
+      viewport?.removeEventListener('scroll', applyViewport);
+    };
+  }, [isNativeIOS, isMobile, pane]);
 
   const refreshList = useCallback(async () => {
     const url = showArchived ? '/api/conversations?includeArchived=1' : '/api/conversations';
@@ -2203,7 +2193,6 @@ className={[
   </div>
 )}
 <textarea
-  onPointerDown={() => console.log('[Thread textarea] pointer down')}
   ref={replyRef}
   value={draft}
   onChange={async (e) => {
