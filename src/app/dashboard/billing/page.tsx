@@ -7,7 +7,10 @@ import MobilePageHeader from '../_components/MobilePageHeader';
 import { PRICING_PLANS } from '@/lib/pricingPlans';
 import { useNativeIOS } from '@/hooks/useNativeIOS';
 import {
+  finishNativeStoreKitTransaction,
   getNativeStoreKitProducts,
+  purchaseNativeStoreKitProduct,
+  restoreNativeStoreKitPurchases,
   type NativeStoreKitProduct,
 } from '@/lib/nativeStoreKit';
 
@@ -233,6 +236,126 @@ useEffect(() => {
     if (usage.isNearLimit) return '#b45309';
     return '#111827';
   }, [usage]);
+
+  const purchaseApplePlan = async (productId: string) => {
+  if (savingPlan) return;
+
+  setSavingPlan(productId);
+  setNotice('');
+
+  try {
+    const purchase = await purchaseNativeStoreKitProduct(productId);
+
+    if (purchase.status === 'cancelled') {
+      setSavingPlan(null);
+      return;
+    }
+
+    if (purchase.status === 'pending') {
+      setNotice('Your App Store purchase is pending approval.');
+      setSavingPlan(null);
+      return;
+    }
+
+    if (!purchase.transactionId || !purchase.signedTransaction) {
+      throw new Error(
+        'App Store purchase did not return a complete transaction.'
+      );
+    }
+
+    const res = await fetch('/api/apple/subscription', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        signedTransaction: purchase.signedTransaction,
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        data?.error || 'Could not activate App Store subscription.'
+      );
+    }
+
+    await finishNativeStoreKitTransaction(
+      purchase.transactionId
+    );
+
+    setNotice('App Store subscription activated.');
+    await loadUsage();
+  } catch (err: any) {
+    console.error('[TikoZap StoreKit purchase]', err);
+    setNotice(
+      err?.message || 'Could not complete App Store purchase.'
+    );
+  } finally {
+    setSavingPlan(null);
+  }
+};
+
+const restoreApplePurchases = async () => {
+  if (savingPlan) return;
+
+  setSavingPlan('restore');
+  setNotice('');
+
+  try {
+    const result = await restoreNativeStoreKitPurchases();
+
+    if (result.subscriptions.length === 0) {
+      setNotice('No active App Store subscription was found.');
+      return;
+    }
+
+    let restored = false;
+
+    for (const subscription of result.subscriptions) {
+      if (!subscription.signedTransaction) {
+        continue;
+      }
+
+      const res = await fetch('/api/apple/subscription', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          signedTransaction: subscription.signedTransaction,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not restore App Store subscription.'
+        );
+      }
+
+      restored = true;
+    }
+
+    if (!restored) {
+      throw new Error(
+        'App Store did not return a restorable subscription.'
+      );
+    }
+
+    setNotice('App Store subscription restored.');
+    await loadUsage();
+  } catch (err: any) {
+    console.error('[TikoZap StoreKit restore]', err);
+    setNotice(
+      err?.message || 'Could not restore App Store subscription.'
+    );
+  } finally {
+    setSavingPlan(null);
+  }
+};
 
 const changePlan = async (plan: string) => {
   const clickedBasePlan = plan.replace('-yearly', '');
@@ -519,24 +642,42 @@ const hasPaidPlan =
         }}
       >
         {appleProducts.map((product) => (
-          <div
-            key={product.id}
-            className="db-btn"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'default',
-            }}
-          >
+<button
+  key={product.id}
+  type="button"
+  className="db-btn"
+  disabled={savingPlan !== null}
+  onClick={() => void purchaseApplePlan(product.id)}
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: savingPlan ? 'default' : 'pointer',
+    opacity:
+      savingPlan && savingPlan !== product.id ? 0.6 : 1,
+  }}
+>
             <span>{product.displayName}</span>
             <span style={{ opacity: 0.8, fontSize: 12 }}>
               {product.displayPrice}/month
             </span>
-          </div>
+          </button>
         ))}
       </div>
     )}
+
+    <div style={{ marginTop: 12 }}>
+      <button
+        type="button"
+        className="db-btn"
+        disabled={savingPlan !== null}
+        onClick={() => void restoreApplePurchases()}
+      >
+        {savingPlan === 'restore'
+          ? 'Restoring…'
+          : 'Restore Purchases'}
+      </button>
+    </div>
   </div>
 ) : null}
 

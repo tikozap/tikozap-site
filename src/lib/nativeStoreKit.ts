@@ -11,12 +11,16 @@ export type NativePurchaseResult = {
   status: 'purchased' | 'pending' | 'cancelled';
   productId: string;
   transactionId?: string;
+  originalTransactionId?: string;
+  signedTransaction?: string;
 };
 
 export type NativeRestoreResult = {
   subscriptions: Array<{
     productId: string;
     transactionId: string;
+    originalTransactionId: string;
+    signedTransaction: string;
   }>;
 };
 
@@ -28,6 +32,13 @@ interface TikoZapStoreKitPlugin {
   purchase(options: {
     productId: string;
   }): Promise<NativePurchaseResult>;
+
+  finishTransaction(options: {
+    transactionId: string;
+  }): Promise<{
+    ok: boolean;
+    transactionId: string;
+  }>;
 
   restorePurchases(): Promise<NativeRestoreResult>;
 }
@@ -54,6 +65,18 @@ export async function purchaseNativeStoreKitProduct(productId: string) {
   }
 
   return TikoZapStoreKit.purchase({ productId });
+}
+
+export async function finishNativeStoreKitTransaction(
+  transactionId: string
+) {
+  if (!isNativeStoreKitAvailable()) {
+    throw new Error('Apple In-App Purchase is available only in the iOS app.');
+  }
+
+  return TikoZapStoreKit.finishTransaction({
+    transactionId,
+  });
 }
 
 export async function restoreNativeStoreKitPurchases() {

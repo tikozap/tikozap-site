@@ -2,6 +2,10 @@
 const nextConfig = {
   poweredByHeader: false,
 
+  outputFileTracingIncludes: {
+    '/api/apple/**/*': ['./src/lib/apple/certs/*.cer'],
+  },
+
   eslint: {
     ignoreDuringBuilds: true,
   },
