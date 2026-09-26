@@ -1,30 +1,62 @@
-'use client';
+// src/components/SafetyShields.tsx
+
+"use client";
+
+type Shield = {
+  title: string;
+  tone: "green" | "blue" | "purple";
+  checks: string[];
+};
+
+const shields: Shield[] = [
+  {
+    title: "Security checkups & alerts",
+    tone: "green",
+    checks: [
+      "Suspicious activity alerts",
+      "Security health checks",
+      "Email notifications",
+    ],
+  },
+  {
+    title: "Privacy & data ownership",
+    tone: "blue",
+    checks: [
+      "100% data ownership",
+      "Zero public LLM training",
+      "Export or remove it anytime",
+    ],
+  },
+  {
+    title: "Safe actions & guardrails",
+    tone: "purple",
+    checks: [
+      "AI stays within your limits",
+      "Approval required for sensitive actions",
+      "Every action is logged",
+    ],
+  },
+];
 
 export default function SafetyShields() {
   return (
     <section className="safety-shields">
-      <div className="container">
-        {/* Heading + subtitle */}
-        <header className="shields-head">
-          <h2>Three safety shields</h2>
-          <p className="small shields-sub">
-            Built to be safe from day one - and always under your control.
-          </p>
-        </header>
+      <header className="shields-head">
+        <h2>Your business. Your data. Your rules.</h2>
+        <p>
+          Security, privacy, and control built into every workspace.
+        </p>
+      </header>
 
-        {/* Three cards */}
-        <div className="shields-grid">
-          {/* 1. Security checkups */}
-          <article className="shield-card">
+      <div className="shields-grid">
+        {shields.map((shield) => (
+          <article className="shield-card" key={shield.title}>
             <div className="shield-card-header">
-              <span className="shield-icon shield-icon--green" aria-hidden="true">
-                {/* Shield + check */}
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
+              <span
+                className={`shield-icon shield-icon--${shield.tone}`}
+                aria-hidden="true"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24">
                   <path
                     d="M12 3.5L6 6v5.2c0 4.02 2.7 7.63 6 8.8 3.3-1.17 6-4.78 6-8.8V6l-6-2.5z"
                     fill="none"
@@ -43,184 +75,138 @@ export default function SafetyShields() {
                   />
                 </svg>
               </span>
-              <h3>Security checkups &amp; alerts</h3>
-            </div>
-            <p>
-              TikoZap keeps an eye on risky settings and unusual activity. Your
-              setup admin sees security checkups in the dashboard and by email,
-              so you can fix issues before they become problems.
-            </p>
-          </article>
 
-          {/* 2. Privacy & data ownership */}
-          <article className="shield-card">
-            <div className="shield-card-header">
-              <span className="shield-icon shield-icon--blue" aria-hidden="true">
-                {/* Shield + lock (so it’s really a shield, not just a lock) */}
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 3.5L6 6v5.2c0 4.02 2.7 7.63 6 8.8 3.3-1.17 6-4.78 6-8.8V6l-6-2.5z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <rect
-                    x="9.3"
-                    y="10.7"
-                    width="5.4"
-                    height="4.3"
-                    rx="1.1"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                  />
-                  <path
-                    d="M10.7 10.7V9.4a1.9 1.9 0 0 1 3.8 0v1.3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              <h3>Privacy &amp; data ownership</h3>
+              <h3>{shield.title}</h3>
             </div>
-            <p>
-              Your store data stays yours. Chats, orders, and FAQs live safely
-              in your workspace, and you can export or delete them at any time
-              if you ever leave TikoZap.
-            </p>
-          </article>
 
-          {/* 3. Safe actions & guardrails */}
-          <article className="shield-card">
-            <div className="shield-card-header">
-              <span className="shield-icon shield-icon--purple" aria-hidden="true">
-                {/* Shield + plus = controlled “allowed actions” */}
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 3.5L6 6v5.2c0 4.02 2.7 7.63 6 8.8 3.3-1.17 6-4.78 6-8.8V6l-6-2.5z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M12 9.3v5.4M9.8 12h4.4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              <h3>Safe actions &amp; guardrails</h3>
-            </div>
-            <p>
-              The assistant can only take actions you approve. You define rules
-              and limits for refunds, discounts, and order changes, and answers
-              follow your approved docs and FAQs — with every step logged in the
-              dashboard.
-            </p>
+            <ul className="shield-list">
+              {shield.checks.map((check) => (
+                <li key={check}>
+                  <span aria-hidden="true">✓</span>
+                  {check}
+                </li>
+              ))}
+            </ul>
           </article>
-        </div>
+        ))}
       </div>
 
       <style jsx>{`
-        .safety-shields {
-          padding: 1.75rem 0 2.5rem;
-        }
+.safety-shields {
+  padding: 4.5rem 0 5rem;
+}
 
         .shields-head {
-          text-align: left;
-          margin-bottom: 1.25rem;
+          max-width: 760px;
+          margin-bottom: 2rem;
         }
 
         .shields-head h2 {
           margin: 0;
-          font-size: 1.35rem;
-          line-height: 1.3;
+          font-size: clamp(34px, 3.3vw, 48px);
+          line-height: 1.02;
+          letter-spacing: -0.045em;
+          font-weight: 800;
+          color: #111827;
         }
 
-        .shields-sub {
-          margin-top: 0.25rem;
-        }
+.shields-head p {
+  max-width: none;
+  margin: 1.2rem 0 0;
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: #475569;
+}
 
-        .shields-grid {
-          display: grid;
-          gap: 1rem;
-        }
+.shields-grid {
+  display: grid;
+  gap: 1.6rem;
+}
 
-        .shield-card {
-          border-radius: 1rem;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
-          padding: 1.25rem 1.3rem 1.4rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-        }
+.shield-card {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  padding: 2rem;
+  min-height: 285px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.45rem;
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
+}
+
+.shield-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
 
         .shield-card-header {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          margin: 0 0 0.25rem;
+          gap: 0.85rem;
         }
 
         .shield-card-header h3 {
           margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
+          font-size: 1.05rem;
+          font-weight: 750;
+          line-height: 1.25;
           color: #111827;
         }
 
-        .shield-card p {
-          margin: 0;
-          font-size: 0.92rem;
-          color: #4b5563;
-          line-height: 1.6;
-        }
+.shield-icon {
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
-        .shield-icon {
-          width: 2.4rem;
-          height: 2.4rem;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
+.shield-icon svg {
+  display: block;
+  width: 38px;
+  height: 38px;
+}
 
-        .shield-icon svg {
-          display: block;
-        }
+.shield-icon--green {
+  color: #15803d;
+}
 
-        .shield-icon--green {
-          background: #ecfdf5;
+.shield-icon--blue {
+  color: #1d4ed8;
+}
+
+.shield-icon--purple {
+  color: #6d28d9;
+}
+
+.shield-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 2.85rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.shield-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 1.06rem;
+  line-height: 1.45;
+  color: #374151;
+}
+
+        .shield-list li span {
+          margin-top: 0.05rem;
           color: #16a34a;
-        }
-
-        .shield-icon--blue {
-          background: #eef2ff;
-          color: #2563eb;
-        }
-
-        .shield-icon--purple {
-          background: #f5f3ff;
-          color: #7c3aed;
+          font-weight: 800;
         }
 
         @media (min-width: 768px) {
@@ -228,6 +214,12 @@ export default function SafetyShields() {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
+
+        @media (min-width: 960px) {
+  .shields-head h2 {
+    white-space: nowrap;
+  }
+}
       `}</style>
     </section>
   );

@@ -1,19 +1,1121 @@
-import Link from 'next/link';
+// src/app/dashboard/billing/page.tsx
+
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import MobilePageHeader from '../_components/MobilePageHeader';
+import { PRICING_PLANS } from '@/lib/pricingPlans';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
+import {
+  finishNativeStoreKitTransaction,
+  getNativeStoreKitProducts,
+  getNativeUnfinishedTransactions,
+  purchaseNativeStoreKitProduct,
+  restoreNativeStoreKitPurchases,
+  type NativeStoreKitProduct,
+} from '@/lib/nativeStoreKit';
+
+type BillingPlan = 'starter' | 'pro' | 'business';
+
+type BillingUsage = {
+  plan: BillingPlan;
+  billingStatus?: string;
+  billingInterval?: 'monthly' | 'yearly';
+  entitlementState?: 'paid' | 'trial' | 'trial_expired';
+  trialEndsAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string | null;
+
+  monthlyLimit: number;
+  usedConversations: number;
+  remainingConversations: number;
+  utilizationPct: number;
+
+  isNearLimit: boolean;
+  isOverLimit: boolean;
+
+  windowStart: string;
+  windowEnd: string;
+
+voice: {
+  enabled: boolean;
+  pack: string | null;
+  usedMinutes: number;
+  limitMinutes: number;
+  remainingMinutes: number;
+  utilizationPct: number;
+  periodStart: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  freeQuestionsLimitDaily: number;
+  freeQuestionsUsedToday: number;
+  freeQuestionsRemainingToday: number;
+  freeQuestionsDate: string | null;
+  freeQuestionsTotal: number;
+};
+};
+
+const PLAN_OPTIONS = {
+  monthly: [
+    {
+      plan: 'starter',
+      label: PRICING_PLANS.starter.name,
+      price: `$${PRICING_PLANS.starter.monthly}/mo`,
+    },
+    {
+      plan: 'pro',
+      label: PRICING_PLANS.pro.name,
+      price: `$${PRICING_PLANS.pro.monthly}/mo`,
+    },
+    {
+      plan: 'business',
+      label: PRICING_PLANS.business.name,
+      price: `$${PRICING_PLANS.business.monthly}/mo`,
+    },
+  ],
+
+yearly: [
+  {
+    plan: 'starter-yearly',
+    label: PRICING_PLANS.starter.name,
+    price: '$228/year',
+  },
+  {
+    plan: 'pro-yearly',
+    label: PRICING_PLANS.pro.name,
+    price: '$288/year · Save $60',
+  },
+  {
+    plan: 'business-yearly',
+    label: PRICING_PLANS.business.name,
+    price: '$588/year · Save $120',
+  },
+],
+};
+
+function prettyPlan(plan: BillingPlan): string {
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'business') return 'Business';
+  return 'Starter';
+}
+
+function monthLabel(startIso: string): string {
+  const date = new Date(startIso);
+  return date.toLocaleString(undefined, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function dateLabel(iso?: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 export default function BillingPage() {
-  return (
-    <div>
-      <h1 className="db-title">Billing</h1>
-      <p className="db-sub">Trial/plan/payment state. Stripe wiring later.</p>
+  const isNativeIOS = useNativeIOS();
+  const [usage, setUsage] = useState<BillingUsage | null>(null);
+  const [error, setError] = useState('');
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [banner, setBanner] = useState('');
+  const [billingMode, setBillingMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [appleProducts, setAppleProducts] = useState<NativeStoreKitProduct[]>([]);
+  const [appleProductsLoading, setAppleProductsLoading] = useState(false);
+  const [appleProductsError, setAppleProductsError] = useState('');
 
-      <div style={{ marginTop: 14, border: '1px solid #e5e7eb', borderRadius: 16, padding: 14, background: '#fff' }}>
-        <div style={{ fontWeight: 800 }}>Quick link</div>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Currently the billing choice is in onboarding.
+  const openCustomerPortal = async () => {
+  setNotice('');
+
+  try {
+    const res = await fetch('/api/stripe/portal', {
+      method: 'POST',
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || 'Could not open billing portal.');
+    }
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    setNotice(err?.message || 'Could not open billing portal.');
+  }
+};
+
+  const loadUsage = async () => {
+    try {
+      setError('');
+      const res = await fetch('/api/billing/usage', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok || !data?.usage) {
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+      setUsage(data.usage as BillingUsage);
+    } catch {
+      setError('Billing usage unavailable right now.');
+    }
+  };
+
+useEffect(() => {
+  if (usage?.billingInterval === 'yearly') {
+    setBillingMode('yearly');
+  } else if (usage?.billingInterval === 'monthly') {
+    setBillingMode('monthly');
+  }
+}, [usage?.billingInterval]);
+
+  useEffect(() => {
+    void loadUsage();
+  }, []);
+
+  useEffect(() => {
+  if (!isNativeIOS) return;
+
+  let cancelled = false;
+
+  const loadAppleProducts = async () => {
+    setAppleProductsLoading(true);
+    setAppleProductsError('');
+
+    try {
+      const products = await getNativeStoreKitProducts();
+
+      if (!cancelled) {
+        setAppleProducts(products);
+      }
+    } catch (error) {
+      console.error('[TikoZap StoreKit products]', error);
+
+      if (!cancelled) {
+        setAppleProductsError(
+          'App Store subscriptions are unavailable right now.'
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setAppleProductsLoading(false);
+      }
+    }
+  };
+
+  void loadAppleProducts();
+
+  return () => {
+    cancelled = true;
+  };
+}, [isNativeIOS]);
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get('success') === '1') {
+    setBanner('Subscription updated successfully.');
+  }
+
+  if (params.get('canceled') === '1') {
+    setBanner('Checkout canceled.');
+  }
+}, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 2600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const selectedPlan = usage?.plan ?? 'starter';
+  const progressColor = useMemo(() => {
+    if (!usage) return '#111827';
+    if (usage.isOverLimit) return '#b91c1c';
+    if (usage.isNearLimit) return '#b45309';
+    return '#111827';
+  }, [usage]);
+
+  const recoverUnfinishedApplePurchases = async () => {
+  try {
+    const result = await getNativeUnfinishedTransactions();
+
+    for (const transaction of result.transactions) {
+      if (
+        !transaction.transactionId ||
+        !transaction.signedTransaction
+      ) {
+        continue;
+      }
+
+      const res = await fetch('/api/apple/subscription', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          signedTransaction: transaction.signedTransaction,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        console.error(
+          '[TikoZap StoreKit recovery] Server activation failed.',
+          data
+        );
+        continue;
+      }
+
+      await finishNativeStoreKitTransaction(
+        transaction.transactionId
+      );
+    }
+  } catch (err) {
+    console.error(
+      '[TikoZap StoreKit recovery]',
+      err
+    );
+  }
+};
+
+useEffect(() => {
+  if (!isNativeIOS) return;
+
+  void recoverUnfinishedApplePurchases();
+}, [isNativeIOS]);
+
+  const purchaseApplePlan = async (productId: string) => {
+  if (savingPlan) return;
+
+  setSavingPlan(productId);
+  setNotice('');
+
+  try {
+    const purchase = await purchaseNativeStoreKitProduct(productId);
+
+    if (purchase.status === 'cancelled') {
+      setSavingPlan(null);
+      return;
+    }
+
+    if (purchase.status === 'pending') {
+      setNotice('Your App Store purchase is pending approval.');
+      setSavingPlan(null);
+      return;
+    }
+
+    if (!purchase.transactionId || !purchase.signedTransaction) {
+      throw new Error(
+        'App Store purchase did not return a complete transaction.'
+      );
+    }
+
+    const res = await fetch('/api/apple/subscription', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        signedTransaction: purchase.signedTransaction,
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        data?.error || 'Could not activate App Store subscription.'
+      );
+    }
+
+    await finishNativeStoreKitTransaction(
+      purchase.transactionId
+    );
+
+    setNotice('App Store subscription activated.');
+    await loadUsage();
+  } catch (err: any) {
+    console.error('[TikoZap StoreKit purchase]', err);
+    setNotice(
+      err?.message || 'Could not complete App Store purchase.'
+    );
+  } finally {
+    setSavingPlan(null);
+  }
+};
+
+const restoreApplePurchases = async () => {
+  if (savingPlan) return;
+
+  setSavingPlan('restore');
+  setNotice('');
+
+  try {
+    const result = await restoreNativeStoreKitPurchases();
+
+    if (result.subscriptions.length === 0) {
+      setNotice('No active App Store subscription was found.');
+      return;
+    }
+
+    let restored = false;
+
+    for (const subscription of result.subscriptions) {
+      if (!subscription.signedTransaction) {
+        continue;
+      }
+
+      const res = await fetch('/api/apple/subscription', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          signedTransaction: subscription.signedTransaction,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || 'Could not restore App Store subscription.'
+        );
+      }
+
+      restored = true;
+    }
+
+    if (!restored) {
+      throw new Error(
+        'App Store did not return a restorable subscription.'
+      );
+    }
+
+    setNotice('App Store subscription restored.');
+    await loadUsage();
+  } catch (err: any) {
+    console.error('[TikoZap StoreKit restore]', err);
+    setNotice(
+      err?.message || 'Could not restore App Store subscription.'
+    );
+  } finally {
+    setSavingPlan(null);
+  }
+};
+
+const changePlan = async (plan: string) => {
+  const clickedBasePlan = plan.replace('-yearly', '');
+const clickedInterval = plan.endsWith('-yearly') ? 'yearly' : 'monthly';
+
+const isCurrentPaidPlan =
+  usage?.entitlementState === 'paid' &&
+  clickedBasePlan === selectedPlan &&
+  clickedInterval === usage?.billingInterval;
+
+if (savingPlan || isCurrentPaidPlan) {
+  return;
+}
+
+  setSavingPlan(plan);
+  setNotice('');
+
+  try {
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ plan }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || 'Could not start checkout.');
+    }
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    setNotice(err?.message || 'Could not start checkout.');
+    setSavingPlan(null);
+  }
+};
+
+const startVoiceCheckout = async (pack: 'starter' | 'pro' | 'business') => {
+  if (pack === usage?.voice.pack) return;
+
+  setNotice('');
+
+  try {
+    const res = await fetch('/api/stripe/voice-checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pack }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || 'Could not start voice checkout.');
+    }
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    setNotice(err?.message || 'Could not start voice checkout.');
+  }
+};
+
+const isActiveTrial =
+  usage?.entitlementState === 'trial';
+
+const isExpiredTrial =
+  usage?.entitlementState === 'trial_expired';
+
+const hasPaidPlan =
+  usage?.entitlementState === 'paid';
+
+  return (
+    <div className="db-container">
+      <MobilePageHeader title="Billing" />
+
+      <div className="db-pageStack">
+        <h1 className="db-title">Billing</h1>
+<p className="db-sub">
+  {isNativeIOS
+    ? 'Usage limits are enforced monthly by plan. View your current plan and usage here.'
+    : 'Usage limits are enforced monthly by plan. Manage your subscription and usage here.'}
+</p>
+
+{!isNativeIOS && banner ? (
+  <div className="db-card">
+    <p
+      className="db-cardText"
+      style={{
+        color: banner.toLowerCase().includes('canceled')
+          ? '#b45309'
+          : '#065f46',
+      }}
+    >
+      {banner}
+    </p>
+  </div>
+) : null}   
+
+        {/* Current plan */}
+        <div className="db-card">
+          <div className="db-cardTitle">Current plan</div>
+
+          {error ? (
+            <p className="db-cardText" style={{ color: '#b91c1c' }}>{error}</p>
+          ) : !usage ? (
+            <p className="db-cardText">Loading…</p>
+          ) : (
+            <>
+{isExpiredTrial ? (
+  <>
+    <p
+      className="db-cardText"
+      style={{ fontWeight: 700 }}
+    >
+      No active plan
+    </p>
+
+    <p
+      className="db-cardText"
+      style={{
+        marginTop: 6,
+        color: '#b45309',
+      }}
+    >
+      {isNativeIOS
+  ? 'Your 14-day Pro trial has ended.'
+  : 'Your 14-day Pro trial has ended. Choose a plan below to continue.'}
+    </p>
+  </>
+) : (
+  <p className="db-cardText">
+    {prettyPlan(usage.plan)}
+
+    {isActiveTrial ? (
+      <span
+        style={{
+          marginLeft: 6,
+          padding: '2px 7px',
+          borderRadius: 999,
+          background: '#ecfdf5',
+          color: '#047857',
+          fontSize: 12,
+          fontWeight: 800,
+        }}
+      >
+        Trial
+      </span>
+    ) : null}
+
+    {' '}· {usage.usedConversations}/{usage.monthlyLimit} conversations used (
+    {usage.utilizationPct}%)
+  </p>
+)}
+              <p className="db-cardText" style={{ fontSize: 13 }}>
+                Billing window: {monthLabel(usage.windowStart)}
+              </p>
+
+{usage.cancelAtPeriodEnd && usage.currentPeriodEnd ? (
+  <p
+    className="db-cardText"
+    style={{
+      fontSize: 13,
+      color: '#b45309',
+      fontWeight: 700,
+    }}
+  >
+    Your plan is scheduled to cancel on {dateLabel(usage.currentPeriodEnd)}.
+  </p>
+) : null}
+
+{usage.billingStatus === 'past_due' ? (
+  <div
+    style={{
+      marginTop: 10,
+      padding: '10px 12px',
+      borderRadius: 8,
+      background: '#fffbeb',
+      border: '1px solid #fde68a',
+    }}
+  >
+    <p
+      className="db-cardText"
+      style={{
+        margin: 0,
+        color: '#92400e',
+        fontWeight: 800,
+      }}
+    >
+      Payment needs attention
+    </p>
+    <p
+      className="db-cardText"
+      style={{
+        marginTop: 4,
+        marginBottom: 0,
+        color: '#92400e',
+        fontSize: 13,
+      }}
+    >
+{isNativeIOS ? (
+  <>
+    We couldn&apos;t process your latest payment. Your TikoZap service
+    remains active while payment is retried.
+  </>
+) : (
+  <>
+    We couldn&apos;t process your latest payment. Your TikoZap service
+    remains active while payment is retried. Please update your payment
+    method to avoid interruption.
+  </>
+)}
+    </p>
+  </div>
+) : null}
+
+              <div
+                style={{
+                  marginTop: 10,
+                  width: '100%',
+                  height: 10,
+                  borderRadius: 999,
+                  background: '#e5e7eb',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    height: '100%',
+                    width: `${Math.min(100, usage.utilizationPct)}%`,
+                    background: progressColor,
+                    borderRadius: 999,
+                    transition: 'width 180ms ease',
+                  }}
+                />
+              </div>
+
+{usage.isOverLimit ? (
+  <p className="db-cardText" style={{ color: '#b91c1c' }}>
+    {isNativeIOS
+      ? 'Monthly conversation limit reached.'
+      : 'Limit reached. Upgrade plan to allow new conversations this month.'}
+  </p>
+) : usage.isNearLimit ? (
+  <p className="db-cardText" style={{ color: '#b45309' }}>
+    {isNativeIOS
+      ? 'You are near your monthly conversation limit.'
+      : 'Near monthly limit. Consider upgrading to avoid interruptions.'}
+  </p>
+) : (
+                <p className="db-cardText" style={{ color: '#065f46' }}>
+                  Remaining this month: {usage.remainingConversations} conversations.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Apple In-App Purchase plans */}
+{isNativeIOS ? (
+  <div className="db-card">
+    <div className="db-cardTitle">Plans</div>
+
+    <p className="db-cardText">
+      Choose a monthly plan through the App Store.
+    </p>
+
+    {appleProductsLoading ? (
+      <p className="db-cardText">Loading App Store plans…</p>
+    ) : appleProductsError ? (
+      <p className="db-cardText" style={{ color: '#b91c1c' }}>
+        {appleProductsError}
+      </p>
+    ) : appleProducts.length === 0 ? (
+      <p className="db-cardText">
+        App Store subscriptions are currently unavailable.
+      </p>
+    ) : (
+      <div
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        {appleProducts.map((product) => (
+<button
+  key={product.id}
+  type="button"
+  className="db-btn"
+  disabled={savingPlan !== null}
+  onClick={() => void purchaseApplePlan(product.id)}
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: savingPlan ? 'default' : 'pointer',
+    opacity:
+      savingPlan && savingPlan !== product.id ? 0.6 : 1,
+  }}
+>
+            <span>{product.displayName}</span>
+            <span style={{ opacity: 0.8, fontSize: 12 }}>
+              {product.displayPrice}/month
+            </span>
+          </button>
+        ))}
+      </div>
+    )}
+
+    <div style={{ marginTop: 12 }}>
+      <button
+        type="button"
+        className="db-btn"
+        disabled={savingPlan !== null}
+        onClick={() => void restoreApplePurchases()}
+      >
+        {savingPlan === 'restore'
+          ? 'Restoring…'
+          : 'Restore Purchases'}
+      </button>
+    </div>
+  </div>
+) : null}
+
+        {/* Change plan */}
+        {!isNativeIOS ? (
+        <div className="db-card">
+          <div className="db-cardTitle">Change plan</div>
+          <p className="db-cardText">
+            Secure checkout powered by Stripe.
+          </p>
+
+<div
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0,
+    padding: 0,
+    borderRadius: 9999,
+    border: '1px solid #e5e7eb',
+    background: '#f3f4f6',
+  }}
+>
+<button
+  type="button"
+  onClick={() => setBillingMode('monthly')}
+  style={{
+    border: 'none',
+    background:
+      billingMode === 'monthly' ? '#111827' : 'transparent',
+    color:
+      billingMode === 'monthly' ? '#ffffff' : '#6b7280',
+    padding: '5px 12px',
+fontSize: 13,
+fontWeight: 700,
+lineHeight: 1,
+    borderRadius: '9999px',
+    cursor: 'pointer',
+    boxShadow:
+      billingMode === 'monthly'
+        ? '0 4px 10px rgba(17, 24, 39, 0.25)'
+        : 'none',
+  }}
+>
+  Monthly
+</button>
+
+<button
+  type="button"
+  onClick={() => setBillingMode('yearly')}
+  style={{
+    border: 'none',
+    background:
+      billingMode === 'yearly' ? '#111827' : 'transparent',
+    color:
+      billingMode === 'yearly' ? '#ffffff' : '#6b7280',
+    padding: '5px 16px',
+fontSize: 13,
+fontWeight: 700,
+lineHeight: 1,
+    borderRadius: '9999px',
+    cursor: 'pointer',
+    boxShadow:
+      billingMode === 'yearly'
+        ? '0 4px 10px rgba(17, 24, 39, 0.25)'
+        : 'none',
+  }}
+>
+  Yearly
+</button>
+</div>
+
+<p
+  style={{
+    marginTop: 8,
+    marginBottom: 0,
+    fontSize: 13,
+    color: '#6b7280',
+  }}
+>
+  Choose annual billing and save up to $120 per year.
+</p>
+
+<div
+  style={{
+    marginTop: 14,
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  }}
+>
+  {PLAN_OPTIONS[billingMode].map((option: any) => {
+    const normalizedPlan = option.plan.replace('-yearly', '');
+    const optionInterval = option.plan.endsWith('-yearly')
+      ? 'yearly'
+      : 'monthly';
+
+const active =
+  hasPaidPlan &&
+  normalizedPlan === selectedPlan &&
+  optionInterval === usage?.billingInterval;
+
+    return (
+      <button
+        key={option.plan}
+        type="button"
+        className="db-btn"
+        onClick={() => changePlan(option.plan)}
+        disabled={savingPlan !== null}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          background: active ? '#e5e7eb' : '#fff',
+          borderColor: active ? '#cbd5e1' : '#d1d5db',
+          fontWeight: active ? 800 : 600,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span>
+          {active ? `${option.label} (Current)` : option.label}
+        </span>
+
+        <span style={{ opacity: 0.8, fontSize: 12 }}>
+          {savingPlan === option.plan
+            ? 'Opening secure checkout…'
+            : option.price}
+        </span>
+      </button>
+    );
+  })}
+
+  <button
+    type="button"
+    className="db-btn"
+    onClick={openCustomerPortal}
+    style={{
+      whiteSpace: 'nowrap',
+    }}
+  >
+    Manage subscription
+  </button>
+</div>
+
+          {notice ? (
+            <p
+              className="db-cardText"
+              style={{
+                color: notice.toLowerCase().includes('could not') ? '#b91c1c' : '#065f46',
+              }}
+            >
+              {notice}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+{/* Realtime Voice Concierge */}
+<div className="db-card">
+  <div className="db-cardTitle">Realtime Voice Concierge</div>
+
+  {!usage ? (
+    <p className="db-cardText">Loading…</p>
+  ) : (
+    <>
+      <div
+        style={{
+          marginTop: 8,
+          marginBottom: 12,
+          padding: '12px 14px',
+          borderRadius: 10,
+          background: '#ecfdf5',
+          border: '1px solid #bbf7d0',
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>
+          Free Voice included
+        </div>
+
+        <div style={{ marginTop: 4, fontSize: 13, color: '#047857' }}>
+          Every store gets 20 free Voice questions per day, even without a subscription.
+        </div>
+      </div>
+
+      <p className="db-cardText" style={{ fontWeight: 700 }}>
+        Today&apos;s free Voice usage
+      </p>
+
+      <p className="db-cardText">
+{Math.min(
+  usage.voice.freeQuestionsUsedToday || 0,
+  usage.voice.freeQuestionsLimitDaily || 20
+)}
+/
+{usage.voice.freeQuestionsLimitDaily || 20} free questions used today
+      </p>
+
+      <div
+        style={{
+          marginTop: 8,
+          width: '100%',
+          height: 10,
+          borderRadius: 999,
+          background: '#e5e7eb',
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            display: 'block',
+            height: '100%',
+            width: `${Math.min(
+              100,
+              Math.round(
+                ((usage.voice.freeQuestionsUsedToday || 0) /
+                  (usage.voice.freeQuestionsLimitDaily || 20)) *
+                  100
+              )
+            )}%`,
+            background: '#111827',
+            borderRadius: 999,
+            transition: 'width 180ms ease',
+          }}
+        />
+      </div>
+
+{usage.voice.freeQuestionsRemainingToday <= 0 ? (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: usage.voice.enabled ? '#065f46' : '#b45309',
+      fontWeight: 700,
+    }}
+  >
+{usage.voice.enabled
+  ? 'Daily free Voice questions used. Voice minutes are now being used.'
+  : isNativeIOS
+  ? 'Daily free Voice limit reached. You can continue tomorrow.'
+  : 'Daily free Voice limit reached. Upgrade to a Voice plan or continue tomorrow.'}
+  </p>
+) : (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: '#065f46',
+    }}
+  >
+    Remaining today:{' '}
+    {usage.voice.freeQuestionsRemainingToday ?? 20} free questions
+  </p>
+)}
+
+      {usage.voice.enabled ? (
+        <>
+          <p className="db-cardText" style={{ marginTop: 14 }}>
+            {usage.voice.pack
+              ? `Voice ${usage.voice.pack.charAt(0).toUpperCase()}${usage.voice.pack.slice(1)}`
+              : 'Voice'}{' '}
+            · {usage.voice.usedMinutes}/{usage.voice.limitMinutes} minutes used this billing cycle
+          </p>
+
+{usage.voice.cancelAtPeriodEnd &&
+usage.voice.currentPeriodEnd ? (
+  <p
+    className="db-cardText"
+    style={{
+      marginTop: 8,
+      color: '#b45309',
+      fontWeight: 700,
+    }}
+  >
+    Your Voice plan is scheduled to cancel on{' '}
+    {dateLabel(usage.voice.currentPeriodEnd)}.
+  </p>
+) : null}
+
+          <div
+            style={{
+              marginTop: 8,
+              width: '100%',
+              height: 10,
+              borderRadius: 999,
+              background: '#e5e7eb',
+              overflow: 'hidden',
+            }}
+          >
+            <span
+              style={{
+                display: 'block',
+                height: '100%',
+                width: `${Math.min(100, usage.voice.utilizationPct)}%`,
+                background:
+                  usage.voice.utilizationPct >= 90
+                    ? '#b91c1c'
+                    : usage.voice.utilizationPct >= 70
+                    ? '#b45309'
+                    : '#111827',
+                borderRadius: 999,
+                transition: 'width 180ms ease',
+              }}
+            />
+          </div>
+
+<p
+  className="db-cardText"
+  style={{
+    marginTop: 8,
+    color: usage.voice.remainingMinutes <= 0 ? '#b91c1c' : '#065f46',
+  }}
+>
+  Remaining this billing cycle: {usage.voice.remainingMinutes} minutes
+</p>
+        </>
+      ) : !isNativeIOS ? (
+        <p className="db-cardText" style={{ fontSize: 13, color: '#6b7280' }}>
+          Need more voice? Upgrade anytime for monthly Voice minutes.
         </p>
-        <Link className="db-btn primary" href="/onboarding/billing" style={{ display: 'inline-flex', marginTop: 10 }}>
-          Open Billing Step
-        </Link>
+      ) : null}
+
+      {!isNativeIOS ? (
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('starter')}
+            style={{
+              background: usage.voice.pack === 'starter' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'starter' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'starter' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'starter'
+              ? 'Voice Starter (Current) · 100 min · $9'
+              : 'Voice Starter · 100 min · $9'}
+          </button>
+
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('pro')}
+            style={{
+              background: usage.voice.pack === 'pro' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'pro' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'pro' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'pro'
+              ? 'Voice Pro (Current) · 350 min · $29'
+              : 'Voice Pro · 350 min · $29'}
+          </button>
+
+          <button
+            type="button"
+            className="db-btn"
+            onClick={() => startVoiceCheckout('business')}
+            style={{
+              background: usage.voice.pack === 'business' ? '#e5e7eb' : '#fff',
+              borderColor: usage.voice.pack === 'business' ? '#cbd5e1' : '#d1d5db',
+              fontWeight: usage.voice.pack === 'business' ? 800 : 600,
+            }}
+          >
+            {usage.voice.pack === 'business'
+              ? 'Voice Business (Current) · 1100 min · $99'
+              : 'Voice Business · 1100 min · $99'}
+          </button>
+
+          <button
+            type="button"
+            className="db-btn"
+            onClick={openCustomerPortal}
+          >
+            Manage Voice subscription
+          </button>
+        </div>
+      ) : null}
+    </>
+  )}
+</div>
       </div>
     </div>
   );

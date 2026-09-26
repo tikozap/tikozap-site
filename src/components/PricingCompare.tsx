@@ -1,120 +1,129 @@
+// src/components/PricingCompare.tsx
+
 'use client';
+
+import { Fragment } from 'react';
+import { PRICING_PLANS } from '@/lib/pricingPlans';
 
 const ROW_GROUPS = [
   {
-    label: 'Core assistant',
+    label: 'Core platform',
     rows: [
       {
-        label: 'Full AI assistant',
+        label: 'AI store assistant',
         starter: '✓',
         pro: '✓',
         business: '✓',
         agency: '✓',
       },
       {
-        label: 'Store-aware answers (orders, products, policies)',
+        label: 'Website widget',
         starter: '✓',
         pro: '✓',
         business: '✓',
         agency: '✓',
       },
       {
-        label: 'Safe actions with guardrails',
-        starter: 'Basic',
-        pro: 'Standard',
-        business: 'Advanced',
-        agency: 'Advanced',
+        label: 'Inbox / conversations',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+      {
+        label: 'Store-aware answers',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
       },
     ],
   },
+
   {
-    label: 'Volume & limits',
+    label: 'Starter Link & products',
     rows: [
       {
-        label: 'Included chats / month',
-        starter: '1,000',
-        pro: '5,000',
-        business: '15,000',
+        label: 'Starter Link storefront',
+        starter: '✓',
+        pro: '✓',
+        business: '✓',
+        agency: '✓',
+      },
+{
+  label: 'Starter Link products',
+  starter: `Up to ${PRICING_PLANS.starter.starterLinkProducts}`,
+  pro: `Up to ${PRICING_PLANS.pro.starterLinkProducts}`,
+  business: 'Custom',
+  agency: 'Per client',
+},
+      {
+        label: 'Custom branding',
+        starter: 'Basic',
+        pro: 'Advanced',
+        business: 'Advanced',
+        agency: 'White-label',
+      },
+    ],
+  },
+
+  {
+    label: 'Usage & scale',
+    rows: [
+      {
+        label: 'Included AI usage',
+        starter: 'Standard',
+        pro: 'Higher',
+        business: 'Higher',
         agency: 'Per workspace',
       },
       {
-        label: 'Overage',
-        starter: '$5 / extra 1,000',
-        pro: '$5 / extra 1,000',
-        business: '$5 / extra 1,000',
-        agency: '$5 / extra 1,000',
+        label: 'Heavy usage add-ons',
+        starter: 'Optional',
+        pro: 'Optional',
+        business: 'Optional',
+        agency: 'Optional',
       },
       {
-        label: 'Included sites / widgets',
-        starter: '1',
-        pro: '3',
-        business: '5',
-        agency: 'Client workspaces',
-      },
-      {
-        label: 'Included data sources',
-        starter: '1',
-        pro: '5',
-        business: '15',
-        agency: 'Shared pool',
+        label: 'Realtime voice add-on',
+        starter: 'Later',
+        pro: 'Later',
+        business: 'Available',
+        agency: 'Available',
       },
     ],
   },
+
   {
-    label: 'Team & workflow',
+    label: 'Team & support',
     rows: [
       {
-        label: 'Seats / agents',
+        label: 'Seats',
         starter: '1',
         pro: '2',
         business: '5',
         agency: 'Per workspace',
       },
       {
-        label: 'Workflows & automations',
-        starter: '—',
-        pro: '✓',
-        business: '✓',
-        agency: '✓',
-      },
-      {
-        label: 'Routing & escalation rules',
-        starter: '—',
-        pro: 'Standard',
-        business: 'Advanced',
-        agency: 'Advanced',
-      },
-    ],
-  },
-  {
-    label: 'Support',
-    rows: [
-      {
         label: 'Email support',
-        starter: '24–48 hours',
-        pro: 'Within 24 hours',
-        business: 'Within 8 hours',
-        agency: 'Within 4 hours',
+        starter: '24–48 hrs',
+        pro: 'Within 24 hrs',
+        business: 'Within 8 hrs',
+        agency: 'Within 4 hrs',
       },
       {
         label: 'Onboarding help',
-        starter: 'Self-serve docs',
-        pro: 'Email guidance',
-        business: 'Email + call (by request)',
-        agency: 'White-glove onboarding',
+        starter: 'Docs',
+        pro: 'Email',
+        business: 'Priority',
+        agency: 'White-glove',
       },
     ],
   },
+
   {
-    label: 'Brand & agency',
+    label: 'Agency',
     rows: [
-      {
-        label: 'Custom branding on widget',
-        starter: '✓',
-        pro: '✓',
-        business: '✓',
-        agency: '✓',
-      },
       {
         label: 'Client workspaces',
         starter: '—',
@@ -123,7 +132,14 @@ const ROW_GROUPS = [
         agency: '5 included',
       },
       {
-        label: 'White-label dashboard & domain',
+        label: 'White-label dashboard',
+        starter: '—',
+        pro: '—',
+        business: '—',
+        agency: '✓',
+      },
+      {
+        label: 'Custom domain',
         starter: '—',
         pro: '—',
         business: '—',
@@ -139,8 +155,7 @@ export default function PricingCompare() {
       <header className="stack">
         <h2 id="compare-heading">Compare plans</h2>
         <p className="small">
-          All plans share the same core AI assistant. Higher tiers add more volume, seats,
-          and control.
+          All plans include the AI storefront foundation. Higher tiers add more products, usage, and growth tools.
         </p>
       </header>
 
@@ -148,22 +163,21 @@ export default function PricingCompare() {
         <table>
           <thead>
             <tr>
-              <th scope="col"></th>
-              <th scope="col">Starter</th>
-              <th scope="col">Pro</th>
-              <th scope="col">Business</th>
-              <th scope="col">Agency</th>
+<th scope="col">{PRICING_PLANS.starter.name}</th>
+<th scope="col">{PRICING_PLANS.pro.name}</th>
+<th scope="col">{PRICING_PLANS.business.name}</th>
+<th scope="col">{PRICING_PLANS.agency.name}</th>
             </tr>
           </thead>
           <tbody>
-            {ROW_GROUPS.map((group) => (
+            {ROW_GROUPS.map((group: any) => (
               <Fragment key={group.label}>
                 <tr className="group-row">
                   <th colSpan={5} scope="rowgroup">
                     {group.label}
                   </th>
                 </tr>
-                {group.rows.map((row) => (
+                {group.rows.map((row: any) => (
                   <tr key={row.label}>
                     <th scope="row">{row.label}</th>
                     <td>{row.starter}</td>
@@ -247,5 +261,3 @@ export default function PricingCompare() {
     </section>
   );
 }
-
-import { Fragment } from 'react';
