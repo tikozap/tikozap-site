@@ -24,6 +24,15 @@ export type NativeRestoreResult = {
   }>;
 };
 
+export type NativeUnfinishedTransactionsResult = {
+  transactions: Array<{
+    productId: string;
+    transactionId: string;
+    originalTransactionId: string;
+    signedTransaction: string;
+  }>;
+};
+
 interface TikoZapStoreKitPlugin {
   getProducts(): Promise<{
     products: NativeStoreKitProduct[];
@@ -40,6 +49,7 @@ interface TikoZapStoreKitPlugin {
     transactionId: string;
   }>;
 
+  getUnfinishedTransactions(): Promise<NativeUnfinishedTransactionsResult>;
   restorePurchases(): Promise<NativeRestoreResult>;
 }
 
@@ -77,6 +87,14 @@ export async function finishNativeStoreKitTransaction(
   return TikoZapStoreKit.finishTransaction({
     transactionId,
   });
+}
+
+export async function getNativeUnfinishedTransactions() {
+  if (!isNativeStoreKitAvailable()) {
+    throw new Error('Apple In-App Purchase is available only in the iOS app.');
+  }
+
+  return TikoZapStoreKit.getUnfinishedTransactions();
 }
 
 export async function restoreNativeStoreKitPurchases() {

@@ -9,6 +9,7 @@ import { useNativeIOS } from '@/hooks/useNativeIOS';
 import {
   finishNativeStoreKitTransaction,
   getNativeStoreKitProducts,
+  getNativeUnfinishedTransactions,
   purchaseNativeStoreKitProduct,
   restoreNativeStoreKitPurchases,
   type NativeStoreKitProduct,
@@ -236,6 +237,56 @@ useEffect(() => {
     if (usage.isNearLimit) return '#b45309';
     return '#111827';
   }, [usage]);
+
+  const recoverUnfinishedApplePurchases = async () => {
+  try {
+    const result = await getNativeUnfinishedTransactions();
+
+    for (const transaction of result.transactions) {
+      if (
+        !transaction.transactionId ||
+        !transaction.signedTransaction
+      ) {
+        continue;
+      }
+
+      const res = await fetch('/api/apple/subscription', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          signedTransaction: transaction.signedTransaction,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        console.error(
+          '[TikoZap StoreKit recovery] Server activation failed.',
+          data
+        );
+        continue;
+      }
+
+      await finishNativeStoreKitTransaction(
+        transaction.transactionId
+      );
+    }
+  } catch (err) {
+    console.error(
+      '[TikoZap StoreKit recovery]',
+      err
+    );
+  }
+};
+
+useEffect(() => {
+  if (!isNativeIOS) return;
+
+  void recoverUnfinishedApplePurchases();
+}, [isNativeIOS]);
 
   const purchaseApplePlan = async (productId: string) => {
   if (savingPlan) return;

@@ -21,6 +21,10 @@ public class TikoZapStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             returnType: CAPPluginReturnPromise
         ),
         CAPPluginMethod(
+            name: "getUnfinishedTransactions",
+            returnType: CAPPluginReturnPromise
+        ),
+        CAPPluginMethod(
             name: "restorePurchases",
             returnType: CAPPluginReturnPromise
         )
@@ -177,6 +181,34 @@ public class TikoZapStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject(
                 "Unfinished App Store transaction not found."
             )
+        }
+    }
+
+    @objc func getUnfinishedTransactions(_ call: CAPPluginCall) {
+        Task {
+            var unfinished: [[String: Any]] = []
+
+            for await result in Transaction.unfinished {
+                guard
+                    case .verified(let transaction) = result,
+                    productIDs.contains(transaction.productID)
+                else {
+                    continue
+                }
+
+                unfinished.append([
+                    "productId": transaction.productID,
+                    "transactionId": String(transaction.id),
+                    "originalTransactionId":
+                        String(transaction.originalID),
+                    "signedTransaction":
+                        result.jwsRepresentation
+                ])
+            }
+
+            call.resolve([
+                "transactions": unfinished
+            ])
         }
     }
 
