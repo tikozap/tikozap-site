@@ -263,6 +263,16 @@ useEffect(() => {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
+        if (
+          data?.verified === true &&
+          data?.finishTransaction === true
+        ) {
+          await finishNativeStoreKitTransaction(
+            transaction.transactionId
+          );
+          continue;
+        }
+
         console.error(
           '[TikoZap StoreKit recovery] Server activation failed.',
           data

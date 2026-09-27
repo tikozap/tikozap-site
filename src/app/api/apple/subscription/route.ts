@@ -98,6 +98,9 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: false,
+        verified: true,
+        finishTransaction: true,
+        reason: 'expired',
         error: 'App Store subscription has expired.',
       },
       {
