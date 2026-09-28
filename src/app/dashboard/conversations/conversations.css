@@ -2865,6 +2865,12 @@ textarea{
     gap:14px;
   }
 
+  .cx-rightDrawer.cx-rightDrawer--nativeIOS {
+    height: calc(100dvh - var(--tz-native-safe-top, env(safe-area-inset-top)));
+    min-height: calc(100dvh - var(--tz-native-safe-top, env(safe-area-inset-top)));
+    margin-top: var(--tz-native-safe-top, env(safe-area-inset-top));
+  }
+
   .cx-rightDrawer .cx-sheetTop{
     align-items:flex-start;
     padding-bottom:12px;

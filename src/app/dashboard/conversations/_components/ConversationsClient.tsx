@@ -1466,7 +1466,15 @@ const renderMobileInboxMenu = () => {
 
   return (
     <div className="cx-rightDrawerOverlay" onClick={() => setMobileInboxMenuOpen(false)}>
-      <aside className="cx-rightDrawer" onClick={(e) => e.stopPropagation()}>
+      <aside
+  className={[
+    'cx-rightDrawer',
+    isNativeIOS ? 'cx-rightDrawer--nativeIOS' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')}
+  onClick={(e) => e.stopPropagation()}
+>
         <div className="cx-sheetTop">
           <div>
             <div className="cx-sheetTitle">Inbox filters</div>
@@ -1533,7 +1541,15 @@ const renderThreadMenuSheet = () => {
 
   return (
     <div className="cx-rightDrawerOverlay" onClick={() => setThreadMenuOpen(false)}>
-  <aside className="cx-rightDrawer" onClick={(e) => e.stopPropagation()}>
+  <aside
+  className={[
+    'cx-rightDrawer',
+    isNativeIOS ? 'cx-rightDrawer--nativeIOS' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')}
+  onClick={(e) => e.stopPropagation()}
+>
         <div className="cx-sheetTop">
           <div>
             <div className="cx-sheetTitle">{thread.customerName}</div>
