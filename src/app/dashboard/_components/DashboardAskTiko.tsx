@@ -541,9 +541,10 @@ className={[
     width: min(390px, 100vw);
   }
 
-  .db-askTikoPanel.db-askTikoPanel--nativeIOS {
-   width: 100vw;
-  }
+.db-askTikoPanel.db-askTikoPanel--nativeIOS {
+  width: 100vw;
+  top: var(--tz-native-safe-top, env(safe-area-inset-top));
+}
 
   .db-askTikoClose {
     display: inline-flex;
