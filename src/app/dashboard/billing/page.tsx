@@ -7,6 +7,7 @@ import MobilePageHeader from '../_components/MobilePageHeader';
 import { PRICING_PLANS } from '@/lib/pricingPlans';
 import { useNativeIOS } from '@/hooks/useNativeIOS';
 import {
+  addNativeStoreKitTransactionListener,
   finishNativeStoreKitTransaction,
   getNativeStoreKitProducts,
   getNativeUnfinishedTransactions,
@@ -296,6 +297,81 @@ useEffect(() => {
   if (!isNativeIOS) return;
 
   void recoverUnfinishedApplePurchases();
+}, [isNativeIOS]);
+
+  useEffect(() => {
+  if (!isNativeIOS) return;
+
+  let cancelled = false;
+  let listenerHandle: Awaited<
+    ReturnType<typeof addNativeStoreKitTransactionListener>
+  > = null;
+
+  void (async () => {
+    listenerHandle =
+      await addNativeStoreKitTransactionListener(
+        async (transaction) => {
+          if (
+            cancelled ||
+            !transaction.transactionId ||
+            !transaction.signedTransaction
+          ) {
+            return;
+          }
+
+          try {
+            const res = await fetch('/api/apple/subscription', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                signedTransaction:
+                  transaction.signedTransaction,
+              }),
+            });
+
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok || !data?.ok) {
+              if (
+                data?.verified === true &&
+                data?.finishTransaction === true
+              ) {
+                await finishNativeStoreKitTransaction(
+                  transaction.transactionId
+                );
+                return;
+              }
+
+              console.error(
+                '[TikoZap StoreKit update] Server activation failed.',
+                data
+              );
+              return;
+            }
+
+            await finishNativeStoreKitTransaction(
+              transaction.transactionId
+            );
+
+            if (!cancelled) {
+              await loadUsage();
+            }
+          } catch (err) {
+            console.error(
+              '[TikoZap StoreKit update]',
+              err
+            );
+          }
+        }
+      );
+  })();
+
+  return () => {
+    cancelled = true;
+    void listenerHandle?.remove();
+  };
 }, [isNativeIOS]);
 
   const purchaseApplePlan = async (productId: string) => {

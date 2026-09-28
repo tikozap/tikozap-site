@@ -4,6 +4,8 @@ import StoreKit
 
 @objc(TikoZapStoreKitPlugin)
 public class TikoZapStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
+    private var transactionUpdatesTask: Task<Void, Never>?
+
     public let identifier = "TikoZapStoreKitPlugin"
     public let jsName = "TikoZapStoreKit"
 
@@ -35,6 +37,34 @@ public class TikoZapStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         "com.tikozap.pro.monthly",
         "com.tikozap.business.monthly"
     ]
+
+    public override func load() {
+        transactionUpdatesTask = Task { [weak self] in
+            for await result in Transaction.updates {
+                guard let self else { return }
+
+                guard
+                    case .verified(let transaction) = result,
+                    self.productIDs.contains(transaction.productID)
+                else {
+                    continue
+                }
+
+                self.notifyListeners(
+                    "transactionUpdated",
+                    data: [
+                        "productId": transaction.productID,
+                        "transactionId": String(transaction.id),
+                        "originalTransactionId":
+                            String(transaction.originalID),
+                        "signedTransaction":
+                            result.jwsRepresentation
+                    ],
+                    retainUntilConsumed: true
+                )
+            }
+        }
+    }
 
     @objc func getProducts(_ call: CAPPluginCall) {
         Task {

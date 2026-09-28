@@ -1,4 +1,8 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import {
+  Capacitor,
+  registerPlugin,
+  type PluginListenerHandle,
+} from '@capacitor/core';
 
 export type NativeStoreKitProduct = {
   id: string;
@@ -33,6 +37,13 @@ export type NativeUnfinishedTransactionsResult = {
   }>;
 };
 
+export type NativeStoreKitTransaction = {
+  productId: string;
+  transactionId: string;
+  originalTransactionId: string;
+  signedTransaction: string;
+};
+
 interface TikoZapStoreKitPlugin {
   getProducts(): Promise<{
     products: NativeStoreKitProduct[];
@@ -51,6 +62,11 @@ interface TikoZapStoreKitPlugin {
 
   getUnfinishedTransactions(): Promise<NativeUnfinishedTransactionsResult>;
   restorePurchases(): Promise<NativeRestoreResult>;
+
+  addListener(
+    eventName: 'transactionUpdated',
+    listenerFunc: (transaction: NativeStoreKitTransaction) => void
+  ): Promise<PluginListenerHandle>;
 }
 
 const TikoZapStoreKit =
@@ -103,4 +119,17 @@ export async function restoreNativeStoreKitPurchases() {
   }
 
   return TikoZapStoreKit.restorePurchases();
+}
+
+export async function addNativeStoreKitTransactionListener(
+  listener: (transaction: NativeStoreKitTransaction) => void
+) {
+  if (!isNativeStoreKitAvailable()) {
+    return null;
+  }
+
+  return TikoZapStoreKit.addListener(
+    'transactionUpdated',
+    listener
+  );
 }
