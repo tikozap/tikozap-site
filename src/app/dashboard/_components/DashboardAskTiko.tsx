@@ -153,6 +153,20 @@ className={[
           />
 
           <aside
+          onPointerDownCapture={(event) => {
+  const elements = document.elementsFromPoint(
+    event.clientX,
+    event.clientY
+  );
+
+  console.log(
+    '[Ask Tiko hit test]',
+    elements.slice(0, 8).map((element) => ({
+      tag: element.tagName,
+      className: element.className,
+    }))
+  );
+}}
             className={[
               'db-askTikoPanel',
               isNativeIOS ? 'db-askTikoPanel--nativeIOS' : '',
