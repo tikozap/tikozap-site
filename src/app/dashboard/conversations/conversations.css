@@ -2866,9 +2866,14 @@ textarea{
   }
 
   .cx-rightDrawer.cx-rightDrawer--nativeIOS {
-    height: calc(100dvh - var(--tz-native-safe-top, env(safe-area-inset-top)));
-    min-height: calc(100dvh - var(--tz-native-safe-top, env(safe-area-inset-top)));
-    margin-top: var(--tz-native-safe-top, env(safe-area-inset-top));
+    height: 100dvh;
+    min-height: 100dvh;
+    padding-top: calc(
+      16px + var(--tz-native-safe-top, env(safe-area-inset-top))
+    );
+    padding-bottom: calc(
+      16px + var(--tz-native-safe-bottom, env(safe-area-inset-bottom))
+    );
   }
 
   .cx-rightDrawer .cx-sheetTop{
