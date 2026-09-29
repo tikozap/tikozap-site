@@ -61,6 +61,7 @@ model Tenant {
   appleProductId             String?
   appleOriginalTransactionId String?   @unique
   appleCurrentPeriodEnd      DateTime?
+  appleLastNotificationAt    DateTime?
 
   voiceEnabled Boolean @default(false)
 

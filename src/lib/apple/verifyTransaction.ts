@@ -83,6 +83,128 @@ async function verifyForEnvironment(
   );
 }
 
+export async function verifyAppleServerNotification(
+  signedPayload: string
+) {
+  try {
+    return await productionVerifier.verifyAndDecodeNotification(
+      signedPayload
+    );
+  } catch {
+    return sandboxVerifier.verifyAndDecodeNotification(
+      signedPayload
+    );
+  }
+}
+
+export async function verifyAppleNotificationTransaction(
+  signedTransactionInfo: string,
+  environment: Environment | string
+) {
+  const verifier =
+    environment === Environment.PRODUCTION
+      ? productionVerifier
+      : environment === Environment.SANDBOX
+        ? sandboxVerifier
+        : null;
+
+  if (!verifier) {
+    throw new Error(
+      'Apple notification contains an unsupported environment.'
+    );
+  }
+
+  const transaction =
+    await verifier.verifyAndDecodeTransaction(
+      signedTransactionInfo
+    );
+
+  const productId = transaction.productId;
+  const transactionId = transaction.transactionId;
+  const originalTransactionId =
+    transaction.originalTransactionId;
+  const expiresDate = transaction.expiresDate;
+  const revocationDate = transaction.revocationDate;
+
+  if (
+    !productId ||
+    !transactionId ||
+    !originalTransactionId ||
+    typeof expiresDate !== 'number'
+  ) {
+    throw new Error(
+      'Apple notification transaction is missing required fields.'
+    );
+  }
+
+  const plan =
+    PRODUCT_TO_PLAN[
+      productId as keyof typeof PRODUCT_TO_PLAN
+    ];
+
+  if (!plan) {
+    throw new Error(
+      'Apple notification contains an unsupported product.'
+    );
+  }
+
+  const expiresAt = new Date(expiresDate);
+
+  if (Number.isNaN(expiresAt.getTime())) {
+    throw new Error(
+      'Apple notification transaction has an invalid expiration date.'
+    );
+  }
+
+  const revokedAt =
+    typeof revocationDate === 'number'
+      ? new Date(revocationDate)
+      : null;
+
+  if (
+    revokedAt &&
+    Number.isNaN(revokedAt.getTime())
+  ) {
+    throw new Error(
+      'Apple notification transaction has an invalid revocation date.'
+    );
+  }
+
+  const isUpgraded = transaction.isUpgraded === true;
+
+  return {
+    plan,
+    productId,
+    transactionId,
+    originalTransactionId,
+    expiresAt,
+    revokedAt,
+    isUpgraded,
+  };
+}
+
+export async function verifyAppleNotificationRenewalInfo(
+  signedRenewalInfo: string,
+  environment: Environment | string
+) {
+  const verifier =
+    environment === Environment.PRODUCTION
+      ? productionVerifier
+      : environment === Environment.SANDBOX
+        ? sandboxVerifier
+        : null;
+
+  if (!verifier) {
+    throw new Error(
+      'Apple notification contains an unsupported environment.'
+    );
+  }
+
+  return verifier.verifyAndDecodeRenewalInfo(
+    signedRenewalInfo
+  );
+}
+
 export async function verifyAppleSubscriptionTransaction(
   signedTransaction: string
 ): Promise<VerifiedAppleSubscription> {
