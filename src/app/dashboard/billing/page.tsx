@@ -20,6 +20,7 @@ type BillingPlan = 'starter' | 'pro' | 'business';
 
 type BillingUsage = {
   plan: BillingPlan;
+  activeBillingProvider?: 'stripe' | 'apple' | null;
   billingStatus?: string;
   billingInterval?: 'monthly' | 'yearly';
   entitlementState?: 'paid' | 'trial' | 'trial_expired';
@@ -376,6 +377,13 @@ useEffect(() => {
 
   const purchaseApplePlan = async (productId: string) => {
   if (savingPlan) return;
+
+  if (usage?.activeBillingProvider === 'stripe') {
+    setNotice(
+      'Your current plan is billed through the web. Manage that subscription before starting an App Store subscription.'
+    );
+    return;
+  }
 
   setSavingPlan(productId);
   setNotice('');

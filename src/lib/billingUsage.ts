@@ -19,6 +19,7 @@ export type BillingInterval = 'monthly' | 'yearly';
 export type BillingUsageSummary = {
   plan: BillingPlan;
   billingInterval: BillingInterval;
+  activeBillingProvider: 'stripe' | 'apple' | null;
 
   cancelAtPeriodEnd?: boolean;
   currentPeriodEnd?: string | null;
@@ -63,6 +64,7 @@ function summarize(
   start: Date,
   end: Date,
   extra?: {
+    activeBillingProvider?: 'stripe' | 'apple' | null;
     cancelAtPeriodEnd?: boolean;
     currentPeriodEnd?: Date | string | null;
   }
@@ -77,6 +79,7 @@ function summarize(
   return {
     plan,
     billingInterval,
+    activeBillingProvider: extra?.activeBillingProvider ?? null,
 
     cancelAtPeriodEnd: extra?.cancelAtPeriodEnd || false,
     currentPeriodEnd: extra?.currentPeriodEnd
@@ -102,8 +105,12 @@ export async function getTenantBillingUsage(
     select: {
       billingPlan: true,
       billingInterval: true,
+      stripeSubscriptionId: true,
+      billingStatus: true,
       stripeCancelAtPeriodEnd: true,
       stripeCurrentPeriodEnd: true,
+      appleOriginalTransactionId: true,
+      appleCurrentPeriodEnd: true,
     },
   });
 
@@ -113,6 +120,28 @@ export async function getTenantBillingUsage(
 
   const plan = normalizeBillingPlan(tenant.billingPlan);
   const billingInterval = normalizeBillingInterval(tenant.billingInterval);
+
+  const now = new Date();
+
+  const hasActiveStripeSubscription =
+    Boolean(tenant.stripeSubscriptionId) &&
+    (tenant.billingStatus === 'active' ||
+      tenant.billingStatus === 'trialing' ||
+      tenant.billingStatus === 'past_due');
+
+  const hasActiveAppleSubscription =
+    Boolean(tenant.appleOriginalTransactionId) &&
+    Boolean(tenant.appleCurrentPeriodEnd) &&
+    tenant.appleCurrentPeriodEnd!.getTime() > now.getTime();
+
+  const activeBillingProvider:
+    | 'stripe'
+    | 'apple'
+    | null = hasActiveStripeSubscription
+    ? 'stripe'
+    : hasActiveAppleSubscription
+      ? 'apple'
+      : null;
 
   const window = monthWindow();
 
@@ -133,6 +162,7 @@ export async function getTenantBillingUsage(
     window.start,
     window.end,
     {
+      activeBillingProvider,
       cancelAtPeriodEnd: tenant.stripeCancelAtPeriodEnd || false,
       currentPeriodEnd: tenant.stripeCurrentPeriodEnd || null,
     }

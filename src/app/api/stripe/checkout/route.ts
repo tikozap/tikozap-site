@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getAuthedUserAndTenant } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { requireSameOrigin } from '@/lib/security/requireSameOrigin';
 
 export const runtime = 'nodejs';
@@ -40,16 +41,44 @@ export async function POST(req: Request) {
     }
 
     if (auth.tenant.role !== 'owner') {
-  return NextResponse.json(
-    {
-      ok: false,
-      error: 'Owner access required.',
-    },
-    {
-      status: 403,
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Owner access required.',
+        },
+        {
+          status: 403,
+        }
+      );
     }
-  );
-}
+
+    const tenantBilling = await prisma.tenant.findUnique({
+      where: {
+        id: auth.tenant.id,
+      },
+      select: {
+        appleOriginalTransactionId: true,
+        appleCurrentPeriodEnd: true,
+      },
+    });
+
+    const hasActiveAppleSubscription =
+      Boolean(tenantBilling?.appleOriginalTransactionId) &&
+      Boolean(tenantBilling?.appleCurrentPeriodEnd) &&
+      tenantBilling!.appleCurrentPeriodEnd!.getTime() > Date.now();
+
+    if (hasActiveAppleSubscription) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Your current plan is billed through the App Store. Manage that subscription through Apple before starting a web subscription.',
+        },
+        {
+          status: 409,
+        }
+      );
+    }
 
     const body = await req.json().catch(() => ({}));
     const plan = String(body.plan || '').toLowerCase();

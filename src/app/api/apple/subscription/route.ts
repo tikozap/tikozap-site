@@ -109,6 +109,35 @@ export async function POST(req: Request) {
     );
   }
 
+  const tenantBilling = await prisma.tenant.findUnique({
+    where: {
+      id: auth.tenant.id,
+    },
+    select: {
+      stripeSubscriptionId: true,
+      billingStatus: true,
+    },
+  });
+
+  const hasActiveStripeSubscription =
+    Boolean(tenantBilling?.stripeSubscriptionId) &&
+    (tenantBilling?.billingStatus === 'active' ||
+      tenantBilling?.billingStatus === 'trialing' ||
+      tenantBilling?.billingStatus === 'past_due');
+
+  if (hasActiveStripeSubscription) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Your current plan is billed through the web. Manage that subscription before starting an App Store subscription.',
+      },
+      {
+        status: 409,
+      }
+    );
+  }
+
   const existingOwner = await prisma.tenant.findUnique({
     where: {
       appleOriginalTransactionId:
