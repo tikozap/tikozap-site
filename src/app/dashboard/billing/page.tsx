@@ -811,6 +811,19 @@ const hasPaidPlan =
       </div>
     )}
 
+    {notice ? (
+      <p
+        className="db-cardText"
+        style={{
+          color: notice.toLowerCase().includes('could not')
+            ? '#b91c1c'
+            : '#065f46',
+        }}
+      >
+        {notice}
+      </p>
+    ) : null}
+
     <div style={{ marginTop: 12 }}>
       <button
         type="button"
