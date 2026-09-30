@@ -791,7 +791,7 @@ const hasPaidPlan =
   key={product.id}
   type="button"
   className="db-btn"
-  disabled={savingPlan !== null}
+  disabled={usage === null || savingPlan !== null}
   onClick={() => void purchaseApplePlan(product.id)}
   style={{
     display: 'inline-flex',
