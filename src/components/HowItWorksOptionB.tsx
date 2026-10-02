@@ -109,7 +109,7 @@ function Flow({
           aria-hidden="true"
         />
         <ol className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3 md:grid-cols-5">
-          {steps.map((s, idx) => {
+          {steps.map((s, idx: any) => {
             const active = idx <= i;
             return (
               <li key={s.title} className="flex items-start gap-3">

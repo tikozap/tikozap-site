@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 export default function HowItWorksGraphic() {
   return (
     <section className="hiw-section">
@@ -15,11 +17,13 @@ export default function HowItWorksGraphic() {
       {/* Graphic: new SVG file */}
       <div className="container-wide hiw-inner">
         <div className="hiw-wrap">
-          <img
+          <Image
             src="/art/how-it-works.svg"
             alt="Circular flow showing how TikoZap connects your site, customers, and guardrails."
             loading="lazy"
             className="hiw-img"
+            width={755}
+            height={553}
           />
         </div>
       </div>

@@ -57,7 +57,7 @@ export default function Features() {
       </header>
 
       <div className="grid features-grid cols-1">
-        {items.map((it) => (
+        {items.map((it: any) => (
           <article key={it.title} className="feature-card">
             <div className="cluster">
               {it.icon}

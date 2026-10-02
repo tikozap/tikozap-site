@@ -1,0 +1,163 @@
+// src/app/api/auth/login/route.ts
+
+import { NextResponse } from 'next/server';
+
+import { cookies } from 'next/headers';
+import crypto from 'node:crypto';
+import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+} from '@/lib/rateLimit';
+
+export const runtime = 'nodejs';
+
+function verifyPassword(
+  password: string,
+  stored: string | null | undefined
+) {
+  if (!stored) return false;
+
+  const [salt, originalHash] = stored.split(':');
+
+  if (!salt || !originalHash) return false;
+
+  const hash = crypto
+    .scryptSync(password, salt, 64)
+    .toString('hex');
+
+  const hashBuffer = Buffer.from(hash, 'hex');
+  const originalHashBuffer = Buffer.from(
+    originalHash,
+    'hex'
+  );
+
+  if (hashBuffer.length !== originalHashBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    new Uint8Array(hashBuffer),
+    new Uint8Array(originalHashBuffer)
+  );
+}
+
+export async function POST(req: Request) {
+    const rate = checkRateLimit(req, {
+    namespace: 'auth-login',
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rate.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Too many login attempts. Please wait a few minutes and try again.',
+      },
+      {
+        status: 429,
+        headers: rateLimitHeaders(rate),
+      }
+    );
+  }
+
+  const body = await req.json().catch(() => ({}));
+
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+
+  if (!email || !password) {
+    return NextResponse.json(
+      { ok: false, error: 'Email and password are required.' },
+      { status: 400 }
+    );
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      ownedTenants: true,
+      memberships: {
+        include: { tenant: true },
+      },
+    },
+  });
+
+  if (!user || !verifyPassword(password, user.passwordHash)) {
+    return NextResponse.json(
+      { ok: false, error: 'Invalid email or password.' },
+      { status: 401 }
+    );
+  }
+
+if (!user.emailVerifiedAt) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        'Please verify your email before logging in.',
+      verificationRequired: true,
+    },
+    { status: 403 }
+  );
+}
+
+const ownedTenant =
+  user.ownedTenants.find((tenant) => !tenant.isDeleted);
+
+const memberTenant =
+  user.memberships
+    .map((membership) => membership.tenant)
+    .find((tenant) => !tenant.isDeleted);
+
+const tenant = ownedTenant || memberTenant;
+
+const isAdmin =
+  user.email.trim().toLowerCase() === 'admin@tikozap.com';
+
+if (!tenant && !isAdmin) {
+  return NextResponse.json(
+    { ok: false, error: 'No store found for this account.' },
+    { status: 404 }
+  );
+}
+
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  await prisma.session.create({
+    data: {
+      token: sessionToken,
+      userId: user.id,
+      expiresAt,
+    },
+  });
+
+  const cookieStore = await cookies();
+
+  const commonCookie = {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 30,
+  };
+
+  cookieStore.set('tz_session', sessionToken, commonCookie);
+  if (tenant) {
+  cookieStore.set('tz_tenant', tenant.id, commonCookie);
+} else {
+  cookieStore.delete('tz_tenant');
+}
+
+return NextResponse.json({
+  ok: true,
+  redirectTo: isAdmin
+    ? '/admin'
+    : tenant?.onboardingCompletedAt
+      ? '/dashboard/conversations'
+      : '/onboarding/store',
+});
+}
