@@ -33,6 +33,9 @@ function getTenantLifecycle(tenant: {
   stripeCurrentPeriodEnd: Date | null;
   billingStatus: string | null;
   billingInterval: string;
+  billingProvider: string | null;
+  appleOriginalTransactionId: string | null;
+  appleCurrentPeriodEnd: Date | null;
 }) {
   if (tenant.isDeleted) {
     return {
@@ -45,6 +48,21 @@ function getTenantLifecycle(tenant: {
   }
 
   const now = new Date();
+
+  const hasAppleSubscription =
+    Boolean(tenant.appleOriginalTransactionId) &&
+    Boolean(tenant.appleCurrentPeriodEnd) &&
+    tenant.appleCurrentPeriodEnd!.getTime() > now.getTime();
+
+  if (hasAppleSubscription) {
+    return {
+      planLabel: null,
+      billing: "App Store",
+      renews: tenant.appleCurrentPeriodEnd,
+      status: "Active",
+      statusClass: "active",
+    };
+  }
 
   const hasSubscription =
     Boolean(tenant.stripeSubscriptionId);
