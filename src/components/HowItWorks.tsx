@@ -84,14 +84,14 @@ export default function HowItWorksCircle() {
 
           {/* animated arrows */}
           <g stroke="currentColor" fill="none" markerEnd="url(#arrow)">
-            {arrows.map((a, i) => (
+            {arrows.map((a, i: any) => (
               <path key={i} d={a.path} className="draw"
                 style={{ ['--d' as any]: a.d, ['--len' as any]: `${a.len}` }} />
             ))}
           </g>
 
           {/* nodes */}
-          {nodes.map((n) => (
+          {nodes.map((n: any) => (
             <foreignObject key={n.id} x={n.x} y={n.y} width="210" height="120">
               <div className="node" data-anim="fade" style={{ ['--d' as any]: n.d }}>
                 <h4>{n.title}</h4>
