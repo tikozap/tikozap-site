@@ -215,11 +215,25 @@ export async function verifyAppleSubscriptionTransaction(
       signedTransaction,
       Environment.PRODUCTION
     );
-  } catch {
-    transaction = await verifyForEnvironment(
-      signedTransaction,
-      Environment.SANDBOX
+  } catch (productionError) {
+    console.error(
+      '[Apple verify] Production verification failed:',
+      productionError
     );
+
+    try {
+      transaction = await verifyForEnvironment(
+        signedTransaction,
+        Environment.SANDBOX
+      );
+    } catch (sandboxError) {
+      console.error(
+        '[Apple verify] Sandbox verification failed:',
+        sandboxError
+      );
+
+      throw sandboxError;
+    }
   }
 
   const productId = transaction.productId;
