@@ -1,25 +1,32 @@
+// src/app/onboarding/layout.tsx
+
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import './onboarding.css';
 import OnboardingStepper from './_components/OnboardingStepper';
 
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 export default function OnboardingLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="ob-container">
-      <header className="ob-header">
-        <h1>Set up your store</h1>
-        <p>
-          You’re creating your first merchant workspace in TikoZap. (Test tenant:{' '}
-          <strong>Three Tree Fashion</strong>)
-        </p>
-      </header>
+    <main className="ob-shell">
+      <div className="ob-bgGlow ob-bgGlowA" />
+      <div className="ob-bgGlow ob-bgGlowB" />
 
-      <OnboardingStepper />
+      <section className="ob-hero">
+        <h1 className="ob-title">Initial Setup</h1>
+      </section>
 
-      <section className="ob-card">{children}</section>
+      <section className="ob-stepperWrap">
+        <OnboardingStepper />
+      </section>
 
-      <p style={{ marginTop: '1.25rem', fontSize: '.8rem', opacity: 0.7 }}>
-        Layout-only for now. Next we’ll wire auth → tenant creation → billing → widget install → inbox.
-      </p>
+      <section className="ob-card ob-cardScroll">{children}</section>
     </main>
   );
 }

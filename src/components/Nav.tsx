@@ -1,22 +1,47 @@
+// src/components/Nav.tsx
+
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { useNativeIOS } from '@/hooks/useNativeIOS';
 
 const LINKS = [
-  { href: '/features', label: 'Features' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/docs', label: 'Docs' },
+{ href: '/features', label: 'Product' },
+{ href: '/pricing', label: 'Pricing' },
 ];
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const isNativeIOS = useNativeIOS();
+
+const visibleLinks = isNativeIOS
+  ? LINKS.filter((item) => item.href !== '/pricing')
+  : LINKS;
+
+const [host, setHost] = useState('');
+
+useEffect(() => {
+  setHost(window.location.hostname);
+}, []);
+
+const isStarterLinkHost =
+  host.endsWith('.link.tikozap.com') || host.endsWith('.link.localhost');
+
+const hideGlobalNav =
+  pathname?.startsWith('/dashboard') ||
+  pathname?.startsWith('/admin') ||
+  pathname?.startsWith('/l/') ||
+  isStarterLinkHost;
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  if (hideGlobalNav) return null;
 
   const isActive = (href: string) =>
     pathname === href ? 'nav__link nav__link--active' : 'nav__link';
@@ -26,14 +51,17 @@ export default function Nav() {
       {/* Full-width strip */}
       <nav className="nav">
         {/* Centered content – same width as hero, etc. */}
-        <div className="container nav__inner">
+        <div className="container-xl nav__inner">
           {/* Brand: logo + wordmark */}
           <Link href="/" className="nav__brand" aria-label="TikoZap home">
-            <img
+            <Image
               src="/tikozaplogo.svg"
               alt="TikoZap"
               className="nav__logo-img"
+              width={128}
+              height={32}
               style={{ height: '2rem', width: 'auto' }} // bigger logo
+              priority
             />
             <span
               className="nav__logo-text"
@@ -45,7 +73,7 @@ export default function Nav() {
 
           {/* Desktop links */}
           <div className="nav__links">
-            {LINKS.map((item) => {
+            {visibleLinks.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link
@@ -105,7 +133,7 @@ export default function Nav() {
       {open && (
         <div className="nav__overlay" aria-label="Mobile navigation">
           <div className="nav__menu">
-            {LINKS.map((item) => {
+            {visibleLinks.map((item: any) => {
               const active = pathname === item.href;
               return (
                 <Link
@@ -123,21 +151,22 @@ export default function Nav() {
       )}
 
       <style jsx>{`
-        .nav-shell {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 40;
-          background: var(--bg-gray, #f9fafb); /* full-width gray band */
-          border-bottom: none;
-          box-shadow: none;
-        }
+.nav-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: border-box;
+  background: var(--bg-gray, #f9fafb);
+  border-bottom: none;
+  box-shadow: none;
+}
 
-        /* Keep content from hiding behind fixed nav */
-        :global(main) {
-          padding-top: 4.5rem; /* space for taller nav */
-        }
+:global(main) {
+  padding-top: calc(4.5rem + env(safe-area-inset-top));
+}
 
         /* Remove bottom border line */
         .nav {
@@ -170,7 +199,7 @@ export default function Nav() {
         .nav__links {
           display: none;
           align-items: center;
-          gap: 1.5rem;
+          gap: 2rem;
         }
 
         .nav__link {
@@ -208,8 +237,8 @@ export default function Nav() {
           justify-content: center;
           gap: 0.25rem;
           border-radius: 800px;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
+          border: 0;
+          background: transparent;
         }
 
         .nav__toggle-bar {
@@ -217,32 +246,32 @@ export default function Nav() {
         }
 
         /* Mobile dropdown */
-        .nav__overlay {
-          position: absolute;
-          top: 3.5rem;
+.nav__overlay {
+  position: absolute;
+  top: calc(4.5rem + env(safe-area-inset-top));
           right: 0;
-          left: 0;
-          z-index: 35;
+          left: 2;
+          z-index: 60;
           display: flex;
           justify-content: flex-end;
-          padding-right: 0.75rem;
+          padding-right: 0rem;
           pointer-events: none;
         }
 
         .nav__menu {
           pointer-events: auto;
-          width: 5rem; /* narrow menu */
+          width: 6.5rem; /* narrow menu */
           border-radius: 1rem;
           background: #ffffff;
           box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-          padding: 0.3rem 0.2rem;
+          padding: 0.45rem;
           display: flex;
           flex-direction: column;
         }
 
         .nav__menu-item {
-          padding: 0.55rem 0.9rem;
-          font-size: 0.94rem;
+          padding: 3rem 2rem;
+          font-size: 3rem;
           text-decoration: none;
         }
 
@@ -252,6 +281,14 @@ export default function Nav() {
 
         /* Desktop breakpoint */
         @media (min-width: 768px) {
+        .nav-shell {
+  padding-top: 0;
+}
+
+:global(main) {
+  padding-top: 4.5rem;
+}
+  
           .nav__inner {
             height: 4.25rem;
           }

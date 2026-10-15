@@ -1,3 +1,5 @@
+// src/components/Pricing.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +10,9 @@ type Plan = {
   name: string;
   badge?: string;
   monthly: number;
-  yearly: number;
+  yearly?: number;
+  yearlyEquivalent?: number;
+  yearlySavings?: number;
   highlights?: string;
   features: string[];
   focused?: boolean;
@@ -19,16 +23,17 @@ const PLANS: Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    monthly: 15,
-    yearly: 12,
-    highlights: 'For solo founders & tiny shops.',
+    monthly: 19,
+    yearly: 228,
+    yearlyEquivalent: 19,
+    highlights: 'For small shops launching their first AI storefront.',
     features: [
       '1 seat',
-      'Up to 1,000 chats / month',
-      '1 site',
-      '1 data source',
-      'Basic widget & FAQs',
-      'Email support within 24–48 hours',
+      'Up to 30 Starter Link products',
+      'Starter Link storefront',
+      'Website widget',
+      'AI assistant + Inbox',
+      'Standard AI usage',
     ],
     cta: { href: '/signup?plan=starter', label: 'Get started on Starter' },
   },
@@ -36,33 +41,37 @@ const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     badge: 'Most popular',
-    monthly: 35,
-    yearly: 29,
-    highlights: 'Most teams start here once they see the first wins.',
+    monthly: 29,
+    yearly: 288,
+    yearlyEquivalent: 24,
+    yearlySavings: 60,
+    highlights: 'Best for growing stores that want more products and support.',
     features: [
       '2 seats',
-      'Up to 5,000 chats / month',
-      '3 sites',
-      'Up to 5 data sources',
-      'Workflows & automations',
-      'Email support within 24 hours',
+      'Up to 90 Starter Link products',
+      'Branding controls',
+      'Higher AI usage',
+      'Priority support',
+      'Growth tools',
     ],
     focused: true,
-    cta: { href: '/signup?plan=pro', label: 'Get started on Pro' },
+    cta: { href: '/signup?plan=pro', label: 'Get started on Growth' },
   },
   {
     id: 'business',
     name: 'Business',
-    monthly: 69,
-    yearly: 59,
-    highlights: 'For busy growing stores with higher volume.',
+    monthly: 59,
+    yearly: 588,
+    yearlyEquivalent: 49,
+    yearlySavings: 120,
+    highlights: 'For busy stores with heavier traffic and support needs.',
     features: [
       '5 seats',
-      'Up to 15,000 chats / month',
-      '5 sites',
-      'Up to 15 data sources',
-      'Advanced workflows & routing',
-      'Priority support within 8 hours',
+      'Custom Starter Link catalog',
+      'Higher AI allowance',
+      'Advanced routing',
+      'Priority support',
+      'Onboarding help',
     ],
     cta: { href: '/signup?plan=business', label: 'Get started on Business' },
   },
@@ -70,7 +79,6 @@ const PLANS: Plan[] = [
     id: 'agency',
     name: 'Agency / White-label',
     monthly: 179,
-    yearly: 179,
     highlights: 'For agencies & resellers managing multiple clients.',
     features: [
       'Includes 5 client workspaces',
@@ -85,10 +93,10 @@ const PLANS: Plan[] = [
 ];
 
 export default function Pricing() {
-  const [yearly, setYearly] = useState(true);
+  const [yearly, setYearly] = useState(false);
 
   return (
-    <section className="container">
+    <section className="pricing-shell">
       {/* Header row: text on left, toggle on right */}
       <div className="pricing-head">
         <div className="pricing-hero stack">
@@ -123,7 +131,7 @@ export default function Pricing() {
 
       {/* Pricing grid */}
       <div className="grid cols-1 pricing-grid">
-        {PLANS.map((p) => (
+        {PLANS.map((p: any) => (
           <article
             key={p.id}
             className={`plan ${p.focused ? 'plan--focus' : ''}`}
@@ -144,29 +152,63 @@ export default function Pricing() {
                   ))}
               </div>
 
-              <div className="plan-price-row">
-                <div className="plan-price-main">
-                  <span className="price">
-                    ${yearly ? p.yearly : p.monthly}
-                  </span>
-                  <span className="per">/month</span>
-                </div>
-                {p.id === 'agency' ? (
-                  <p className="plan-note tiny">
-                    Billed yearly. Agency pricing on request.
-                  </p>
-                ) : (
-                  <p className="plan-note small">
-                    Includes 14-day free trial. Change plans anytime.
-                  </p>
-                )}
-              </div>
+<div className="plan-price-row">
+  {p.id === 'agency' ? (
+    <>
+      <div className="plan-price-main">
+        {yearly ? (
+          <span className="price">Custom</span>
+        ) : (
+          <>
+            <span className="price">${p.monthly}</span>
+            <span className="per">/month</span>
+          </>
+        )}
+      </div>
+
+      <p className="plan-note tiny">
+        {yearly
+          ? 'Annual agency pricing on request.'
+          : 'Agency pricing on request.'}
+      </p>
+    </>
+  ) : yearly ? (
+    <>
+      <div className="plan-price-main">
+        <span className="price">${p.yearly}</span>
+        <span className="per">/year</span>
+      </div>
+
+      <p className="plan-note small">
+        Equivalent to ${p.yearlyEquivalent}/month
+        {p.yearlySavings
+          ? ` · Save $${p.yearlySavings}`
+          : ''}
+      </p>
+
+      <p className="plan-note small">
+        Includes 14-day free trial. Change plans anytime.
+      </p>
+    </>
+  ) : (
+    <>
+      <div className="plan-price-main">
+        <span className="price">${p.monthly}</span>
+        <span className="per">/month</span>
+      </div>
+
+      <p className="plan-note small">
+        Includes 14-day free trial. Change plans anytime.
+      </p>
+    </>
+  )}
+</div>
 
               {p.highlights && <p className="kicker">{p.highlights}</p>}
             </header>
 
             <ul className="features">
-              {p.features.map((f) => (
+              {p.features.map((f: any) => (
                 <li key={f}>
                   <svg
                     width="18"
@@ -208,21 +250,17 @@ export default function Pricing() {
       </div>
 
       {/* Global notes under the grid */}
-      <div className="pricing-meta small">
-        <p>
-          <strong>Overage:</strong> $5 per extra 1,000 chats on all tiers (soft
-          cap; auto-billed).
-        </p>
-        <p>
-          <strong>Storage (fair use):</strong> Starter 50&nbsp;MB · Pro
-          200&nbsp;MB · Business 1&nbsp;GB · Agency pooled 3&nbsp;GB, then
-          $4/GB.
-        </p>
-        <p>
-          <strong>Trials:</strong> 14-day full Pro trial with no card needed
-          for Starter and Pro. Card required to trial Business or Agency.
-        </p>
-      </div>
+<div className="pricing-meta small">
+  <p>
+    <strong>Free trial:</strong> Start with a 14-day Pro trial. No credit
+    card required.
+  </p>
+
+  <p>
+    Plan limits and included usage are shown in your Billing dashboard.
+    You can change plans anytime.
+  </p>
+</div>
 
       <style jsx>{`
         .pricing-head {
@@ -239,9 +277,24 @@ export default function Pricing() {
           padding: 0.2rem 0 0.2rem;
         }
 
+.pricing-hero h2 {
+  margin: 0;
+  font-size: clamp(34px, 3.2vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: #111827;
+}
+
         .pricing-hero .small {
           max-width: 28rem;
         }
+
+.pricing-shell {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
 
         /* Single billing toggle */
         .billing-toggle {
@@ -279,21 +332,20 @@ export default function Pricing() {
           gap: 1.6rem;
         }
 
-        .plan {
-          display: flex;
-          flex-direction: column;
-          border-radius: 1rem;
-          border: 1px solid #e5e7eb;
-          background: #ffffff;
-          padding: 1.5rem 1.5rem 1.8rem;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
-          min-height: 30rem;
-        }
+.plan {
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 1.5rem 1.5rem 1.8rem;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+  min-height: 42rem;
+}
 
-        .plan--focus {
-          border-color: #e5e7eb; /* same border color as other plans */
-          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06); /* soft neutral shadow */
-        }
+.plan--focus {
+  border-color: #e5e7eb;
+}
 
         .plan-header {
           gap: 0.5rem;
@@ -445,9 +497,11 @@ export default function Pricing() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .pricing-grid {
-            gap: 1.75rem;
-          }
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
         }
       `}</style>
     </section>
