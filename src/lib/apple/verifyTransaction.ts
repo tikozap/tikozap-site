@@ -26,6 +26,9 @@ export type VerifiedAppleSubscription = {
   transactionId: string;
   originalTransactionId: string;
   expiresAt: Date;
+  purchasedAt: Date;
+  signedAt: Date;
+  isUpgraded: boolean;
   environment: 'Sandbox' | 'Production';
 };
 
@@ -125,6 +128,19 @@ export async function verifyAppleNotificationTransaction(
     transaction.originalTransactionId;
   const expiresDate = transaction.expiresDate;
   const revocationDate = transaction.revocationDate;
+  const purchaseDate = transaction.purchaseDate;
+  const transactionSignedDate = transaction.signedDate;
+  if (
+    typeof purchaseDate !== 'number' ||
+    typeof transactionSignedDate !== 'number' ||
+    !Number.isFinite(new Date(purchaseDate).getTime()) ||
+    !Number.isFinite(new Date(transactionSignedDate).getTime())
+  ) {
+    throw new Error('Apple transaction is missing valid ordering dates.');
+  }
+  const purchasedAt = new Date(purchaseDate);
+  const signedAt = new Date(transactionSignedDate);
+
 
   if (
     !productId ||
@@ -180,6 +196,8 @@ export async function verifyAppleNotificationTransaction(
     expiresAt,
     revokedAt,
     isUpgraded,
+    purchasedAt,
+    signedAt,
   };
 }
 
@@ -228,6 +246,19 @@ export async function verifyAppleSubscriptionTransaction(
     transaction.originalTransactionId;
   const expiresDate = transaction.expiresDate;
   const revocationDate = transaction.revocationDate;
+  const purchaseDate = transaction.purchaseDate;
+  const transactionSignedDate = transaction.signedDate;
+  if (
+    typeof purchaseDate !== 'number' ||
+    typeof transactionSignedDate !== 'number' ||
+    !Number.isFinite(new Date(purchaseDate).getTime()) ||
+    !Number.isFinite(new Date(transactionSignedDate).getTime())
+  ) {
+    throw new Error('Apple transaction is missing valid ordering dates.');
+  }
+  const purchasedAt = new Date(purchaseDate);
+  const signedAt = new Date(transactionSignedDate);
+
 
   if (typeof revocationDate === 'number') {
     throw new Error(
@@ -283,5 +314,8 @@ export async function verifyAppleSubscriptionTransaction(
     originalTransactionId,
     expiresAt,
     environment,
+    purchasedAt,
+    signedAt,
+    isUpgraded: transaction.isUpgraded === true,
   };
 }

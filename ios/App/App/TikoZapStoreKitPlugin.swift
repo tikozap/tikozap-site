@@ -208,9 +208,30 @@ public class TikoZapStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-            call.reject(
-                "Unfinished App Store transaction not found."
-            )
+            // A duplicate call may refer to a transaction already finished.
+            // Confirm it exists in verified subscription history.
+            for await result in Transaction.all {
+                guard case .verified(let transaction) = result else {
+                    continue
+                }
+
+                guard String(transaction.id) == transactionID else {
+                    continue
+                }
+
+                guard productIDs.contains(transaction.productID) else {
+                    call.reject("Invalid subscription transaction.")
+                    return
+                }
+
+                call.resolve([
+                    "ok": true,
+                    "transactionId": transactionID
+                ])
+                return
+            }
+
+            call.reject("App Store transaction not found.")
         }
     }
 

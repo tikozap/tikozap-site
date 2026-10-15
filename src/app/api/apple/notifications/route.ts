@@ -1,3 +1,4 @@
+import { applyAppleEntitlement } from '@/lib/apple/applyEntitlement';
 // src/app/api/apple/notifications/route.ts
 
 import { NextResponse } from "next/server";
@@ -136,17 +137,6 @@ export async function POST(request: Request) {
       throw new Error("Apple notification has an invalid signed date.");
     }
 
-    if (
-      tenant.appleLastNotificationAt &&
-      notificationSignedAt <= tenant.appleLastNotificationAt
-    ) {
-      return NextResponse.json({
-        ok: true,
-        linked: true,
-        stale: true,
-      });
-    }
-
     let appleCurrentPeriodEnd =
       notificationType === NotificationTypeV2.REFUND_REVERSED
         ? transaction.expiresAt
@@ -185,30 +175,14 @@ export async function POST(request: Request) {
       appleCurrentPeriodEnd = gracePeriodExpiresAt;
     }
 
-    const updateResult = await prisma.tenant.updateMany({
-      where: {
-        id: tenant.id,
-        OR: [
-          {
-            appleLastNotificationAt: null,
-          },
-          {
-            appleLastNotificationAt: {
-              lt: notificationSignedAt,
-            },
-          },
-        ],
-      },
-      data: {
-        billingPlan: transaction.plan,
-        billingInterval: "monthly",
-        appleProductId: transaction.productId,
-        appleCurrentPeriodEnd,
-        appleLastNotificationAt: notificationSignedAt,
-      },
+    const updateResult = await applyAppleEntitlement({
+      tenantId: tenant.id,
+      transaction,
+      periodEnd: appleCurrentPeriodEnd,
+      notificationSignedAt,
     });
 
-    if (updateResult.count === 0) {
+    if (!updateResult.applied) {
       return NextResponse.json({
         ok: true,
         linked: true,

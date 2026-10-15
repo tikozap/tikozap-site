@@ -1,3 +1,4 @@
+import { applyAppleEntitlement } from '@/lib/apple/applyEntitlement';
 import { NextResponse } from 'next/server';
 
 import { getAuthedUserAndTenant } from '@/lib/auth';
@@ -92,6 +93,14 @@ export async function POST(req: Request) {
     );
   }
 
+  if (verified.isUpgraded) {
+    return NextResponse.json({
+      ok: false, verified: true, finishTransaction: true,
+      reason: 'superseded_by_upgrade',
+      error: 'This transaction was superseded by an upgrade.',
+    }, { status: 400 });
+  }
+
   const now = new Date();
 
   if (verified.expiresAt.getTime() <= now.getTime()) {
@@ -165,20 +174,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    await prisma.tenant.update({
-      where: {
-        id: auth.tenant.id,
-      },
-      data: {
-        billingProvider: 'apple',
-        billingPlan: verified.plan,
-        billingInterval: 'monthly',
-        appleProductId: verified.productId,
-        appleOriginalTransactionId:
-          verified.originalTransactionId,
-        appleCurrentPeriodEnd: verified.expiresAt,
-      },
+    const result = await applyAppleEntitlement({
+      tenantId: auth.tenant.id,
+      transaction: verified,
+      periodEnd: verified.expiresAt,
+      activate: true,
     });
+    if (!result.applied) {
+      return NextResponse.json({ ok: true, ignored: true, reason: result.reason });
+    }
   } catch (error) {
     console.error(
       'Unable to save Apple subscription entitlement:',

@@ -421,6 +421,9 @@ useEffect(() => {
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
+      if (data?.verified === true && data?.finishTransaction === true) {
+        await finishNativeStoreKitTransaction(purchase.transactionId);
+      }
       throw new Error(
         data?.error || 'Could not activate App Store subscription.'
       );
@@ -476,6 +479,9 @@ const restoreApplePurchases = async () => {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
+        if (data?.verified === true && data?.finishTransaction === true) {
+          await finishNativeStoreKitTransaction(subscription.transactionId);
+        }
         throw new Error(
           data?.error || 'Could not restore App Store subscription.'
         );
