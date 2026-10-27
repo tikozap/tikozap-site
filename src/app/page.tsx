@@ -7,6 +7,7 @@ import Image from "next/image";
 import HeroDemoPanel from "@/components/HeroDemoPanel";
 import StarterLinkShowcase from "@/components/StarterLinkShowcase";
 import { useNativeIOS } from "@/hooks/useNativeIOS";
+import HomeVideoPlayer from "@/components/HomeVideoPlayer";
 
 export default function Page() {
   const isNativeIOS = useNativeIOS();
@@ -42,6 +43,8 @@ export default function Page() {
                 <p>✓ Have a website? Add the TikoZap widget.</p>
                 <p>✓ Don&apos;t have one? Launch with Starter Link.</p>
               </div>
+
+<HomeVideoPlayer />
             </div>
           </div>
 
