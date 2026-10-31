@@ -240,6 +240,21 @@ const [aiDefault, setAiDefault] = useState(true);
 const [previewProduct, setPreviewProduct] = useState<any | null>(null);
 const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 const [selectedImages, setSelectedImages] = useState<any[]>([]);
+const [replySending, setReplySending] = useState(false);
+const [replySendNotice, setReplySendNotice] = useState('');
+const replySendingRef = useRef(false);
+
+const replyContextRef = useRef({
+  threadId: thread?.id,
+  draft,
+  suggestedDraft,
+});
+
+replyContextRef.current = {
+  threadId: thread?.id,
+  draft,
+  suggestedDraft,
+};
 const [productPickerOpen, setProductPickerOpen] = useState(false);
 
 const replyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -247,6 +262,7 @@ const messagesRef = useRef<HTMLDivElement | null>(null);
 
 const lastSeenTopIdRef = useRef<string>('');
 const pollingRef = useRef<number | null>(null);
+const pollingBusyRef = useRef(false);
 const desktopListRef = useRef<HTMLDivElement | null>(null);
 const mobileListRef = useRef<HTMLDivElement | null>(null);
 const lastTopTimestampRef = useRef<number>(0);
@@ -671,67 +687,70 @@ const scrollInboxToTop = () => {
 };
 
 useEffect(() => {
-  if (pollingRef.current) window.clearInterval(pollingRef.current);
+  let cancelled = false;
 
-  pollingRef.current = window.setInterval(async () => {
+  const poll = async () => {
+    if (
+      cancelled ||
+      document.visibilityState !== 'visible' ||
+      pollingBusyRef.current ||
+      replySendingRef.current
+    ) {
+      return;
+    }
+
+    pollingBusyRef.current = true;
+
     try {
-      if (document.visibilityState !== "visible") return;
-
       const convos = await refreshList();
+      if (cancelled) return;
+
       await autoResumeIdleAi(convos);
+      if (cancelled) return;
+
       const top = convos?.[0];
-const topTs = top?.lastMessageAt
-  ? new Date(top.lastMessageAt).getTime()
-  : 0;
+      const topId = top?.id || '';
+      const topTs = top?.lastMessageAt
+        ? new Date(top.lastMessageAt).getTime()
+        : 0;
 
-if (topTs > lastTopTimestampRef.current) {
-      scrollInboxToTop();
-}
-
-if (topTs) {
-  lastTopTimestampRef.current = topTs;
-}
-      setList(convos);
-      const topId = convos?.[0]?.id || "";
-      if (topId && topId !== lastSeenTopIdRef.current) {
-       scrollInboxToTop();
-}
-
-      // remember the last top id we saw (optional, for future indicators)
-      if (topId) lastSeenTopIdRef.current = topId;
-
-      // If user hasn't selected anything yet, select first.
-      if (!selectedId && topId) {
-        setSelectedId(topId);
-        api(`/api/conversations/${topId}/seen`, { method: "POST" }).catch(() => {});
-        await refreshThread(topId);
-        return;
+      if (
+        topTs > lastTopTimestampRef.current ||
+        (topId && topId !== lastSeenTopIdRef.current)
+      ) {
+        scrollInboxToTop();
       }
 
-      // Refresh the currently open thread so new widget messages appear
-const newestId = convos?.[0]?.id || "";
+      if (topTs) lastTopTimestampRef.current = topTs;
+      if (topId) lastSeenTopIdRef.current = topId;
 
-// Keep the currently open thread stable.
-// Only auto-select if nothing is selected yet.
-if (!selectedId && newestId) {
-  setSelectedId(newestId);
-  api(`/api/conversations/${newestId}/seen`, { method: "POST" }).catch(() => {});
-  await refreshThread(newestId);
-  return;
-}
+      if (!selectedId && topId) {
+        setSelectedId(topId);
 
-// Otherwise, just refresh the currently selected thread.
-if (selectedId) {
-  await refreshThread(selectedId);
-}
+        void api(`/api/conversations/${topId}/seen`, {
+          method: 'POST',
+        }).catch(() => {});
+      } else if (selectedId && !replySendingRef.current) {
+        await refreshThread(selectedId);
+      }
     } catch {
-      // ignore transient errors
+      // Keep the current display; try again on a later tick.
+    } finally {
+      pollingBusyRef.current = false;
     }
+  };
+
+  pollingRef.current = window.setInterval(() => {
+    void poll();
   }, 3000);
 
   return () => {
-    if (pollingRef.current) window.clearInterval(pollingRef.current);
-    pollingRef.current = null;
+    cancelled = true;
+
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
   };
 }, [refreshList, refreshThread, selectedId]);
 
@@ -1195,34 +1214,94 @@ const autoResizeComposer = () => {
 };
 
 const sendStaffReply = async () => {
-  if (!thread) return;
+  if (!thread || replySendingRef.current) return;
 
-  const text = draft.trim();
-  const products = [
-  ...selectedProducts,
-  ...selectedImages,
-];
+  const threadId = thread.id;
+  const submittedDraft = draft;
+  const submittedSuggestion = suggestedDraft;
+  const submittedProducts = [...selectedProducts];
+  const submittedImages = [...selectedImages];
+  const text = submittedDraft.trim();
+  const products = [...submittedProducts, ...submittedImages];
 
-if (!text && products.length === 0) return;
+  if (!text && products.length === 0) return;
 
-  setDraft('');
-  setSelectedProducts([]);
-setSelectedImages([]);
-setSuggestedDraft('');
+  replySendingRef.current = true;
+  setReplySending(true);
+  setReplySendNotice('');
 
-  await api(`/api/conversations/${thread.id}/message`, {
-    method: 'POST',
-    body: JSON.stringify({
-      role: 'staff',
-      content: text,
-      products,
-    }),
-  });
+  try {
+    try {
+      await api(`/api/conversations/${threadId}/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'staff',
+          content: text,
+          products,
+        }),
+      });
+    } catch (error) {
+      console.error('[Staff reply send]', error);
 
-  localStorage.setItem(takeoverKey(thread.id), String(Date.now()));
+      if (replyContextRef.current.threadId === threadId) {
+        setReplySendNotice(
+          'Sending could not be confirmed. Your draft is kept. Check the conversation before trying again.'
+        );
+      }
 
-  await refreshThread(thread.id);
-  await refreshList();
+      return;
+    }
+
+    // Clear only the submitted content, preserving newer edits.
+    if (replyContextRef.current.threadId === threadId) {
+      setDraft((current) =>
+        current === submittedDraft ? '' : current
+      );
+
+      setSelectedProducts((current) =>
+        current.filter((item) => !submittedProducts.includes(item))
+      );
+
+      setSelectedImages((current) =>
+        current.filter((item) => !submittedImages.includes(item))
+      );
+
+      setSuggestedDraft((current) =>
+        current === submittedSuggestion ? '' : current
+      );
+    }
+
+    try {
+      localStorage.setItem(
+        takeoverKey(threadId),
+        String(Date.now())
+      );
+    } catch (error) {
+      console.warn('[Staff reply local state]', error);
+    }
+
+    try {
+      if (replyContextRef.current.threadId === threadId) {
+        await refreshThread(threadId);
+      }
+
+      await refreshList();
+    } catch (error) {
+      console.error('[Staff reply refresh]', error);
+
+      if (replyContextRef.current.threadId === threadId) {
+        setReplySendNotice(
+          'Message sent, but the conversation could not refresh. Reopen it to see your message.'
+        );
+      }
+    }
+  } finally {
+    replySendingRef.current = false;
+    setReplySending(false);
+  }
 };
 
 const saveAssistantCoaching = async () => {
@@ -2180,23 +2259,17 @@ className={[
   </div>
 )}
 {selectedImages.length > 0 && (
-  <div className="cx-selectedProducts">
+  <div className="cx-composerImages" aria-label="Images ready to send">
     {selectedImages.map((img: any, idx: number) => (
-      <div key={`${img.name}-${idx}`} className="cx-selectedProductChip">
+      <div
+        key={`${img.name}-${idx}`}
+        className="cx-composerImage"
+        title={img.name || 'Image'}
+      >
         <img
           src={img.dataUrl}
           alt={img.name || 'Selected image'}
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            objectFit: 'cover',
-            marginRight: 6,
-          }}
         />
-
-        <span>{img.name || 'Image'}</span>
-
         <button
           type="button"
           onClick={() => removeSelectedImage(idx)}
@@ -2237,15 +2310,35 @@ className={[
   className="cx-textarea cx-textarea--composer"
 />
 
-    <button
-      className="cx-sendFab"
-      onClick={sendStaffReply}
-      aria-label="Send"
-      type="button"
-    >
-      ↑
-    </button>
+<button
+  className="cx-sendFab"
+  onClick={sendStaffReply}
+  disabled={replySending}
+  aria-label={replySending ? 'Sending message' : 'Send message'}
+  aria-busy={replySending}
+  type="button"
+  style={{
+    opacity: replySending ? 0.5 : 1,
+    cursor: replySending ? 'wait' : 'pointer',
+  }}
+>
+  {replySending ? '…' : '↑'}
+</button>
   </div>
+
+  {replySendNotice && (
+  <p
+    role="status"
+    style={{
+      margin: '8px 0 0',
+      fontSize: 12,
+      lineHeight: 1.4,
+      color: '#92400e',
+    }}
+  >
+    {replySendNotice}
+  </p>
+)}
 </div>
     </div>
   );
