@@ -764,13 +764,15 @@ const hasPaidPlan =
           )}
         </div>
 
-        {/* Apple In-App Purchase plans */}
+{/* Apple In-App Purchase plans */}
 {isNativeIOS ? (
   <div className="db-card">
-    <div className="db-cardTitle">Plans</div>
+    <div className="db-cardTitle">Monthly subscriptions</div>
 
     <p className="db-cardText">
-      Choose a monthly plan through the App Store.
+      Subscribe to an AI store assistant that answers customer
+      questions using your store knowledge. Manage conversations
+      in Inbox and take over replies when needed.
     </p>
 
     {appleProductsLoading ? (
@@ -784,53 +786,121 @@ const hasPaidPlan =
         App Store subscriptions are currently unavailable.
       </p>
     ) : (
-      <div
-        style={{
-          marginTop: 12,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
-        {appleProducts.map((product) => (
-<button
-  key={product.id}
-  type="button"
-  className="db-btn"
-  disabled={usage === null || savingPlan !== null}
-  onClick={() => void purchaseApplePlan(product.id)}
-  style={{
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    cursor: savingPlan ? 'default' : 'pointer',
-    opacity:
-      savingPlan && savingPlan !== product.id ? 0.6 : 1,
-  }}
->
-            <span>{product.displayName}</span>
-            <span style={{ opacity: 0.8, fontSize: 12 }}>
-              {product.displayPrice}/month
-            </span>
-          </button>
-        ))}
+      <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+        {(['starter', 'pro', 'business'] as const).map((plan) => {
+          const product = appleProducts.find(
+            (item) => item.id === `com.tikozap.${plan}.monthly`
+          );
+
+          if (!product) return null;
+
+          const conversationLimit = {
+            starter: 1000,
+            pro: 5000,
+            business: 15000,
+          }[plan];
+
+          const productLimit =
+            PRICING_PLANS[plan].starterLinkProducts;
+
+          return (
+            <div
+              key={product.id}
+              style={{
+                border: '1px solid #d1d5db',
+                borderRadius: 12,
+                padding: 16,
+                background: '#fff',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 17 }}>
+                {product.displayName}
+              </h3>
+
+              <p style={{ margin: '8px 0', fontSize: 18 }}>
+                <strong>{product.displayPrice}</strong>
+                <span style={{ fontSize: 14 }}> / month</span>
+              </p>
+
+              <ul
+                style={{
+                  margin: '12px 0',
+                  paddingLeft: 20,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                }}
+              >
+                <li>
+                  {conversationLimit.toLocaleString('en-US')}{' '}
+                  customer conversations per month
+                </li>
+                <li>AI assistant trained on your store knowledge</li>
+                <li>Inbox with human take over</li>
+                <li>Website chat widget and Starter Link storefront</li>
+                {productLimit !== null ? (
+                  <li>
+                    Up to {productLimit} Starter Link products
+                  </li>
+                ) : null}
+              </ul>
+
+              <button
+                type="button"
+                className="db-btn"
+                disabled={usage === null || savingPlan !== null}
+                onClick={() => void purchaseApplePlan(product.id)}
+                style={{
+                  width: '100%',
+                  whiteSpace: 'normal',
+                  minHeight: 44,
+                }}
+              >
+                {savingPlan === product.id
+                  ? 'Processing…'
+                  : `Subscribe to ${PRICING_PLANS[plan].name} — ${product.displayPrice}/month`}
+              </button>
+            </div>
+          );
+        })}
       </div>
     )}
 
+    <p className="db-cardText" style={{ marginTop: 16 }}>
+      Subscriptions renew automatically each month unless canceled
+      at least 24 hours before the current subscription period ends.
+      Payment is charged to your Apple Account at confirmation of
+      purchase. Your account is charged for renewal within 24 hours
+      before the current period ends. Manage or cancel your
+      subscription in your Apple Account subscription settings.
+    </p>
+
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 16,
+        marginTop: 12,
+        fontSize: 14,
+      }}
+    >
+      <a href="https://tikozap.com/docs/privacy">
+        Privacy Policy
+      </a>
+      <a href="https://tikozap.com/docs/terms">
+        Terms of Use
+      </a>
+      <a href="https://apps.apple.com/account/subscriptions">
+        Manage subscriptions
+      </a>
+    </div>
+
     {notice ? (
-      <p
-        className="db-cardText"
-        style={{
-          color: notice.toLowerCase().includes('could not')
-            ? '#b91c1c'
-            : '#065f46',
-        }}
-      >
+      <p className="db-cardText" role="status">
         {notice}
       </p>
     ) : null}
 
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 16 }}>
       <button
         type="button"
         className="db-btn"
