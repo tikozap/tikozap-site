@@ -212,6 +212,29 @@ export default function ConversationsClient({
   const [selectedId, setSelectedId] = useState('');
   const [thread, setThread] = useState<Thread | null>(null);
 
+  const selectedIdRef = useRef('');
+  const threadRequestSeqRef = useRef(0);
+  const lastAcceptedThreadSeqRef = useRef(0);
+  const threadMutationSeqRef = useRef(0);
+  const loadedThreadMessageAtRef = useRef<{
+    id: string;
+    lastMessageAt: string;
+    status: Thread['status'];
+    aiEnabled: boolean;
+    needsHuman: boolean;
+    tags: string[];
+    archivedAt?: string | null;
+  } | null>(null);
+
+  const selectThreadId = (id: string) => {
+    selectedIdRef.current = id;
+    threadRequestSeqRef.current += 1;
+    setSelectedId(id);
+    setThread((previous) => previous?.id === id ? previous : null);
+  };
+
+  const isCurrentThread = (id: string) =>
+  selectedIdRef.current === id;
   const [showActiveCustomerDot, setShowActiveCustomerDot] = useState(true);
   const [blinkRedDot, setBlinkRedDot] = useState(true);
   const [vibrateOnEscalation, setVibrateOnEscalation] = useState(true);
@@ -368,8 +391,40 @@ useEffect(() => {
   }, [showArchived]);
 
   const refreshThread = useCallback(async (id: string) => {
-    const data = await api<{ ok: true; conversation: Thread }>(`/api/conversations/${id}`);
-    setThread(data.conversation);
+    const requestSeq = ++threadRequestSeqRef.current;
+    const mutationSeq = threadMutationSeqRef.current;
+
+    const data = await api<{ ok: true; conversation: Thread }>(
+      `/api/conversations/${id}`
+    );
+
+    if (
+      !data ||
+      data.ok !== true ||
+      !data.conversation ||
+      data.conversation.id !== id
+    ) {
+      throw new Error("Invalid conversation response. Please try again.");
+    }
+
+    if (
+      selectedIdRef.current === id &&
+      mutationSeq === threadMutationSeqRef.current &&
+      requestSeq > lastAcceptedThreadSeqRef.current
+    ) {
+      lastAcceptedThreadSeqRef.current = requestSeq;
+      loadedThreadMessageAtRef.current = {
+        id,
+        lastMessageAt: data.conversation.lastMessageAt,
+        status: data.conversation.status,
+        aiEnabled: data.conversation.aiEnabled,
+        needsHuman: data.conversation.needsHuman,
+        tags: [...data.conversation.tags],
+        archivedAt: data.conversation.archivedAt,
+      };
+      setThread(data.conversation);
+    }
+
     return data.conversation;
   }, []);
 
@@ -570,7 +625,7 @@ useEffect(() => {
           ? saved
           : conversations[0]?.id || "";
 
-    setSelectedId(initial);
+    selectThreadId(initial);
 
     if (initial) {
       // mark as seen so unread clears immediately
@@ -725,13 +780,31 @@ useEffect(() => {
       if (topId) lastSeenTopIdRef.current = topId;
 
       if (!selectedId && topId) {
-        setSelectedId(topId);
+        selectThreadId(topId);
 
         void api(`/api/conversations/${topId}/seen`, {
           method: 'POST',
         }).catch(() => {});
+        await refreshThread(topId);
       } else if (selectedId && !replySendingRef.current) {
-        await refreshThread(selectedId);
+        const current = convos.find((c) => c.id === selectedId);
+        const loaded = loadedThreadMessageAtRef.current;
+
+        if (current) {
+          const changed =
+            !loaded ||
+            loaded.id !== current.id ||
+            loaded.lastMessageAt !== current.lastMessageAt ||
+            loaded.status !== current.status ||
+            loaded.aiEnabled !== current.aiEnabled ||
+            loaded.needsHuman !== current.needsHuman ||
+            loaded.archivedAt !== current.archivedAt ||
+            JSON.stringify(loaded.tags) !== JSON.stringify(current.tags);
+
+          if (changed) {
+            await refreshThread(selectedId);
+          }
+        }
       }
     } catch {
       // Keep the current display; try again on a later tick.
@@ -742,7 +815,7 @@ useEffect(() => {
 
   pollingRef.current = window.setInterval(() => {
     void poll();
-  }, 3000);
+  }, 20000);
 
   return () => {
     cancelled = true;
@@ -856,7 +929,7 @@ useEffect(() => {
 }, [list]);
 
 const selectConversation = async (id: string) => {
-  setSelectedId(id);
+  selectThreadId(id);
   console.clear();
 
   api(`/api/conversations/${id}/seen`, { method: "POST" }).catch(() => {});
@@ -900,7 +973,7 @@ const selectConversation = async (id: string) => {
       body: JSON.stringify({ aiEnabled: aiDefault }),
     });
     const convos = await refreshList();
-    setSelectedId(res.id);
+    selectThreadId(res.id);
     await refreshThread(res.id);
     if (isMobile) setPane('thread');
   };
@@ -929,7 +1002,7 @@ await refreshList();
 setWelcomeTestConversationId(res.id);
 
 if (!isMobile) {
-  setSelectedId(res.id);
+  selectThreadId(res.id);
   await refreshThread(res.id);
 } else {
   setPane('list');
@@ -998,7 +1071,8 @@ const stopWelcomeDrag = () => {
   };
 
   const takeOverThisChat = async () => {
-    if (!thread) return;
+    if (!thread || !isCurrentThread(thread.id)) return;
+    threadMutationSeqRef.current += 1;
     await api(`/api/conversations/${thread.id}/ai`, { method: 'POST', body: JSON.stringify({ aiEnabled: false }) });
     if (thread.status !== 'closed') {
     await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'waiting' }) });
@@ -1006,17 +1080,21 @@ const stopWelcomeDrag = () => {
 
     localStorage.setItem(takeoverKey(thread.id), String(Date.now()));
 
+    threadMutationSeqRef.current += 1;
     await refreshThread(thread.id);
     await refreshList();
   };
 
 const ensureHumanTakeoverForDraft = async () => {
-  if (!thread) return;
+  if (!thread || !isCurrentThread(thread.id)) return;
+    threadMutationSeqRef.current += 1;
+
+  const takeoverThreadId = thread.id;
   if (!thread.aiEnabled) return;
 
   // optimistic UI update first
   setThread((prev: any) =>
-    prev
+    prev?.id === takeoverThreadId
       ? {
           ...prev,
           aiEnabled: false,
@@ -1038,16 +1116,19 @@ const ensureHumanTakeoverForDraft = async () => {
     });
   }
 
-  await refreshThread(thread.id);
+  threadMutationSeqRef.current += 1;
+    await refreshThread(thread.id);
   await refreshList();
 };
 
   const resumeAiThisChat = async () => {
-    if (!thread) return;
+    if (!thread || !isCurrentThread(thread.id)) return;
+    threadMutationSeqRef.current += 1;
     await api(`/api/conversations/${thread.id}/ai`, { method: 'POST', body: JSON.stringify({ aiEnabled: true }) });
     if (thread.status !== 'closed') {
       await api(`/api/conversations/${thread.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'open' }) });
     }
+    threadMutationSeqRef.current += 1;
     await refreshThread(thread.id);
     await refreshList();
   };
@@ -1214,7 +1295,11 @@ const autoResizeComposer = () => {
 };
 
 const sendStaffReply = async () => {
-  if (!thread || replySendingRef.current) return;
+  if (
+  !thread ||
+  thread.id !== selectedIdRef.current ||
+  replySendingRef.current
+) return;
 
   const threadId = thread.id;
   const submittedDraft = draft;
@@ -1813,8 +1898,12 @@ const renderConversationList = () => (
 );
 
 const renderThreadBody = () => {
-  if (!thread) {
-    return <div style={{ opacity: 0.7 }}>Select a conversation.</div>;
+  if (!thread || thread.id !== selectedId) {
+    return (
+      <div style={{ opacity: 0.7 }}>
+        {selectedId ? 'Loading conversation…' : 'Select a conversation.'}
+      </div>
+    );
   }
 
   const primaryAiAction = thread.aiEnabled ? (
@@ -2460,7 +2549,7 @@ const renderDesktopLayout = () => (
   </div>
 
   <div className="db-topRight">
-    {thread ? (
+    {thread && thread.id === selectedId ? (
       <div className="cx-topThreadHead">
 <div className="cx-topThreadMain">
   <div className="cx-threadName">
