@@ -86,24 +86,24 @@ const hideGlobalNav =
                 </Link>
               );
             })}
-            <Link
+            <a
               href="/login"
               className="nav__login nav__login--desktop"
               style={{ color: '#6B7280' }} // grey Log in
             >
               Log in
-            </Link>
+            </a>
           </div>
 
           {/* Right side on mobile: Log in + hamburger */}
           <div className="nav__right">
-            <Link
+            <a
               href="/login"
               className="nav__login nav__login--mobile"
               style={{ color: '#6B7280' }} // grey Log in
             >
               Log in
-            </Link>
+            </a>
             <button
               type="button"
               className="nav__toggle"
