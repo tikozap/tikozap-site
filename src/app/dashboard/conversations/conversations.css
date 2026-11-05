@@ -3280,3 +3280,31 @@ textarea{
   right: 8px;
   bottom: 8px;
 }
+
+.cx-modal > .cx-modalClose.cx-previewClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  background: #fff;
+  color: #111827;
+  -webkit-text-fill-color: #111827;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}

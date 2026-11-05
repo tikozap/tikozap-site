@@ -266,6 +266,7 @@ const [selectedImages, setSelectedImages] = useState<any[]>([]);
 const [replySending, setReplySending] = useState(false);
 const [replySendNotice, setReplySendNotice] = useState('');
 const replySendingRef = useRef(false);
+const imagePreparingRef = useRef(false);
 
 const replyContextRef = useRef({
   threadId: thread?.id,
@@ -1225,60 +1226,196 @@ const removeSelectedProduct = (id: string | number) => {
 };
 
 const addImagesToReply = async (files: FileList | null) => {
-  if (!files || files.length === 0) return;
+  // Copy now, before the input is cleared or any await runs.
+  const picked = Array.from(files || []);
+  if (picked.length === 0) return;
 
-  if (
-    thread?.aiEnabled &&
-    !autoTakeoverTriggeredRef.current
-  ) {
-    autoTakeoverTriggeredRef.current = true;
-    await ensureHumanTakeoverForDraft();
+  const threadId = thread?.id;
+  if (!threadId || !isCurrentThread(threadId)) return;
+
+  if (imagePreparingRef.current || replySendingRef.current) {
+    setReplySendNotice('Please wait for the current operation to finish.');
+    return;
   }
 
-  const picked = Array.from(files)
-  .filter((file) => {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ];
+  const available = Math.max(0, 3 - selectedImages.length);
+  if (available === 0) {
+    setReplySendNotice('You can attach up to 3 images per reply.');
+    return;
+  }
 
-    if (!allowedTypes.includes(file.type)) {
-      alert("Please choose JPG, PNG, or WebP images.");
-      return false;
+  imagePreparingRef.current = true;
+  setReplySendNotice('Preparing photo…');
+
+  const readDataUrl = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      const timer = window.setTimeout(() => {
+        reader.abort();
+        reject(new Error('Reading the photo timed out. Please try again.'));
+      }, 30000);
+
+      const finish = () => window.clearTimeout(timer);
+
+      reader.onload = () => {
+        finish();
+        if (typeof reader.result !== 'string' || !reader.result) {
+          reject(new Error('The photo could not be read.'));
+          return;
+        }
+        resolve(reader.result);
+      };
+      reader.onerror = () => {
+        finish();
+        reject(new Error('The photo could not be read. Please try again.'));
+      };
+      reader.onabort = () => {
+        finish();
+        reject(new Error('Reading the photo was interrupted.'));
+      };
+      reader.readAsDataURL(blob);
+    });
+
+  const prepareImage = async (file: File) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type.toLowerCase())) {
+      throw new Error('Please choose a JPG, PNG, or WebP image.');
+    }
+    if (file.size === 0) {
+      throw new Error('The selected photo is empty. Please try again.');
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      throw new Error('This photo is too large. Please choose one under 25 MB.');
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Please choose images smaller than 2 MB.");
-      return false;
+    // Keep small files unchanged. Bound the combined three-image payload.
+    if (file.size <= 700 * 1024) {
+      return {
+        type: 'image',
+        name: file.name,
+        dataUrl: await readDataUrl(file),
+      };
     }
 
-    return true;
-  })
-  .slice(0, 3);
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const canvas = document.createElement('canvas');
 
-  const encoded = await Promise.all(
-    picked.map(
-      (file) =>
-        new Promise<any>((resolve, reject) => {
-          const reader = new FileReader();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+          image.onload = null;
+          image.onerror = null;
+          image.src = '';
+          reject(new Error('Loading the photo timed out. Please try again.'));
+        }, 30000);
 
-          reader.onload = () => {
-            resolve({
+        image.onload = () => {
+          window.clearTimeout(timer);
+          resolve();
+        };
+        image.onerror = () => {
+          window.clearTimeout(timer);
+          reject(new Error('This photo could not be opened. Try another image.'));
+        };
+        image.src = objectUrl;
+      });
+
+      if (!image.naturalWidth || !image.naturalHeight) {
+        throw new Error('The photo has invalid dimensions.');
+      }
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Photo preparation is unavailable. Please try again.');
+      }
+
+      for (const maxEdge of [1600, 1200, 900]) {
+        const scale = Math.min(
+          1,
+          maxEdge / Math.max(image.naturalWidth, image.naturalHeight)
+        );
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+        // Give transparent images a white background when converting to JPEG.
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        for (const quality of [0.85, 0.65, 0.45]) {
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          if (
+            dataUrl.startsWith('data:image/jpeg;base64,') &&
+            dataUrl.length <= 1_000_000
+          ) {
+            return {
               type: 'image',
-              name: file.name,
-              dataUrl: String(reader.result || ''),
-            });
-          };
+              name: `${file.name.replace(/\.[^.]+$/, '') || 'photo'}.jpg`,
+              dataUrl,
+            };
+          }
+        }
+      }
 
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        })
-    )
-  );
+      throw new Error('This photo could not be resized enough. Try another image.');
+    } finally {
+      image.onload = null;
+      image.onerror = null;
+      image.src = '';
+      URL.revokeObjectURL(objectUrl);
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  };
 
-  setSelectedImages((prev) => [...prev, ...encoded]);
-  setTimeout(() => replyRef.current?.focus(), 0);
+  try {
+    const encoded: Array<{
+  type: string;
+  name: string;
+  dataUrl: string;
+}> = [];
+
+    // Process one image at a time to reduce peak memory use.
+    for (const file of picked.slice(0, available)) {
+      encoded.push(await prepareImage(file));
+      if (!isCurrentThread(threadId)) return;
+    }
+
+    if (thread?.aiEnabled && !autoTakeoverTriggeredRef.current) {
+      autoTakeoverTriggeredRef.current = true;
+      try {
+        await ensureHumanTakeoverForDraft();
+      } catch (error) {
+        autoTakeoverTriggeredRef.current = false;
+        throw error;
+      }
+    }
+
+    if (!isCurrentThread(threadId)) return;
+
+    setSelectedImages((previous) => [...previous, ...encoded].slice(0, 3));
+    setReplySendNotice(
+      picked.length > available
+        ? 'Only the first available images were added. Maximum: 3 per reply.'
+        : ''
+    );
+    setTimeout(() => replyRef.current?.focus(), 0);
+  } catch (error) {
+    console.error('[Reply image preparation]', error);
+    if (isCurrentThread(threadId)) {
+      setReplySendNotice(
+        error instanceof Error
+          ? error.message
+          : 'The photo could not be prepared. Please try again.'
+      );
+    }
+  } finally {
+    imagePreparingRef.current = false;
+    if (!isCurrentThread(threadId)) {
+      // Do not add attachments to a different conversation.
+    }
+  }
 };
 
 const removeSelectedImage = (index: number) => {
@@ -1295,6 +1432,11 @@ const autoResizeComposer = () => {
 };
 
 const sendStaffReply = async () => {
+  if (imagePreparingRef.current) {
+  setReplySendNotice('Please wait until the photo preview appears before sending.');
+  return;
+}
+
   if (
   !thread ||
   thread.id !== selectedIdRef.current ||
@@ -1577,12 +1719,14 @@ const renderProductModal = () => {
         className="cx-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          className="cx-modalClose"
-          onClick={() => setPreviewProduct(null)}
-        >
-          ×
-        </button>
+<button
+  type="button"
+  className="cx-modalClose cx-previewClose"
+  aria-label="Close preview"
+  onClick={() => setPreviewProduct(null)}
+>
+  ×
+</button>
 
         {previewProduct.image && (
           <img
